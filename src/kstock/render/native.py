@@ -1,0 +1,392 @@
+"""자체 마인드맵 렌더러 — 중심 노드에서 **양쪽(좌우)으로 균형 있게**, 또는 **방사형**으로 펼친다.
+
+markmap 은 왼쪽→오른쪽 한 방향 트리라 중심이 왼쪽 끝에 붙는다. 여기서는 외부 라이브러리 없이
+(CDN·인터넷 불필요) 바닐라 JS 로 레이아웃을 직접 계산한다.
+
+레이아웃 (HTML 안에서 바꿀 수 있다)
+  balanced  1단계 가지를 좌/우로 나눈다 — 각 쪽의 세로 길이가 비슷해지도록 큰 가지부터 번갈아 배정.
+            자식은 부모 바깥쪽으로 세로로 쌓이므로 상·하·좌·우로 고르게 퍼진다 (XMind 의 '마인드맵' 형).
+  radial    잎 수에 비례해 각도를 나눠 동심원에 놓는다. 라벨이 길면 겹칠 수 있어 보조용.
+  right     markmap 과 같은 오른쪽 한 방향.
+
+노드 글자는 render.format.node_line 을 그대로 쓰되 마크다운 조각(**, `, _)만 HTML 로 바꾼다.
+접기(기본 접힘: A8 근거 자료, B2.4 사실 로그 등)·펼치기·팬·줌·맞춤·☀/☾ 테마를 지원한다.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+from ..models import HoldingMap, MindMap, Node
+from .format import node_line, root_title
+from .markmap import FOLD_BY_DEFAULT
+
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")
+_MD_CODE = re.compile(r"`([^`]+)`")
+_MD_ITAL = re.compile(r"(?<![\w가-힣])_([^_]+)_(?![\w가-힣])")
+
+
+def _md_inline(text: str) -> str:
+    """node_line 이 내는 마크다운 조각 → HTML. <sub> 는 그대로 통과."""
+    parts = re.split(r"(<sub>.*?</sub>)", text)
+    out = []
+    for p in parts:
+        if p.startswith("<sub>"):
+            out.append(p)
+            continue
+        esc = html.escape(p, quote=False)
+        esc = _MD_CODE.sub(r"<code>\1</code>", esc)
+        esc = _MD_BOLD.sub(r"<b>\1</b>", esc)
+        esc = _MD_ITAL.sub(r"<i>\1</i>", esc)
+        out.append(esc)
+    return "".join(out)
+
+
+def _kind(n: Node) -> str:
+    if n.driver is not None:
+        return "driver"
+    if n.scenario is not None:
+        return "scenario"
+    if n.rule is not None:
+        return "rule"
+    if n.event is not None:
+        return "event"
+    return n.node_type.value
+
+
+def _tree(m: MindMap, parent: Node, fold: set[str], max_depth: int | None, depth: int) -> dict[str, Any]:
+    node: dict[str, Any] = {"id": parent.id, "html": _md_inline(node_line(parent)), "kind": _kind(parent),
+                            "fold": parent.id in fold, "children": []}
+    if max_depth is None or depth < max_depth:
+        node["children"] = [_tree(m, c, fold, max_depth, depth + 1) for c in m.children(parent.id)]
+    return node
+
+
+def build_tree(m: MindMap, *, summary: bool = False, fold: set[str] | None = None,
+               max_depth: int | None = None) -> dict[str, Any]:
+    """맵 → 중첩 dict. 중심 노드의 보조 필드(A0.x / B0.x)는 중심의 첫 자식 묶음으로 둔다."""
+    fold = FOLD_BY_DEFAULT if fold is None else fold
+    root = m.root()
+    title = root_title(m).replace("*", "")
+    tree: dict[str, Any] = {"id": root.id, "html": f"<b>{html.escape(title)}</b>", "kind": "root", "fold": False, "children": []}
+    if summary and isinstance(m, HoldingMap):
+        for nid in ("B0", "B0.1", "B2.3", "B6", "B3.4", "B4.1"):
+            if nid in m:
+                tree["children"].append({"id": f"s:{nid}", "html": _md_inline(node_line(m[nid])), "kind": _kind(m[nid]),
+                                         "fold": False, "children": []})
+        nxt = sorted({d.driver.next_check for d in m.drivers() if d.driver and d.driver.next_check})
+        if nxt:
+            tree["children"].append({"id": "next", "html": f"다음 확인일: {nxt[0].isoformat()}", "kind": "computed", "fold": False, "children": []})
+        return tree
+    first = m.children(root.id)
+    aux = [c for c in first if "." in c.id]
+    branches = [c for c in first if "." not in c.id]
+    if aux:
+        tree["children"].append({"id": f"{root.id}.*", "html": "기본 정보", "kind": "question", "fold": False,
+                                 "children": [_tree(m, c, fold, max_depth, 2) for c in aux]})
+    for b in branches:
+        tree["children"].append(_tree(m, b, fold, max_depth, 1))
+    return tree
+
+
+# ============================================================================ HTML
+_CSS = """
+:root { --bg:#ffffff; --fg:#1f2328; --muted:#6b7280; --line:#c9ced6; --box:#ffffff; --box-border:#d9dee5;
+        --code-bg:#f3f4f6; --root-bg:#1f4e79; --root-fg:#ffffff; --btn:#e5e7eb; --shadow:0 1px 2px rgba(0,0,0,.08); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#0f1115; --fg:#e8eaed; --muted:#a3a9b1; --line:#3a414b; --box:#171a20; --box-border:#2b313a;
+  --code-bg:#262a31; --root-bg:#2d6cb0; --root-fg:#ffffff; --btn:#2a2f37; --shadow:none; } }
+:root[data-theme="dark"] { --bg:#0f1115; --fg:#e8eaed; --muted:#a3a9b1; --line:#3a414b; --box:#171a20; --box-border:#2b313a;
+  --code-bg:#262a31; --root-bg:#2d6cb0; --root-fg:#ffffff; --btn:#2a2f37; --shadow:none; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+  font: 400 14px/1.45 "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif; }
+#stage { position:absolute; inset:0; overflow:hidden; cursor:grab; }
+#stage.dragging { cursor:grabbing; }
+#viewport { position:absolute; left:0; top:0; transform-origin:0 0; }
+#edges { position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+#edges path { fill:none; stroke-width:2; opacity:.9; }
+.node { position:absolute; box-sizing:border-box; width:max-content; max-width:380px; padding:5px 10px; border-radius:8px;
+  background:var(--box); border:1px solid var(--box-border); border-left-width:4px; box-shadow:var(--shadow);
+  white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:none; }
+.node.has-kids { cursor:pointer; }
+/* 절대 배치 박스는 담는 상자 폭이 0 이면 한 글자씩 줄바꿈된다 — width:max-content 가 그것을 막는다 */
+.node.root { background:var(--root-bg); color:var(--root-fg); border-color:var(--root-bg); font-size:16px; padding:10px 16px; max-width:460px; }
+.node.depth1 { font-weight:600; }
+.node sub { font-size:.78em; color:var(--muted); vertical-align:baseline; margin-left:.25em; }
+.node.root sub { color:rgba(255,255,255,.75); }
+.node i { color:var(--muted); }
+.node code { font-size:.9em; background:var(--code-bg); padding:0 .3em; border-radius:4px; }
+.node .more { display:inline-block; margin-left:.4em; font-size:.75em; color:var(--muted); border:1px solid var(--box-border);
+  border-radius:999px; padding:0 .45em; }
+.node.root .more { color:rgba(255,255,255,.85); border-color:rgba(255,255,255,.5); }
+#bar { position:fixed; top:10px; right:12px; z-index:10; display:flex; gap:6px; }
+#bar button, #bar select { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg);
+  font:500 13px/1 system-ui, sans-serif; opacity:.9; }
+#bar button:hover { opacity:1; }
+#hint { position:fixed; left:12px; bottom:10px; color:var(--muted); font-size:12px; }
+"""
+
+_JS = r"""
+(function () {
+  const DATA = __DATA__;
+  const OPTS = __OPTS__;
+  const COLORS = ["#2f6fb3", "#d9822b", "#3b9a5a", "#c23b3b", "#7b5cc2", "#1f9aa8", "#b4a023", "#c8578b"];
+  const GAP_X = 44, GAP_Y = 10, RADIAL_STEP = 230;
+  const stage = document.getElementById("stage"), vp = document.getElementById("viewport");
+  const svg = document.getElementById("edges"), layer = document.getElementById("nodes");
+  const root = document.documentElement, key = "kstock-mindmap-theme";
+  let layout = OPTS.layout || "balanced", tx = 0, ty = 0, k = 1;
+  const nodes = new Map();         // id -> {d, el, open, w, h, x, y, color, depth}
+
+  // ---------- 트리 준비
+  (function walk(d, depth, color) {
+    const open = !d.fold && (OPTS.expandLevel == null || depth < OPTS.expandLevel || depth === 0);
+    nodes.set(d.id, { d, open, depth, color, children: d.children.map(c => c.id) });
+    d.children.forEach((c, i) => walk(c, depth + 1, depth === 0 ? COLORS[i % COLORS.length] : color));
+  })(DATA, 0, null);
+
+  function descendants(id) { const n = nodes.get(id); return n.children.reduce((s, c) => s + 1 + descendants(c), 0); }
+
+  // ---------- DOM 노드 만들기 / 재기
+  function ensure(id) {
+    const n = nodes.get(id);
+    if (!n.el) {
+      const el = document.createElement("div");
+      el.className = "node";
+      el.dataset.id = id;
+      if (n.depth === 0) el.classList.add("root");
+      if (n.depth === 1) el.classList.add("depth1");
+      if (n.children.length) el.classList.add("has-kids");
+      el.style.borderLeftColor = n.color || "var(--root-bg)";
+      el.addEventListener("click", (e) => { e.stopPropagation(); if (n.children.length) { n.open = !n.open; render(); } });
+      layer.appendChild(el);
+      n.el = el;
+    }
+    const more = (!n.open && n.children.length) ? `<span class="more">+${descendants(id)}</span>` : "";
+    n.el.innerHTML = n.d.html + more;
+    n.el.style.display = "";
+    n.w = n.el.offsetWidth; n.h = n.el.offsetHeight;
+    return n;
+  }
+
+  // ---------- 레이아웃
+  function span(n) {
+    if (!n.open || !n.children.length) return n.h + GAP_Y;
+    return Math.max(n.h + GAP_Y, n.children.reduce((s, c) => s + span(nodes.get(c)), 0));
+  }
+  function place(n, dir) {
+    if (!n.open) return;
+    const kids = n.children.map(c => nodes.get(c));
+    const total = kids.reduce((s, c) => s + span(c), 0);
+    let cur = n.y - total / 2;
+    for (const c of kids) {
+      const sp = span(c);
+      c.y = cur + sp / 2;
+      c.x = n.x + dir * (n.w / 2 + GAP_X + c.w / 2);
+      c.dir = dir;
+      cur += sp;
+      place(c, dir);
+    }
+  }
+  function layoutSides(r, sides) {
+    r.x = 0; r.y = 0; r.dir = 0;
+    for (const [dir, ids] of sides) {
+      const kids = ids.map(c => nodes.get(c));
+      const total = kids.reduce((s, c) => s + span(c), 0);
+      let cur = -total / 2;
+      for (const c of kids) {
+        const sp = span(c);
+        c.y = cur + sp / 2;
+        c.x = dir * (r.w / 2 + GAP_X + c.w / 2);
+        c.dir = dir;
+        cur += sp;
+        place(c, dir);
+      }
+    }
+  }
+  function layoutBalanced(r) {
+    // 큰 가지부터, 현재 세로 길이가 짧은 쪽에 배정 → 좌우 균형
+    const kids = r.children.map(c => nodes.get(c)).sort((a, b) => span(b) - span(a));
+    const right = [], left = []; let hr = 0, hl = 0;
+    for (const c of kids) { if (hr <= hl) { right.push(c.d.id); hr += span(c); } else { left.push(c.d.id); hl += span(c); } }
+    // 화면 순서는 원래 순서대로
+    const order = r.children;
+    right.sort((a, b) => order.indexOf(a) - order.indexOf(b)); left.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    layoutSides(r, [[1, right], [-1, left]]);
+  }
+  function layoutRight(r) { layoutSides(r, [[1, r.children]]); }
+  function layoutRadial(r) {
+    // 2단계: ① span 비례로 각도를 임시 배정 → ② 각 노드가 그 각도에서 차지하는 호 길이(박스의 반지름 수직 투영)로
+    // 각도를 다시 나누고, 각 깊이의 반지름은 모든 부모의 부채꼴에 자식이 들어가도록 키운다.
+    r.x = 0; r.y = 0; r.dir = 0;
+    const need = n => (n.w * Math.abs(Math.sin(n.a)) + n.h * Math.abs(Math.cos(n.a))) + GAP_Y;  // 반지름에 수직인 폭
+    const assign = (n, a0, a1, weight) => {
+      if (!n.open) return;
+      const kids = n.children.map(c => nodes.get(c)), total = kids.reduce((s, c) => s + weight(c), 0) || 1;
+      let a = a0;
+      for (const c of kids) {
+        const w = (a1 - a0) * (weight(c) / total);
+        c.a = a + w / 2; c.a0 = a; c.a1 = a + w;
+        assign(c, a, a + w, weight);
+        a += w;
+      }
+    };
+    r.a = 0; r.a0 = -Math.PI / 2; r.a1 = Math.PI * 1.5;
+    assign(r, r.a0, r.a1, span);                                   // ① 임시 각도
+    const wsum = n => (!n.open || !n.children.length) ? need(n) : Math.max(need(n), n.children.reduce((s, c) => s + wsum(nodes.get(c)), 0));
+    assign(r, r.a0, r.a1, wsum);                                   // ② 실제 필요 폭으로 재배정
+    const radius = [0];
+    (function depthReq(n, d, req) {
+      if (!n.open) return;
+      const kids = n.children.map(c => nodes.get(c));
+      const total = kids.reduce((s, c) => s + need(c), 0), range = Math.max(1e-6, n.a1 - n.a0);
+      req[d] = Math.max(req[d] || 0, total / range);
+      kids.forEach(c => depthReq(c, d + 1, req));
+      return req;
+    })(r, 1, radius);
+    for (let d = 1; d < radius.length; d++) radius[d] = Math.max((radius[d - 1] || 0) + RADIAL_STEP, (radius[d] || 0) * 1.05);
+    (function placeR(n, depth) {
+      if (!n.open) return;
+      for (const cid of n.children) {
+        const c = nodes.get(cid), rr = radius[depth];
+        c.x = rr * Math.cos(c.a); c.y = rr * Math.sin(c.a); c.dir = Math.cos(c.a) >= 0 ? 1 : -1;
+        placeR(c, depth + 1);
+      }
+    })(r, 1);
+  }
+
+  // ---------- 그리기
+  function visible(id, out) { const n = nodes.get(id); out.push(n); if (n.open) n.children.forEach(c => visible(c, out)); return out; }
+  function edgePath(p, c) {
+    if (layout === "radial") {
+      return `M${p.x},${p.y} Q${(p.x + c.x) / 2},${(p.y + c.y) / 2} ${c.x},${c.y}`;
+    }
+    const dir = c.dir || 1;
+    const x0 = p.x + dir * p.w / 2, y0 = p.y, x1 = c.x - dir * c.w / 2, y1 = c.y, mx = (x0 + x1) / 2;
+    return `M${x0},${y0} C${mx},${y0} ${mx},${y1} ${x1},${y1}`;
+  }
+  function render() {
+    // 숨김 노드 정리 후 보이는 노드 재기
+    for (const n of nodes.values()) if (n.el) n.el.style.display = "none";
+    const vis = visible(DATA.id, []);
+    vis.forEach(n => ensure(n.d.id));
+    const r = nodes.get(DATA.id);
+    if (layout === "radial") layoutRadial(r); else if (layout === "right") layoutRight(r); else layoutBalanced(r);
+    // 경계
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of vis) { minX = Math.min(minX, n.x - n.w / 2); maxX = Math.max(maxX, n.x + n.w / 2); minY = Math.min(minY, n.y - n.h / 2); maxY = Math.max(maxY, n.y + n.h / 2); }
+    const pad = 40; minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+    svg.setAttribute("width", maxX - minX); svg.setAttribute("height", maxY - minY);
+    svg.style.left = minX + "px"; svg.style.top = minY + "px";
+    svg.setAttribute("viewBox", `${minX} ${minY} ${maxX - minX} ${maxY - minY}`);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    for (const n of vis) {
+      n.el.style.left = (n.x - n.w / 2) + "px"; n.el.style.top = (n.y - n.h / 2) + "px";
+      if (!n.open) continue;
+      for (const cid of n.children) {
+        const c = nodes.get(cid);
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        p.setAttribute("d", edgePath(n, c)); p.setAttribute("stroke", c.color || "#888");
+        svg.appendChild(p);
+      }
+    }
+    render.bounds = { minX, minY, maxX, maxY };
+    applyTransform();
+  }
+  function applyTransform() { vp.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`; }
+  function fit() {
+    const b = render.bounds; if (!b) return;
+    const W = stage.clientWidth, H = stage.clientHeight;
+    k = Math.min(1.25, Math.min(W / (b.maxX - b.minX), H / (b.maxY - b.minY)));
+    tx = W / 2 - ((b.minX + b.maxX) / 2) * k; ty = H / 2 - ((b.minY + b.maxY) / 2) * k;
+    applyTransform();
+  }
+
+  // ---------- 상호작용
+  let drag = null;
+  stage.addEventListener("mousedown", e => { if (e.target.closest(".node")) return; drag = { x: e.clientX - tx, y: e.clientY - ty }; stage.classList.add("dragging"); });
+  window.addEventListener("mousemove", e => { if (!drag) return; tx = e.clientX - drag.x; ty = e.clientY - drag.y; applyTransform(); });
+  window.addEventListener("mouseup", () => { drag = null; stage.classList.remove("dragging"); });
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.1 : 1 / 1.1, nk = Math.max(0.2, Math.min(3, k * f));
+    const rect = stage.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    tx = mx - (mx - tx) * (nk / k); ty = my - (my - ty) * (nk / k); k = nk; applyTransform();
+  }, { passive: false });
+  window.addEventListener("resize", fit);
+  window.addEventListener("keydown", e => { if (e.key === "f") fit(); });
+  document.getElementById("fit").addEventListener("click", fit);
+  document.getElementById("expand").addEventListener("click", () => { for (const n of nodes.values()) n.open = true; render(); fit(); });
+  document.getElementById("collapse").addEventListener("click", () => { for (const n of nodes.values()) n.open = n.depth === 0; render(); fit(); });
+  document.getElementById("layout").addEventListener("change", e => { layout = e.target.value; render(); fit(); });
+  document.getElementById("layout").value = layout;
+  try { const saved = localStorage.getItem(key); if (saved) root.setAttribute("data-theme", saved); } catch (e) {}
+  document.getElementById("theme").addEventListener("click", () => {
+    const dark = root.getAttribute("data-theme") === "dark" || (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const next = dark ? "light" : "dark"; root.setAttribute("data-theme", next);
+    try { localStorage.setItem(key, next); } catch (e) {}
+  });
+
+  render(); fit();
+  window.__mindmap = { nodes, render, fit, get layout() { return layout; },
+    set layout(v) { layout = v; document.getElementById("layout").value = v; render(); fit(); } };
+})();
+"""
+
+
+def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold: set[str] | None = None,
+            max_depth: int | None = None, expand_level: int | None = 2) -> str:
+    """단일 HTML, 외부 의존성 없음. layout: balanced | radial | right. expand_level: 처음 펼쳐 보이는 깊이 (None=전부)."""
+    if layout not in ("balanced", "radial", "right"):
+        raise ValueError(f"layout must be balanced|radial|right, got {layout!r}")
+    tree = build_tree(m, summary=summary, fold=fold, max_depth=max_depth)
+    title = html.escape(root_title(m).replace("*", ""))
+    opts = {"layout": layout, "expandLevel": expand_level}
+    data_js = json.dumps(tree, ensure_ascii=False).replace("</", "<\\/")
+    opts_js = json.dumps(opts, ensure_ascii=False)
+    js = _JS.replace("__DATA__", data_js).replace("__OPTS__", opts_js)
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title}</title>
+<style>{_CSS}</style>
+</head>
+<body>
+<div id="bar">
+  <select id="layout" title="레이아웃">
+    <option value="balanced">양쪽 균형</option>
+    <option value="radial">방사형</option>
+    <option value="right">오른쪽</option>
+  </select>
+  <button id="expand" type="button" title="모두 펼치기">펼치기</button>
+  <button id="collapse" type="button" title="1단계만 남기고 접기">접기</button>
+  <button id="fit" type="button" title="화면 맞춤 (f)">맞춤</button>
+  <button id="theme" type="button" title="밝게/어둡게">☀ / ☾</button>
+</div>
+<div id="stage">
+  <div id="viewport">
+    <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="nodes"></div>
+  </div>
+</div>
+<div id="hint">노드 클릭 = 접기/펼치기 · 드래그 = 이동 · 휠 = 확대/축소 · f = 맞춤</div>
+<script>{js}</script>
+</body>
+</html>
+"""
+
+
+def write_html(m: MindMap, path: str | Path, **kw: Any) -> Path:
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(to_html(m, **kw), encoding="utf-8")
+    return p
+
+
+__all__ = ["to_html", "write_html", "build_tree"]

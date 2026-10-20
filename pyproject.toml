@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kstock-mindmap"
+version = "0.2.0"
+description = "주식투자 마인드맵 생성·대응 엔진 — 신규 투자 맵(A), 보유 종목 맵(B), 포트폴리오 롤업(C)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "hsc65" }]
+dependencies = [
+  "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+reports = ["pypdf>=4"]          # 증권사 리포트 PDF 텍스트 추출 (pdfminer.six / pdfplumber / pdftotext 도 자동 인식)
+llm = ["anthropic>=0.40"]
+dev = ["pytest>=8", "ruff>=0.6"]
+data = ["httpx>=0.27", "pandas>=2.2"]
+
+[project.scripts]
+mindmap = "kstock.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/test_gui_smoke.py" = ["E701", "E702"]  # 가짜 tkinter 위젯은 한 줄 메서드가 읽기 쉽다

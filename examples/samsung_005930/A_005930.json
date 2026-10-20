@@ -1,0 +1,1271 @@
+{
+  "kind": "NEW",
+  "map_id": "A:005930:2026-10-20",
+  "ticker": "005930",
+  "name": "삼성전자",
+  "profile": "growth",
+  "created_at": "2026-10-20",
+  "updated_at": "2026-10-20",
+  "schema_version": "1.0",
+  "nodes": {
+    "A0": {
+      "id": "A0",
+      "map": "NEW",
+      "label": "삼성전자 투자 논제",
+      "question": "이 종목이 왜, 언제까지, 얼마로 가는가를 한 문장으로. 시장이 아직 반영하지 않은 것은 무엇인가?",
+      "node_type": "judgment",
+      "value": "삼성전자는 HBM4 양산 확대(HBM 점유율 33%→40%)와 2027년 HBM4 판가 2배 전망으로 '분기 영업이익 100조' 체제가 2027년까지 이어지며 12개월 내 360,000원(2027E PER 6배). 시장은 10월 급락(-19%)으로 사이클 고점·중국 추격 우려를 과도하게 반영해 PER 4배에 두고 있다",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A0.1": {
+      "id": "A0.1",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "투자유형",
+      "question": "어떤 유형의 베팅인가 (프로파일 선택)",
+      "node_type": "judgment",
+      "value": "growth",
+      "value_type": "enum",
+      "enum_options": [
+        "growth",
+        "value",
+        "turnaround",
+        "momentum",
+        "event"
+      ],
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A0.2": {
+      "id": "A0.2",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "투자기간",
+      "question": "논제가 실현되는 데 필요한 시간",
+      "node_type": "judgment",
+      "value": "1Y",
+      "value_type": "enum",
+      "enum_options": [
+        "3M",
+        "1Y",
+        "3Y+"
+      ],
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A0.3": {
+      "id": "A0.3",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "확신도",
+      "question": "근거의 질과 양 기준 (H/M/L)",
+      "node_type": "judgment",
+      "value": "M",
+      "value_type": "enum",
+      "enum_options": [
+        "H",
+        "M",
+        "L"
+      ],
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A0.4": {
+      "id": "A0.4",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "현재가",
+      "question": "작성 시점 종가",
+      "node_type": "fact",
+      "value": 218000,
+      "value_type": "price",
+      "unit": "원",
+      "source": {
+        "name": "서울신문 10/19 마감 (종가 218,000)",
+        "url": "https://www.seoul.co.kr/news/economy/securities/2026/10/19/20261019500235",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A1": {
+      "id": "A1",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "핵심 드라이버",
+      "question": "논제의 성패를 가르는 변수 3~5개. 이 변수가 틀리면 논제가 무너지는가? 아니면 빼라.  예시(growth): 매출성장률 / TAM 침투율 / 마진 레버리지",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A1.1": {
+      "id": "A1.1",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "분기 영업이익",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "조원",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 107.4,
+          "as_of": "2026-10-08",
+          "source": {
+            "name": "삼성전자 뉴스룸 — 2026년 3분기 잠정실적 (10/8)",
+            "url": "https://news.samsung.com/kr/",
+            "retrieved_at": "2026-10-20"
+          }
+        },
+        "consensus": {
+          "value": 114.0,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "한국경제 10/12 — KB증권 (4Q 114조, HBM4 판가 +100%, 주주환원 110조, PER 4배, TP 60만)",
+            "url": "https://www.hankyung.com/article/2026101249176",
+            "retrieved_at": "2026-10-20"
+          },
+          "rationale": "4Q26 KB 114조 · 키움 116조"
+        },
+        "my_estimate": {
+          "value": 110.0,
+          "as_of": "2026-10-20",
+          "rationale": "4Q26 — 환율·충당금을 보수적으로 본 값. 초안 — 논제의 주인이 확정할 것"
+        },
+        "check_indicator": "4Q26 잠정실적 (1월 초) · 분기 메모리 영업이익",
+        "next_check": "2027-01-08",
+        "higher_is_better": true
+      }
+    },
+    "A1.2": {
+      "id": "A1.2",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "HBM 점유율",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "%",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 33.0,
+          "as_of": "2026-09-11",
+          "source": {
+            "name": "서울경제 9/11 — KB증권 (HBM 점유율 2Q 33% → 4Q 40%, HBM4 매출 3배)",
+            "url": "https://www.sedaily.com/article/20089704",
+            "retrieved_at": "2026-10-20"
+          },
+          "rationale": "2Q26"
+        },
+        "consensus": {
+          "value": 40.0,
+          "as_of": "2026-09-11",
+          "source": {
+            "name": "서울경제 9/11 — KB증권 (HBM 점유율 2Q 33% → 4Q 40%, HBM4 매출 3배)",
+            "url": "https://www.sedaily.com/article/20089704",
+            "retrieved_at": "2026-10-20"
+          },
+          "rationale": "4Q26 KB 전망"
+        },
+        "my_estimate": {
+          "value": 38.0,
+          "as_of": "2026-10-20",
+          "rationale": "HBM4 인증·램프업 속도 감안 소폭 보수적. 초안 — 논제의 주인이 확정할 것"
+        },
+        "check_indicator": "분기 실적 컨콜 HBM 코멘트 · 트렌드포스 분기 점유율",
+        "next_check": "2027-01-29",
+        "higher_is_better": true
+      }
+    },
+    "A1.3": {
+      "id": "A1.3",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "2027 HBM4 판가 상승률",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "%",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 0.0,
+          "as_of": "2026-10-20",
+          "source": {
+            "name": "한국경제 10/12 — KB증권 (4Q 114조, HBM4 판가 +100%, 주주환원 110조, PER 4배, TP 60만)",
+            "url": "https://www.hankyung.com/article/2026101249176",
+            "retrieved_at": "2026-10-20"
+          },
+          "rationale": "2027 계약가 미확정 (0 = 아직 반영 전)"
+        },
+        "consensus": {
+          "value": 100.0,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "한국경제 10/12 — KB증권 (4Q 114조, HBM4 판가 +100%, 주주환원 110조, PER 4배, TP 60만)",
+            "url": "https://www.hankyung.com/article/2026101249176",
+            "retrieved_at": "2026-10-20"
+          },
+          "rationale": "KB: 전년 대비 100% 이상"
+        },
+        "my_estimate": {
+          "value": 70.0,
+          "as_of": "2026-10-20",
+          "rationale": "고객 협상력·경쟁사 공급 증가를 감안. 초안 — 논제의 주인이 확정할 것"
+        },
+        "check_indicator": "1Q27 HBM4 공급 계약가 보도 · DRAM ASP 가이던스",
+        "next_check": "2027-01-31",
+        "higher_is_better": true
+      }
+    },
+    "A2": {
+      "id": "A2",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "컨센서스 vs 내 뷰",
+      "question": "기대수익의 원천: 시장과 어디서 다르게 보는가",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A2.1": {
+      "id": "A2.1",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "현재 주가에 내재된 가정",
+      "question": "현재 주가가 성립하려면 시장은 무엇을 믿고 있어야 하나?",
+      "node_type": "estimate",
+      "value": "PER 4배 = 2027년 이익이 정점이고 2028년 급감(사이클 피크아웃)한다는 가정 + 중국(CXMT) 추격 + 외국인 이탈 지속",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A2.2": {
+      "id": "A2.2",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "내가 다르게 보는 것",
+      "question": "어디서 다르게 보고, 근거는 무엇인가?",
+      "node_type": "judgment",
+      "value": "HBM4 판가·공급 부족이 최소 2027년까지 이익을 유지시키고(KB: 2028년까지 호황), 3개년 주주환원 재원 110조가 하방을 받친다. CXMT 4F²는 양산·수율·인증이 검증되지 않았다",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A2.3": {
+      "id": "A2.3",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "시장이 틀린 이유",
+      "question": "내가 맞다면 왜 시장은 아직 모르는가?",
+      "node_type": "judgment",
+      "value": "시간축",
+      "value_type": "enum",
+      "enum_options": [
+        "시간축",
+        "정보",
+        "심리",
+        "구조"
+      ],
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3": {
+      "id": "A3",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "밸류에이션 & 시나리오",
+      "question": "확률·목표가로 숫자화된 세 시나리오",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.1": {
+      "id": "A3.1",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Bear",
+      "question": "무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bear",
+        "assumptions": [
+          "2027 상반기 DRAM 계약가 하락 전환",
+          "2027E EPS 35,000",
+          "PER 5배"
+        ],
+        "probability": 0.3,
+        "target_price": 170000.0,
+        "horizon_months": 12,
+        "valuation_method": "PER 5배 × 2027E EPS 35,000 (52주 저가 189,200 하회)"
+      }
+    },
+    "A3.2": {
+      "id": "A3.2",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Base",
+      "question": "논제가 그대로 실현되면 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Base",
+        "assumptions": [
+          "분기 OP 100조대 2027년 유지",
+          "2027E EPS 60,000",
+          "PER 6배"
+        ],
+        "probability": 0.45,
+        "target_price": 360000.0,
+        "horizon_months": 12,
+        "valuation_method": "PER 6배 × 2027E EPS 60,000 (컨센서스 평균 51.6만보다 보수적)"
+      }
+    },
+    "A3.3": {
+      "id": "A3.3",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Bull",
+      "question": "무엇이 추가로 잘되면 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bull",
+        "assumptions": [
+          "호황 2028년까지",
+          "HBM 점유율 40%+",
+          "주주환원 확대(소각 30~40조)",
+          "2027E EPS 70,000",
+          "PER 7.5배"
+        ],
+        "probability": 0.25,
+        "target_price": 520000.0,
+        "horizon_months": 12,
+        "valuation_method": "PER 7.5배 × 2027E EPS 70,000 ≈ 증권사 평균 목표가"
+      }
+    },
+    "A3.4": {
+      "id": "A3.4",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "기대수익률",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.5734,
+      "value_type": "percent",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sum(p_i * (TP_i / P0 - 1))",
+      "meta_only": false
+    },
+    "A3.5": {
+      "id": "A3.5",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "손익비",
+      "question": "",
+      "node_type": "computed",
+      "value": 2.96,
+      "value_type": "number",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "((TP_base - P0) / P0) / ((P0 - TP_bear) / P0)",
+      "meta_only": false
+    },
+    "A3.6": {
+      "id": "A3.6",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "밸류 근거",
+      "question": "참고: 증권사 목표가 최근 90일 21건 35만~63만, 평균 51.6만 (리서치 DB). 6월 고가 374,500 → 9/21 274,000 → 10/19 218,000",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.1": {
+      "id": "A3.6.1",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "역사 밴드 위치",
+      "question": "현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?",
+      "node_type": "fact",
+      "value": 10,
+      "value_type": "percent",
+      "unit": "%ile",
+      "source": {
+        "name": "추정: 현재 PER≈4배(KB) vs 과거 10년 PER 밴드 6~20배 → 하위 10%ile",
+        "url": "",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.2": {
+      "id": "A3.6.2",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "피어 비교",
+      "question": "피어 대비 프리미엄/디스카운트와 그 정당성은?",
+      "node_type": "fact",
+      "value": "SK하이닉스 대비 HBM 점유율 열위지만 PER·PBR(1.33배) 모두 할인. 할인 근거: HBM 2위, 파운드리 적자, 지배구조",
+      "value_type": "text",
+      "source": {
+        "name": "뉴스핌 10/19 — 외국인 10월 순매도 17.7조 중 삼성 4.7조, 10월 -18.8%",
+        "url": "https://www.newspim.com/news/view/20261019001384",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.3": {
+      "id": "A3.6.3",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "EPS 리비전 방향",
+      "question": "최근 3개월 컨센서스 EPS 방향",
+      "node_type": "fact",
+      "value": "up",
+      "value_type": "enum",
+      "enum_options": [
+        "up",
+        "flat",
+        "down"
+      ],
+      "source": {
+        "name": "메리츠 10/7 '2027년 메모리 판가·실적 상향', 3Q 컨센서스 상회",
+        "url": "",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4": {
+      "id": "A4",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "리스크 & 무효화 조건",
+      "question": "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.1": {
+      "id": "A4.1",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 1",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
+      "node_type": "estimate",
+      "value": {
+        "probability": 0.35,
+        "impact_pct": -30,
+        "text": "메모리 가격 피크아웃 — 2027 상반기 DRAM 계약가 하락 전환"
+      },
+      "value_type": "range",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.2": {
+      "id": "A4.2",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 2",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
+      "node_type": "estimate",
+      "value": {
+        "probability": 0.25,
+        "impact_pct": -20,
+        "text": "중국 추격 — CXMT 4F² DDR5 양산 성공 시 범용 DRAM 가격 압박"
+      },
+      "value_type": "range",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.3": {
+      "id": "A4.3",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 3",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
+      "node_type": "estimate",
+      "value": {
+        "probability": 0.4,
+        "impact_pct": -15,
+        "text": "외국인 수급·매크로 — 유가·미 금리 상승·원화 약세 지속 (10월 외국인 순매도 17.7조 중 삼성 4.7조)"
+      },
+      "value_type": "range",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.4": {
+      "id": "A4.4",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "Kill criteria",
+      "question": "어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나? (가격이 아닌 사실 기준)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.4.1": {
+      "id": "A4.4.1",
+      "map": "NEW",
+      "parent": "A4.4",
+      "label": "무효화 조건 1",
+      "question": "사실 기준 조건식 → exit",
+      "node_type": "rule",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "fact",
+        "condition": "driver[A1.1].current < 80",
+        "action": "exit",
+        "escalate_to": "RED",
+        "status": "armed",
+        "note": "분기 영업이익 80조 미만 확인 = 사이클 꺾임. 가격이 아니라 실적으로 논제를 버린다"
+      }
+    },
+    "A4.5": {
+      "id": "A4.5",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "조기 경보 지표",
+      "question": "그 사실을 미리 알려주는 지표는? 어디서, 얼마나 자주 확인?",
+      "node_type": "fact",
+      "value": "DRAMeXchange DDR5 계약가 월간 변동률(2개월 연속 마이너스), 트렌드포스 분기 HBM 점유율, KRX 외국인 월간 순매수",
+      "value_type": "text",
+      "source": {
+        "name": "직접 설정",
+        "url": "",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5": {
+      "id": "A5",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "촉매 & 타임라인",
+      "question": "날짜 박힌 이벤트와 진입 타이밍",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.1": {
+      "id": "A5.1",
+      "map": "NEW",
+      "parent": "A5",
+      "label": "촉매 이벤트",
+      "question": "날짜가 박힌 사건만 (실적발표·정책·신제품·락업·계약)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2": {
+      "id": "A5.2",
+      "map": "NEW",
+      "parent": "A5",
+      "label": "수급/기술",
+      "question": "10월 외국인 순매도 -4.7조(10/19 +6,247억 순매수 전환), 10월 -18.8%, 10/13 CXMT 쇼크 -7.39%",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.2,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.1": {
+      "id": "A5.2.1",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "추세",
+      "question": "",
+      "node_type": "fact",
+      "value": "하락",
+      "value_type": "enum",
+      "enum_options": [
+        "상승",
+        "횡보",
+        "하락"
+      ],
+      "source": {
+        "name": "뉴스핌 10/19 — 외국인 10월 순매도 17.7조 중 삼성 4.7조, 10월 -18.8%",
+        "url": "https://www.newspim.com/news/view/20261019001384",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.2": {
+      "id": "A5.2.2",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "거래량 (20일 평균 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value": 1.3,
+      "value_type": "number",
+      "unit": "배",
+      "source": {
+        "name": "10/19 거래량 1,569만주 — 9월 일평균 대비 추정",
+        "url": "",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.3": {
+      "id": "A5.2.3",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "외국인/기관 순매수 (20일 누적)",
+      "question": "",
+      "node_type": "fact",
+      "value": -47286,
+      "value_type": "number",
+      "unit": "억원",
+      "source": {
+        "name": "뉴스핌 10/19 — 외국인 10월 순매도 17.7조 중 삼성 4.7조, 10월 -18.8%",
+        "url": "https://www.newspim.com/news/view/20261019001384",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.4": {
+      "id": "A5.2.4",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "공매도/신용잔고 (유통주식 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6": {
+      "id": "A6",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "실행 계획",
+      "question": "비중·진입·손절·익절·판단",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.1": {
+      "id": "A6.1",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "목표 비중",
+      "question": "제안식 → 확정. {suggested, confirmed, reason}",
+      "node_type": "judgment",
+      "value": {
+        "suggested": 0.074,
+        "confirmed": 0.05,
+        "reason": "제안 7.40% → 5%로 확정 (초안: 포트폴리오 맥락 미반영)"
+      },
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2": {
+      "id": "A6.2",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "진입 계획",
+      "question": "어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}",
+      "node_type": "judgment",
+      "value": {
+        "price_range": [
+          200000,
+          220000
+        ],
+        "tranches": 3
+      },
+      "value_type": "range",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.3": {
+      "id": "A6.3",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "손절 규칙",
+      "question": "가격 기준 하나 + 사실 기준 하나",
+      "node_type": "rule",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "drawdown > 0.25",
+        "action": "review",
+        "escalate_to": "YELLOW",
+        "status": "armed",
+        "note": "고점 대비 -25% 면 논제 재검토 (손절은 사실 기준 A4.4 가 한다)"
+      }
+    },
+    "A6.4": {
+      "id": "A6.4",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "익절/축소 규칙",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "price > 360000",
+        "action": "trim",
+        "size": "50%",
+        "status": "armed",
+        "note": "Base 목표가 도달 시 절반 축소"
+      }
+    },
+    "A6.5": {
+      "id": "A6.5",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "판단",
+      "question": "BUY / WATCH / PASS",
+      "node_type": "judgment",
+      "value": "WATCH",
+      "value_type": "enum",
+      "enum_options": [
+        "BUY",
+        "WATCH",
+        "PASS"
+      ],
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7": {
+      "id": "A7",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "모니터링 & 복기",
+      "question": "",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.1": {
+      "id": "A7.1",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "체크포인트",
+      "question": "",
+      "node_type": "computed",
+      "value": [
+        "2026-10-30",
+        "2027-01-08",
+        "2027-01-29",
+        "2027-01-31"
+      ],
+      "value_type": "date",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sorted(A1.x.next_check ∪ A5.1.x.date)",
+      "meta_only": false
+    },
+    "A7.2": {
+      "id": "A7.2",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "업데이트 로그",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.3": {
+      "id": "A7.3",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "사후 복기",
+      "question": "매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8": {
+      "id": "A8",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "근거 자료",
+      "question": "리서치 DB prices — 6/19 고가 374,500 · 9/21 종가 274,000 · 52주 저가 189,200",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.6,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1": {
+      "id": "A8.1",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "기업",
+      "question": "리서치 DB reports/report_details — 최근 90일 목표가 21건 (35만~63만, 평균 51.6만)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.1": {
+      "id": "A8.1.1",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "비즈니스 모델",
+      "question": "무엇을 팔아 어떻게 돈을 버나?",
+      "node_type": "fact",
+      "value": "메모리(DRAM·NAND·HBM)가 이익의 거의 전부 — 4Q26 메모리 OP 113조 / 전사 114조 전망. 파운드리·시스템LSI, MX(적자 ~1조 방어), DX",
+      "value_type": "text",
+      "source": {
+        "name": "한국경제 10/12 — KB증권 (4Q 114조, HBM4 판가 +100%, 주주환원 110조, PER 4배, TP 60만)",
+        "url": "https://www.hankyung.com/article/2026101249176",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.2": {
+      "id": "A8.1.2",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "경쟁우위",
+      "question": "마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?",
+      "node_type": "fact",
+      "value": "HBM4 양산 확대·HBM4E 샘플 공급, DRAM 3사 과점. 열위: HBM 점유율 2위(33%), 파운드리 적자",
+      "value_type": "text",
+      "source": {
+        "name": "서울경제 9/11 — KB증권 (HBM 점유율 2Q 33% → 4Q 40%, HBM4 매출 3배)",
+        "url": "https://www.sedaily.com/article/20089704",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.3": {
+      "id": "A8.1.3",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "경영진 / 지배구조 / 주주환원",
+      "question": "자본배분 이력, 대주주 리스크, 배당·자사주",
+      "node_type": "fact",
+      "value": "3개년 주주환원 잔여 재원 110조 (현금배당 70~80조, 자사주 소각 30~40조 가능). 차기 정책 FCF 50% 초과 가능성",
+      "value_type": "text",
+      "source": {
+        "name": "한국경제 10/12 — KB증권 (4Q 114조, HBM4 판가 +100%, 주주환원 110조, PER 4배, TP 60만)",
+        "url": "https://www.hankyung.com/article/2026101249176",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.4": {
+      "id": "A8.1.4",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "재무 (성장·수익·현금·건전성)",
+      "question": "매출/이익 성장률, 마진, FCF, 부채비율",
+      "node_type": "fact",
+      "value": "3Q26 매출 195조(QoQ +13.7%, YoY +126.6%), 영업이익 107.4조(QoQ +20.0%, YoY +782.5%). PER≈4배, PBR 1.33배",
+      "value_type": "text",
+      "source": {
+        "name": "삼성전자 뉴스룸 — 2026년 3분기 잠정실적 (10/8)",
+        "url": "https://news.samsung.com/kr/",
+        "retrieved_at": "2026-10-20"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.2": {
+      "id": "A8.2",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "산업 → 섹터 맵",
+      "question": "S.<시장>-<섹터> 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "S.KR-SEMI"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.3": {
+      "id": "A8.3",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "매크로 → 매크로 맵",
+      "question": "M0 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "M0"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.4.2": {
+      "id": "A4.4.2",
+      "map": "NEW",
+      "parent": "A4.4",
+      "label": "무효화 조건 2",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "fact",
+        "condition": "driver[A1.2].current < 25",
+        "action": "exit",
+        "escalate_to": "RED",
+        "status": "armed",
+        "note": "HBM 점유율 25% 미만 = HBM4 인증/램프업 실패"
+      }
+    },
+    "A5.1.1": {
+      "id": "A5.1.1",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "3Q26 확정실적·컨퍼런스콜 — 사업부별 이익, 주주환",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2026-10-30",
+        "fact": "3Q26 확정실적·컨퍼런스콜 — 사업부별 이익, 주주환원 언급 (예정일 추정)",
+        "affects": [
+          "A1.1"
+        ],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "H",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-20"
+        }
+      }
+    },
+    "A5.1.2": {
+      "id": "A5.1.2",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "4Q26 잠정실적 — 분기 OP 110~116조 컨센서",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-08",
+        "fact": "4Q26 잠정실적 — 분기 OP 110~116조 컨센서스 확인 (예정일 추정)",
+        "affects": [
+          "A1.1"
+        ],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "H",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-20"
+        }
+      }
+    },
+    "A5.1.3": {
+      "id": "A5.1.3",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "2027~2029 주주환원 정책 발표 가능 (KB: F",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-29",
+        "fact": "2027~2029 주주환원 정책 발표 가능 (KB: FCF 50% 초과 가능성)",
+        "affects": [],
+        "direction": "강화",
+        "priced_in": "아니오",
+        "materiality": "H",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-20"
+        }
+      }
+    },
+    "A5.1.4": {
+      "id": "A5.1.4",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "1Q27 HBM4 공급 계약가 — 2027 판가 상승률",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-31",
+        "fact": "1Q27 HBM4 공급 계약가 — 2027 판가 상승률 확인",
+        "affects": [
+          "A1.3"
+        ],
+        "direction": "강화",
+        "priced_in": "아니오",
+        "materiality": "H",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-20"
+        }
+      }
+    }
+  },
+  "meta": {}
+}
