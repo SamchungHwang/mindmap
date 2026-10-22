@@ -162,7 +162,16 @@ KR-BANK   NIM · 대손비용률 · CET1 · 주주환원율
 | M3 | 콘솔 통합(자동 생성 버튼, draft 표시, 진행바) | GUI 에서 종목 → 초안 → 사람 확정 → 저장 흐름 | 완료 (M0) |
 | M4 | 일일 배치 + 알림 + 스케줄러 | 5 종목 B 맵이 사람 손 없이 매일 갱신, 🟡🔴 알림 도착 |
 | M5 | 웹 어댑터(DART 본문·뉴스) + 캐시 | 리서치 DB 에 없는 종목도 초안 생성 |
-| M6 | 평가 루프 | 골든 10종목, 수정률 추세 하락 |
+| M6 | 평가 루프 | 골든 10종목, 수정률 추세 하락 | 일부 — 골든 초안 13건 생성(`verified:false`), `eval-extract`/`eval-claims` CLI (v3 P0/P6) |
+| **v3 (2026-10-21 코드 완료)** | **설계 v3 (`report-draft-design-v3.md`) P0~P6** — Claim 데이터 계약 · 집계 규칙(최신 1건·45일·실적 전) · Claim 추출+3단 검증 · 쟁점(테마/메커니즘) · 시나리오 리포트 제시만 · 변경안/버전 · 평가 | 삼성전자 3건(사람이 쓴 Claim 31건)에서 쟁점 11개/맵 A2.1.1~8 생성, 검증 오류 0 / 미확정 5, unittest 137 | 코드 완료 — 실제 Claude 추출(`mindmap claims --out data\claims_llm`) 과 `eval-claims` 비교는 사용자 PC 에서 실행 대기 |
+
+M0~M3 의 "앵커·확률·내 추정=컨센서스·Kill 자동" 은 **v3 에서 폐기**되었다 (§8a 의 해당 항목은 역사 기록). v3 가 바꾼 것:
+
+- 내 추정(A1.x) · 시나리오 확률(A3.4~5) · Kill(A4.4) · 내재 가정(A2.1~2.3) 은 비워 두고 `pending` 태그 — 빈 칸은 미확정이지 오류가 아니다 (`DraftResult.pending` 과 `errors` 분리).
+- 시나리오 목표가는 리포트가 명시한 케이스만 쓴다. 증권사 간 조합·분포 폴백·Bear 바닥 없음. 후보(리포트 제시 / 산식 재계산 / 목표가) 는 `meta.draft.scenario_candidates` 에 두고 사람이 고른다.
+- 정성 노드는 전부 Claim(인용 span) 에서 나온다 — 리포트 원문 페이지·문자 위치까지 추적. 규칙 분류 Claim 은 `quality="rules"`(저품질) 로 표시.
+- 집계: 증권사별 최신 1건 · 45일 유효 · 실적 발표 전 리포트 표시 · 추정치는 중앙값 + 범위(spread) · 기준(지배/연결) 섞지 않음.
+- 새 리포트는 맵을 덮어쓰지 않고 `ChangeSet` 으로 제안 → 사람이 승인 → 적용 전 버전 보존.
 
 ### 8a. M0 에서 정한 것 (리포트 입력 경로)
 
@@ -190,13 +199,24 @@ src/kstock/
   generate/prompts.py              [M0 ✓] 그룹별 프롬프트 + JSON 스키마
   generate/llm_fill.py             [M0 ✓] GroupFiller / Mock / Claude · 그룹 적용 + 환각 방어
   generate/check.py                [M0 ✓] 교차 검증 (확률·순서·컨센 범위·단위 의심·편향 메모·WATCH 고정)
-  generate/draft.py                [M0 ✓] 파이프라인 (reports → rules → llm → check → evaluate → DraftResult)
-  generate/evals.py                [M6] 골든 비교
+  generate/draft.py                [M0 ✓ · v3 ✓] 파이프라인 (reports → claims → issues → rules+scenarios+mapping → check → evaluate → DraftResult)
+  generate/evals.py                [v3 ✓] 골든 초안 생성 · 추출 평가 · Claim 재현율/불일치율
+  models/claims.py                 [v3 ✓] EvidenceSpan · Claim · ClaimSet · Issue · IssueSet · Change · ChangeSet
+  reports/claims.py                [v3 ✓] 청크 → LLM/규칙 Claim 추출 → 인용 위치 확인 → data/claims/<report_id>.json
+  reports/validate_claims.py       [v3 ✓] 인용 존재 · 숫자 일치 · 의미 지지(LLM 배치) → verified / needs_review / rejected
+  reports/dbcheck.py               [v3 ✓] 리서치 DB 교차 확인 (증권사·날짜·목표가 · 최근 실적일)
+  generate/issues.py               [v3 ✓] Claim → 테마(driver_id) → 메커니즘 → 공통 견해/핵심 이견/독립 주장/미해결
+  generate/scenarios.py            [v3 ✓] 리포트 제시 케이스 · 밸류 산식 재계산 후보 · 예시 확률(미검증 표시)
+  generate/mapping.py              [v3 ✓] 쟁점·Claim → A0/A1/A2.1.x/A3.6.3/A4/A5/A8.4.x
+  generate/changes.py              [v3 ✓] 기존 맵 vs 새 초안 → ChangeSet → 승인 적용 · maps/versions
+  llm/models.py                    [v3 ✓] 사용 가능 모델 목록에서 자동 선택 (MODEL_PREFERENCE)
   ops.py                           [M0 ✓] peek_reports / draft_from_reports (저장·관심종목 등록)
   cli.py                           [M0 ✓] mindmap draft --reports … / [M4] mindmap daily
   console.py · console_text.py     [M0 ✓] 「리포트로 A 맵 자동 생성 (초안)…」 (파일 대화상자 → 종목 확인 → 진행바 → A 탭)
 tests/test_reports_draft.py        [M0 ✓] 추출·합산·규칙·Mock LLM·Ops·CLI (픽스처 tests/fixtures/reports, PDF 는 make_pdfs.py)
-data/golden/<ticker>.json          사람이 확정한 맵
+tests/test_claims.py · test_issues.py · test_changes.py · test_evals.py   [v3 ✓]
+tests/golden/extract/<report_id>.json   [v3 ✓] 리포트별 추출 정답지 (verified:false → 사람이 확인 후 true)
+data/golden/<ticker>.json          사람이 확정한 맵 (M6)
 ```
 
 ## 10. 비용·리스크

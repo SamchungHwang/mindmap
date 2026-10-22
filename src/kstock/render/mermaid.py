@@ -26,7 +26,8 @@ def _short(n: Node) -> str:
         ) if x]
         return f"{n.label}: " + " → ".join(bits) if bits else n.label
     if n.scenario is not None:
-        return f"{n.label} {fmt_num(n.scenario.target_price, value_type='price')} p={n.scenario.probability:.2f}"
+        p = f"p={n.scenario.probability:.2f}" if n.scenario.probability is not None else "p=?"
+        return f"{n.label} {fmt_num(n.scenario.target_price, value_type='price')} {p}"
     if n.rule is not None:
         return f"{n.label}: {n.rule.condition} → {n.rule.action.value}"
     if n.event is not None:

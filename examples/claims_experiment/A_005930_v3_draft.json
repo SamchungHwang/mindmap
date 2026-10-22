@@ -1,0 +1,1834 @@
+{
+  "kind": "NEW",
+  "map_id": "A:005930:2026-10-21",
+  "ticker": "005930",
+  "name": "삼성전자",
+  "profile": "growth",
+  "created_at": "2026-10-21",
+  "updated_at": "2026-10-21",
+  "schema_version": "1.0",
+  "nodes": {
+    "A0": {
+      "id": "A0",
+      "map": "NEW",
+      "label": "삼성전자 투자 논제",
+      "question": "이 종목이 왜, 언제까지, 얼마로 가는가를 한 문장으로. 시장이 아직 반영하지 않은 것은 무엇인가?",
+      "node_type": "judgment",
+      "value": "[초안 · 증권사 종합] 삼성전자: 공통 견해 — DRAM 가격↑, HBM↑, 파운드리↓, 주주환원↑; 핵심 이견 — 모바일·세트 수요. 시장이 아직 반영하지 않은 것(A2.2) 과 판단은 논제의 주인이 쓴다.",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [
+        {
+          "as_of": "2026-10-21",
+          "value": "[초안 · 증권사 종합] 삼성전자: 2027E 영업이익 컨센서스 605.6조원, 증권사 3곳 평균 목표가 516,667원. 시장이 아직 반영하지 않은 것이 무엇인지(A2.2)는 논제의 주인이 쓴다."
+        }
+      ],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A0.1": {
+      "id": "A0.1",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "투자유형",
+      "question": "어떤 유형의 베팅인가 (프로파일 선택)",
+      "node_type": "judgment",
+      "value": "growth",
+      "value_type": "enum",
+      "enum_options": [
+        "growth",
+        "value",
+        "turnaround",
+        "momentum",
+        "event"
+      ],
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A0.2": {
+      "id": "A0.2",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "투자기간",
+      "question": "논제가 실현되는 데 필요한 시간",
+      "node_type": "judgment",
+      "value": "1Y",
+      "value_type": "enum",
+      "enum_options": [
+        "3M",
+        "1Y",
+        "3Y+"
+      ],
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A0.3": {
+      "id": "A0.3",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "확신도",
+      "question": "근거의 질과 양 기준 (H/M/L)",
+      "node_type": "judgment",
+      "value": "M",
+      "value_type": "enum",
+      "enum_options": [
+        "H",
+        "M",
+        "L"
+      ],
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A0.4": {
+      "id": "A0.4",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "현재가",
+      "question": "작성 시점 종가",
+      "node_type": "fact",
+      "value": 262000.0,
+      "value_type": "price",
+      "unit": "원",
+      "source": {
+        "name": "유진투자증권 2026-10-12 리포트 현재주가 (2026-10-12)",
+        "url": "data/reports/삼성전자/삼성전자_96597.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-12",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "warn"
+      ],
+      "meta_only": false
+    },
+    "A1": {
+      "id": "A1",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "핵심 드라이버",
+      "question": "논제의 성패를 가르는 변수 3~5개. 이 변수가 틀리면 논제가 무너지는가? 아니면 빼라.  예시(growth): 매출성장률 / TAM 침투율 / 마진 레버리지",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A1.1": {
+      "id": "A1.1",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "분기 영업이익 (3Q26)",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "조원",
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending"
+      ],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 53.75,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "3Q26A 실적 (리포트 표)"
+        },
+        "consensus": {
+          "value": 107.41,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "3Q26E 컨센서스 — 리포트 1건 평균"
+        },
+        "my_estimate": {
+          "rationale": "내 추정은 논제의 주인이 쓴다 — 비워 두면 계산은 컨센서스 기준(임시)"
+        },
+        "check_indicator": "분기 실적 발표 (잠정 → 확정) · 컨센서스 추이",
+        "next_check": "2027-01-08",
+        "higher_is_better": true
+      }
+    },
+    "A1.2": {
+      "id": "A1.2",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "연간 매출액 (2027E)",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "조원",
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending"
+      ],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 333.61,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "2025A 실적 (리포트 표)"
+        },
+        "consensus": {
+          "value": 971.53,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "2027E 컨센서스 — 리포트 3건 평균 (범위 955.5~991.7)"
+        },
+        "my_estimate": {
+          "rationale": "내 추정은 논제의 주인이 쓴다 — 비워 두면 계산은 컨센서스 기준(임시)"
+        },
+        "check_indicator": "분기 실적 발표 · 월별 수출 데이터",
+        "next_check": "2027-01-08",
+        "higher_is_better": true
+      }
+    },
+    "A1.3": {
+      "id": "A1.3",
+      "map": "NEW",
+      "parent": "A1",
+      "label": "EPS (2027E)",
+      "question": "이 변수가 틀리면 논제가 무너지는가?",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "원",
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending",
+        "warn"
+      ],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 7035.33,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "2025A 실적 (리포트 표)"
+        },
+        "consensus": {
+          "value": 83319.67,
+          "as_of": "2026-10-12",
+          "source": {
+            "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+            "url": "data/reports/삼성전자",
+            "retrieved_at": "2026-10-12"
+          },
+          "rationale": "2027E 컨센서스 — 리포트 3건 평균 (범위 70,006.0~91,008.0)"
+        },
+        "my_estimate": {
+          "rationale": "내 추정은 논제의 주인이 쓴다 — 비워 두면 계산은 컨센서스 기준(임시)"
+        },
+        "check_indicator": "컨센서스 EPS 리비전 (월 1회)",
+        "next_check": "2027-01-08",
+        "higher_is_better": true
+      }
+    },
+    "A2": {
+      "id": "A2",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "컨센서스 vs 내 뷰",
+      "question": "기대수익의 원천: 시장과 어디서 다르게 보는가",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A2.1": {
+      "id": "A2.1",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "현재 주가에 내재된 가정",
+      "question": "현재 주가가 성립하려면 시장은 무엇을 믿고 있어야 하나? | 리포트 관측: 증권사 3곳 목표가 평균 516,667원 (현재가 대비 +97%), 범위 460,000~560,000. 의견 BUY 3. 2027E 영업이익 컨센서스 605.6조원 (2025A 실적 43.6조원 대비 +1289%). 현재가는 2027E PER 3.2배. 컨센서스 편향: 매도·중립 의견 0건 (매수 일색) — 리포트만으로는 반대 논리를 볼 수 없다",
+      "node_type": "estimate",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A2.2": {
+      "id": "A2.2",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "내가 다르게 보는 것",
+      "question": "어디서 다르게 보고, 근거는 무엇인가?",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A2.3": {
+      "id": "A2.3",
+      "map": "NEW",
+      "parent": "A2",
+      "label": "시장이 틀린 이유",
+      "question": "내가 맞다면 왜 시장은 아직 모르는가?",
+      "node_type": "judgment",
+      "value_type": "enum",
+      "enum_options": [
+        "시간축",
+        "정보",
+        "심리",
+        "구조"
+      ],
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A3": {
+      "id": "A3",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "밸류에이션 & 시나리오",
+      "question": "확률·목표가로 숫자화된 세 시나리오",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.1": {
+      "id": "A3.1",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Bear",
+      "question": "무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가) — 자동 초안은 시나리오를 만들지 않는다: 콘솔 「시나리오 후보 넣기」 로 증권사 자체 후보를 고르거나 직접 입력",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A3.2": {
+      "id": "A3.2",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Base",
+      "question": "논제가 그대로 실현되면 (가정·확률·목표가) — 자동 초안은 시나리오를 만들지 않는다: 콘솔 「시나리오 후보 넣기」 로 증권사 자체 후보를 고르거나 직접 입력",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A3.3": {
+      "id": "A3.3",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "Bull",
+      "question": "무엇이 추가로 잘되면 (가정·확률·목표가) — 자동 초안은 시나리오를 만들지 않는다: 콘솔 「시나리오 후보 넣기」 로 증권사 자체 후보를 고르거나 직접 입력",
+      "node_type": "estimate",
+      "value_type": "price",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A3.4": {
+      "id": "A3.4",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "기대수익률",
+      "question": "",
+      "node_type": "computed",
+      "value_type": "percent",
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "formula": "sum(p_i * (TP_i / P0 - 1))",
+      "meta_only": false
+    },
+    "A3.5": {
+      "id": "A3.5",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "손익비",
+      "question": "",
+      "node_type": "computed",
+      "value_type": "number",
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "formula": "((TP_base - P0) / P0) / ((P0 - TP_bear) / P0)",
+      "meta_only": false
+    },
+    "A3.6": {
+      "id": "A3.6",
+      "map": "NEW",
+      "parent": "A3",
+      "label": "밸류 근거",
+      "question": "목표주가 3건 평균 516,667 · 중앙 530,000 · 460,000~560,000 · 의견 BUY 3 · 리비전 유지",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.1": {
+      "id": "A3.6.1",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "역사 밴드 위치",
+      "question": "현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?",
+      "node_type": "fact",
+      "value_type": "percent",
+      "unit": "%ile",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.2": {
+      "id": "A3.6.2",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "피어 비교",
+      "question": "피어 대비 프리미엄/디스카운트와 그 정당성은?",
+      "node_type": "fact",
+      "value": "10월 말에 확정 될 3분기 배당뿐만 아니라 추가적인 주주 환원도 주가 상승에 긍정적 변수가 될 것 으로 기대한다.",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A3.6.3": {
+      "id": "A3.6.3",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "EPS 리비전 방향",
+      "question": "리비전 사유 (리포트 인용): IBK투자증권: 2026년 영업이익 추정치를 356.9조원에서 368.3조원으로 3.2% 상향했으며 DS 부문 상향이 주된 요인이다 / 유진투자증권: 2026년·2027년 영업이익 추정치를 373.0조원, 633.2조원으로 상향했으며 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LSI·MX 부담을 상",
+      "node_type": "fact",
+      "value": "flat",
+      "value_type": "enum",
+      "enum_options": [
+        "up",
+        "flat",
+        "down"
+      ],
+      "source": {
+        "name": "직전 목표가 대비 상향/하향 건수 (리포트 3건)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A4": {
+      "id": "A4",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "리스크 & 무효화 조건",
+      "question": "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.1": {
+      "id": "A4.1",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 1",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text} | 인용: MX/NW는 2.0조원의 영업적자를 기록한 것으로 추정한다. 이는 갤럭시 Z 폴드8 등 신제품 흥행으로 판매량은 양호했으나, 메모리 가격 급등에도 제 품 가격 인상 폭을 제한하며 시장 점유율 확대에 주력하는 전략을 펼친 결 과다. 지속되는 메모리 가격…",
+      "node_type": "estimate",
+      "value": {
+        "probability": null,
+        "impact_pct": null,
+        "text": "MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조원까지 확대된다 (유진투자증권)"
+      },
+      "value_type": "range",
+      "source": {
+        "name": "유진투자증권 2026-10-12 p.1 · hk_96597:c5",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96597.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A4.2": {
+      "id": "A4.2",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 2",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text} | 인용: 테일러 팹 가동에 따른 감가상각비 증가 등으로 1.5조원의 영업적 자를 기록한 것으로 보인다. 신공장 가동 확대에 따른 비용 증가로 당분간 유의미한 적자 폭 축소는 쉽지 않을 전망이다",
+      "node_type": "estimate",
+      "value": {
+        "probability": null,
+        "impact_pct": null,
+        "text": "Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다 (유진투자증권)"
+      },
+      "value_type": "range",
+      "source": {
+        "name": "유진투자증권 2026-10-12 p.1 · hk_96597:c4",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96597.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A4.3": {
+      "id": "A4.3",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "하락 리스크 3",
+      "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text} | 인용: 환율도 메모리 호황을 막진 못했다",
+      "node_type": "estimate",
+      "value": {
+        "probability": null,
+        "impact_pct": null,
+        "text": "환율 하락이 메모리 호황을 막지 못했다 (환율은 실적 역풍이나 메모리 가격이 이를 압도) (IBK투자증권)"
+      },
+      "value_type": "range",
+      "source": {
+        "name": "IBK투자증권 2026-10-12 p.1 · hk_96588:c11",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96588.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft",
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A4.4": {
+      "id": "A4.4",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "Kill criteria",
+      "question": "어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나? (가격이 아닌 사실 기준)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.4.1": {
+      "id": "A4.4.1",
+      "map": "NEW",
+      "parent": "A4.4",
+      "label": "무효화 조건 1",
+      "question": "사실 기준 조건식 → exit | 예시(미검증): 분기 영업이익 (3Q26) 이 지금 수준 53.75조원 에서 20% 악화되면 폐기",
+      "node_type": "rule",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "pending"
+      ],
+      "meta_only": false
+    },
+    "A4.5": {
+      "id": "A4.5",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "조기 경보 지표",
+      "question": "그 사실을 미리 알려주는 지표는? 어디서, 얼마나 자주 확인?",
+      "node_type": "fact",
+      "value": "분기 실적 발표 (잠정 → 확정) · 컨센서스 추이 · 분기 실적 발표 · 월별 수출 데이터 · 컨센서스 EPS 리비전 (월 1회)",
+      "value_type": "text",
+      "source": {
+        "name": "섹터 KPI 사전 (자동)",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A5": {
+      "id": "A5",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "촉매 & 타임라인",
+      "question": "날짜 박힌 이벤트와 진입 타이밍",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.1": {
+      "id": "A5.1",
+      "map": "NEW",
+      "parent": "A5",
+      "label": "촉매 이벤트",
+      "question": "날짜가 박힌 사건만 (실적발표·정책·신제품·락업·계약)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2": {
+      "id": "A5.2",
+      "map": "NEW",
+      "parent": "A5",
+      "label": "수급/기술",
+      "question": "진입 타이밍용 — 프로파일 가중치",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.2,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.1": {
+      "id": "A5.2.1",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "추세",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "enum",
+      "enum_options": [
+        "상승",
+        "횡보",
+        "하락"
+      ],
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.2": {
+      "id": "A5.2.2",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "거래량 (20일 평균 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "number",
+      "unit": "배",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.3": {
+      "id": "A5.2.3",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "외국인/기관 순매수 (20일 누적)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "number",
+      "unit": "억원",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A5.2.4": {
+      "id": "A5.2.4",
+      "map": "NEW",
+      "parent": "A5.2",
+      "label": "공매도/신용잔고 (유통주식 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6": {
+      "id": "A6",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "실행 계획",
+      "question": "비중·진입·손절·익절·판단",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.1": {
+      "id": "A6.1",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "목표 비중",
+      "question": "제안식 → 확정. {suggested, confirmed, reason}",
+      "node_type": "judgment",
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2": {
+      "id": "A6.2",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "진입 계획",
+      "question": "어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}",
+      "node_type": "judgment",
+      "value_type": "range",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.3": {
+      "id": "A6.3",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "손절 규칙",
+      "question": "가격 기준 하나 + 사실 기준 하나",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "drawdown > 0.25",
+        "action": "review",
+        "escalate_to": "YELLOW",
+        "status": "armed",
+        "note": "고점 대비 −25% 면 논제 재검토 — 기본값 (초안 — 논제의 주인이 확정할 것)"
+      }
+    },
+    "A6.4": {
+      "id": "A6.4",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "익절/축소 규칙",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.5": {
+      "id": "A6.5",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "판단",
+      "question": "BUY / WATCH / PASS",
+      "node_type": "judgment",
+      "value": "WATCH",
+      "value_type": "enum",
+      "enum_options": [
+        "BUY",
+        "WATCH",
+        "PASS"
+      ],
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A7": {
+      "id": "A7",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "모니터링 & 복기",
+      "question": "",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.1": {
+      "id": "A7.1",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "체크포인트",
+      "question": "",
+      "node_type": "computed",
+      "value": [
+        "2027-01-05",
+        "2027-01-08",
+        "2027-02-14",
+        "2027-04-05"
+      ],
+      "value_type": "date",
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sorted(A1.x.next_check ∪ A5.1.x.date)",
+      "meta_only": false
+    },
+    "A7.2": {
+      "id": "A7.2",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "업데이트 로그",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.3": {
+      "id": "A7.3",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "사후 복기",
+      "question": "매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8": {
+      "id": "A8",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "근거 자료",
+      "question": "리포트: IBK투자증권 · 2026-10-12 · TP 460,000 · BUY (삼성전자_96588.pdf) / 유진투자증권 · 2026-10-12 · TP 560,000 · BUY (삼성전자_96597.pdf) / DS투자증권 · 2026-10-08 · TP 530,000 · BUY (삼성전자_96634.pdf)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.6,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1": {
+      "id": "A8.1",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "기업",
+      "question": "리포트 3건에서 규칙으로 뽑은 문장 — 원문 확인 필요",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.1": {
+      "id": "A8.1.1",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "비즈니스 모델",
+      "question": "무엇을 팔아 어떻게 돈을 버나?",
+      "node_type": "fact",
+      "value": "MX 사업부의 경우 원가 부담 증가로 2분기 대비 적자폭이 확대될 것으 로 예상했으나 오히려 적자폭이 축소된 것으로 파악한다.",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A8.1.2": {
+      "id": "A8.1.2",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "경쟁우위",
+      "question": "마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?",
+      "node_type": "fact",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1.3": {
+      "id": "A8.1.3",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "경영진 / 지배구조 / 주주환원",
+      "question": "자본배분 이력, 대주주 리스크, 배당·자사주",
+      "node_type": "fact",
+      "value": "10월 말에 확정 될 3분기 배당뿐만 아니라 추가적인 주주 환원도 주가 상승에 긍정적 변수가 될 것 으로 기대한다.",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A8.1.4": {
+      "id": "A8.1.4",
+      "map": "NEW",
+      "parent": "A8.1",
+      "label": "재무 (성장·수익·현금·건전성)",
+      "question": "매출/이익 성장률, 마진, FCF, 부채비율",
+      "node_type": "fact",
+      "value": "2025A 매출 333.6조원 · 영업이익 43.6조원 (OPM 13.1%) / 2027E 컨센서스 매출 971.5조원 · 영업이익 605.6조원 (+1289%) / 2027E PER 3.2배 · PBR 1.60배 · ROE 55.1% — 리포트 3건 평균 (표 원단위 십억원×3)",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A8.2": {
+      "id": "A8.2",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "산업 → 섹터 맵",
+      "question": "S.<시장>-<섹터> 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "S.KR-SEMI"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.3": {
+      "id": "A8.3",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "매크로 → 매크로 맵",
+      "question": "M0 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "M0"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A3.6.4": {
+      "id": "A3.6.4",
+      "map": "NEW",
+      "parent": "A3.6",
+      "label": "증권사 목표가 분포",
+      "question": "목표가 분포는 시나리오가 아니다 — 가장 보수적/낙관적 증권사와 그 간격",
+      "node_type": "fact",
+      "value": "목표가 3건 460,000~560,000 · 중앙 530,000 · 평균 516,667 · 분산 19% · 현재가 대비 평균 +97% | IBK투자증권 460,000 (+76%), DS투자증권 530,000 (+102%), 유진투자증권 560,000 (+114%) · 참고: 52주 저가 90,200 (-66%), 현재가 −40% 157,200",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+        "url": "data/reports/삼성전자",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A5.1.1": {
+      "id": "A5.1.1",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "내년 1월 4Q26 실적발표회에서는 추가 주주환원 발…",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-05",
+        "fact": "내년 1월 4Q26 실적발표회에서는 추가 주주환원 발표와 차기 3개년 정책 발표를 통해 주주환원에 대한 시장 기대치를 충족시킬 수 있을 것으로 기대 한다. (리포트)",
+        "affects": [],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+          "url": "data/reports/삼성전자",
+          "retrieved_at": "2026-10-12"
+        }
+      }
+    },
+    "A5.1.2": {
+      "id": "A5.1.2",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "4Q26 잠정실적 발표 (예정일 추정)",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-08",
+        "fact": "4Q26 잠정실적 발표 (예정일 추정)",
+        "affects": [
+          "A1.1"
+        ],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "H",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-21"
+        }
+      }
+    },
+    "A5.1.3": {
+      "id": "A5.1.3",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "4Q26 확정실적·사업보고서 (예정일 추정)",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-02-14",
+        "fact": "4Q26 확정실적·사업보고서 (예정일 추정)",
+        "affects": [
+          "A1.1"
+        ],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "통상 일정 기준 추정",
+          "url": "",
+          "retrieved_at": "2026-10-21"
+        }
+      }
+    },
+    "A5.1.4": {
+      "id": "A5.1.4",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "특히 연초 모바일향 가격 인상과 HBM 연간 계약 갱…",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-04-05",
+        "fact": "특히 연초 모바일향 가격 인상과 HBM 연간 계약 갱신 이 맞물리는 1Q27은 가격 가정의 상향 여지가 큰 구간이다. (리포트)",
+        "affects": [],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "증권사 리포트 3건 (DS투자증권, IBK투자증권, 유진투자증권)",
+          "url": "data/reports/삼성전자",
+          "retrieved_at": "2026-10-12"
+        }
+      }
+    },
+    "A2.1.1": {
+      "id": "A2.1.1",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[공통 견해] DRAM 가격",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[공통 견해] 긍정 3곳 · op 3Q26 107.4~107.4 (0%) — 2026년·2027년 영업이익 추정치를 373.0조원, 633.2조원으로 상향했으며 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LS\n증권사: DS투자↑ IBK투↑ 유진투자↑\n메모리 가격 상승 → 영업이익: DS투자↑ IBK투↑ 유진투자↑ — 3Q26 잠정 영업이익 107.4조원(OPM 55%)은 당사 추정치 104조원을 상회하고 컨센서스 106.7조원에 부합했다\nDS 영업이익 상향 → 연간 추정치: DS투자– IBK투↑ 유진투자– — 2026년 영업이익 추정치를 356.9조원에서 368.3조원으로 3.2% 상향했으며 DS 부문 상향이 주된 요인이다\nASP 상승 → 메모리 영업이익: DS투자– IBK투– 유진투자↑ — 범용 DRAM과 NAND ASP가 각각 +21%, +22% qoq 상승해 기존 가정(+18%, +18%)을 넘었다\n가격 상승 지속 → 분기 이익 증가: DS투자– IBK투– 유진투자↑ — 4Q26 영업이익 118.8조원, 1Q27 138.6조원으로 전망한다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 dram_price · claims hk_96588:c1,hk_96588:c9,hk_96597:c1,hk_96597:c2,hk_96597:c6,hk_96597:c7",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.2": {
+      "id": "A2.1.2",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[독립 주장] 밸류에이션 배수",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[독립 주장] 긍정 1곳 · target_price  460,000.0~560,000.0 (19%) — 투자의견 매수, 목표주가 53만원을 유지한다\n증권사: DS투자· IBK투· 유진투자↑\n기타: DS투자· IBK투· 유진투자· — 투자의견 매수, 목표주가 53만원을 유지한다\n이익 지속성 증명 → 리레이팅: DS투자– IBK투– 유진투자↑ — 시장 초점이 가격 모멘텀에서 이익 수준의 지속성으로 옮겨가며, 분기 실적과 주주환원 확대가 우려를 순차적으로 해소한다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 valuation_multiple · claims hk_96588:c8,hk_96597:c10,hk_96597:c11,hk_96634:c10",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.3": {
+      "id": "A2.1.3",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[핵심 이견] 모바일·세트 수요",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[핵심 이견] 엇갈림 1곳 · 반대 2곳 — MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조원까지 확대된다\n증권사: DS투자↑ IBK투↓ 유진투자↓\n세트 사업부 적자 확대 → 영업이익: DS투자– IBK투↓ 유진투자– — DS와 디스플레이는 이전 추정치를 상회했고 MX·VD/가전은 적자 규모가 커지며 추정치를 하회했다\n메모리 원가 상승·가격 전가 제한 → MX 적자 확대: DS투자– IBK투– 유진투자↓ — MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조\n믹스 개선 → MX 적자 축소: DS투자↑ IBK투– 유진투자– — MX 사업부는 원가 부담에도 폴더블 신제품 판매 호조와 중저가 부진에 따른 믹스 개선으로 적자폭이 오히려 축소되었다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 mobile_demand · claims hk_96588:c2,hk_96597:c5,hk_96634:c5",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.4": {
+      "id": "A2.1.4",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[공통 견해] HBM",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[공통 견해] 긍정 2곳 · 침묵 1곳 — HBM은 HBM4 중심으로 출하가 확대되어 B/G +25% qoq, ASP +13% qoq를 기록했다\n증권사: DS투자↑ IBK투– 유진투자↑\nHBM4 출하 확대 → 메모리 이익: DS투자– IBK투– 유진투자↑ — HBM은 HBM4 중심으로 출하가 확대되어 B/G +25% qoq, ASP +13% qoq를 기록했다\nHBM4 집중·출하 여력 → 4Q 실적: DS투자↑ IBK투– 유진투자– — 3분기에 HBM4 출하 확대에 집중하며 출하 B/G를 크게 높이지 않아 4분기 실적 기대감으로 이어진다\nHBM 경쟁력 회복 → HBM 매출: DS투자↑ IBK투– 유진투자– — 3분기 HBM 매출은 2분기 대비 2배 수준으로 증가했으며 HBM 경쟁력이 빠르게 회복되고 있다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 hbm · claims hk_96597:c3,hk_96634:c8,hk_96634:c9",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.5": {
+      "id": "A2.1.5",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[공통 견해] 파운드리",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[공통 견해] 부정 2곳 · 침묵 1곳 — Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다\n증권사: DS투자– IBK투↓ 유진투자↓\n가동률 개선 지연 → 비메모리 적자: DS투자– IBK투↓ 유진투자– — 비메모리 적자는 예상보다 커졌으며 신규 수주에 따른 가동률 개선이 아직 본격화되지 않았다\n신공장 감가상각 → 비메모리 적자 지속: DS투자– IBK투– 유진투자↓ — Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 foundry · claims hk_96588:c5,hk_96597:c4",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.6": {
+      "id": "A2.1.6",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[공통 견해] 주주환원",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[공통 견해] 긍정 2곳 · 침묵 1곳 — 내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기 3개년 정책 발표가 시장 기대를 충족할 것이다\n증권사: DS투자– IBK투↑ 유진투자↑\n주주환원 확대 → 주가: DS투자– IBK투↑ 유진투자– — 10월 말 확정될 3분기 배당과 추가 주주환원이 주가에 긍정적 변수가 될 것이다\n주주환원 정책 발표 → 밸류에이션: DS투자– IBK투– 유진투자↑ — 내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기 3개년 정책 발표가 시장 기대를 충족할 것이다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 shareholder_return · claims hk_96588:c7,hk_96597:c9",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.7": {
+      "id": "A2.1.7",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[공통 견해] 환율",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[공통 견해] 부정 2곳 · 침묵 1곳 — 환율 하락이 메모리 호황을 막지 못했다 (환율은 실적 역풍이나 메모리 가격이 이를 압도)\n증권사: DS투자↓ IBK투↓ 유진투자–\n환율 하락 → 실적 역풍 (메모리 가격이 상쇄): DS투자– IBK투↓ 유진투자– — 환율 하락이 메모리 호황을 막지 못했다 (환율은 실적 역풍이나 메모리 가격이 이를 압도)\n환율 하락·DX 원가 부담 → 영업이익 역풍: DS투자↓ IBK투– 유진투자– — 원/달러 환율 하락과 DX 사업부 비용·원가 부담 증가가 실적에 부정적으로 작용했다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 fx · claims hk_96588:c11,hk_96634:c2",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A2.1.8": {
+      "id": "A2.1.8",
+      "map": "NEW",
+      "parent": "A2.1",
+      "label": "[독립 주장] NAND 가격",
+      "question": "리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다",
+      "node_type": "estimate",
+      "value": "[독립 주장] 부정 1곳 · 침묵 2곳 — NAND는 물량이 예상보다 적고 가격도 예상 대비 하락한 것으로 수정했다\n증권사: DS투자– IBK투↓ 유진투자–\nNAND 물량·가격 → 영업이익: DS투자– IBK투↓ 유진투자– — NAND는 물량이 예상보다 적고 가격도 예상 대비 하락한 것으로 수정했다",
+      "value_type": "text",
+      "source": {
+        "name": "리포트 쟁점 nand_price · claims hk_96588:c3",
+        "url": "",
+        "retrieved_at": "2026-10-21"
+      },
+      "as_of": "2026-10-21",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A5.1.5": {
+      "id": "A5.1.5",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "향후 추정치 상향의 핵심은 4Q26~1Q27 ASP 전",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-04-05",
+        "fact": "향후 추정치 상향의 핵심은 4Q26~1Q27 ASP 전망의 추가 상향이며, 모바일 가격 인상과 HBM 연간 계약 갱신이 맞물리는 1Q27이 상향 여지가 크다 (유진투자증권)",
+        "affects": [],
+        "direction": "강화",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "유진투자증권 2026-10-12 p.1 · hk_96597:c8",
+          "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96597.pdf",
+          "retrieved_at": "2026-10-12"
+        }
+      }
+    },
+    "A5.1.6": {
+      "id": "A5.1.6",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-05",
+        "fact": "내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기 3개년 정책 발표가 시장 기대를 충족할 것이다 (유진투자증권)",
+        "affects": [],
+        "direction": "강화",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "유진투자증권 2026-10-12 p.1 · hk_96597:c9",
+          "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96597.pdf",
+          "retrieved_at": "2026-10-12"
+        }
+      }
+    },
+    "A8.4": {
+      "id": "A8.4",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "리포트별 주장 (Claim)",
+      "question": "verified Claim 만 — 인용·페이지로 원문까지 되짚는다",
+      "node_type": "fact",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.4.1": {
+      "id": "A8.4.1",
+      "map": "NEW",
+      "parent": "A8.4",
+      "label": "IBK투자증권 2026-10-12",
+      "question": "",
+      "node_type": "fact",
+      "value": "p.1 [thesis] 삼성전자 26년 3분기 잠정 매출액 195조원, 영업이익 107.4조원으로 영업이익은 이전 전망 대비 증가했다\np.1 [business,risk] DS와 디스플레이는 이전 추정치를 상회했고 MX·VD/가전은 적자 규모가 커지며 추정치를 하회했다\np.1 [risk] NAND는 물량이 예상보다 적고 가격도 예상 대비 하락한 것으로 수정했다\np.1 [thesis] 메모리 가격 상승이 시장 예상을 상회했으며 HBM 비중 상승과 모바일 가격 움직임이 강하게 작용했다\np.1 [risk] 비메모리 적자는 예상보다 커졌으며 신규 수주에 따른 가동률 개선이 아직 본격화되지 않았다\np.1 [thesis,valuation] AI 투자 규모 확대, 계약 구속력 강화, 영업이익률 개선 진행, 현저한 저평가를 근거로 매수 의견을 유지한다\np.1 [catalyst,shareholder] 10월 말 확정될 3분기 배당과 추가 주주환원이 주가에 긍정적 변수가 될 것이다\np.1 [valuation] 목표주가 460,000원을 유지한다\np.2 [revision_reason,thesis] 2026년 영업이익 추정치를 356.9조원에서 368.3조원으로 3.2% 상향했으며 DS 부문 상향이 주된 요인이다\np.1 [thesis,risk] 환율 하락이 메모리 호황을 막지 못했다 (환율은 실적 역풍이나 메모리 가격이 이를 압도)",
+      "value_type": "text",
+      "source": {
+        "name": "IBK투자증권 리포트 · Claim 10/11 (llm)",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96588.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.4.2": {
+      "id": "A8.4.2",
+      "map": "NEW",
+      "parent": "A8.4",
+      "label": "유진투자증권 2026-10-12",
+      "question": "",
+      "node_type": "fact",
+      "value": "p.1 [thesis] 3Q26 잠정 영업이익 107.4조원은 당사 추정치 103.6조원과 컨센서스 106.7조원을 상회했다\np.1 [thesis] 범용 DRAM과 NAND ASP가 각각 +21%, +22% qoq 상승해 기존 가정(+18%, +18%)을 넘었다\np.1 [thesis] HBM은 HBM4 중심으로 출하가 확대되어 B/G +25% qoq, ASP +13% qoq를 기록했다\np.1 [risk] Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다\np.1 [risk] MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조원까지 확대된다\np.1 [thesis] 4Q26 영업이익 118.8조원, 1Q27 138.6조원으로 전망한다\np.1 [revision_reason,thesis] 2026년·2027년 영업이익 추정치를 373.0조원, 633.2조원으로 상향했으며 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LSI·MX 부담을 상쇄한다\np.1 [catalyst,thesis] 향후 추정치 상향의 핵심은 4Q26~1Q27 ASP 전망의 추가 상향이며, 모바일 가격 인상과 HBM 연간 계약 갱신이 맞물리는 1Q27이 상향 여지가 크다\np.1 [catalyst,shareholder] 내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기 3개년 정책 발표가 시장 기대를 충족할 것이다\np.1 [thesis,valuation] 시장 초점이 가격 모멘텀에서 이익 수준의 지속성으로 옮겨가며, 분기 실적과 주주환원 확대가 우려를 순차적으로 해소한다\np.1 [valuation] 목표주가 560,000원을 유지한다",
+      "value_type": "text",
+      "source": {
+        "name": "유진투자증권 리포트 · Claim 11/11 (llm)",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96597.pdf",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.4.3": {
+      "id": "A8.4.3",
+      "map": "NEW",
+      "parent": "A8.4",
+      "label": "DS투자증권 2026-10-08",
+      "question": "",
+      "node_type": "fact",
+      "value": "p.1 [thesis] 3Q26 잠정 영업이익 107.4조원(OPM 55%)은 당사 추정치 104조원을 상회하고 컨센서스 106.7조원에 부합했다\np.1 [risk] 원/달러 환율 하락과 DX 사업부 비용·원가 부담 증가가 실적에 부정적으로 작용했다\np.1 [business] 3Q26 DS 부문 영업이익 107.6조원은 DRAM 83.8조원(OPM 83%), NAND 25.7조원(OPM 64%), LSI/파운드리 -1.9조원으로 구성된다\np.1 [thesis] 3Q26 DRAM ASP는 19%, NAND ASP는 13% 상승했으며 B/G는 각각 4%다\np.1 [business] MX 사업부는 원가 부담에도 폴더블 신제품 판매 호조와 중저가 부진에 따른 믹스 개선으로 적자폭이 오히려 축소되었다\np.1 [risk,business] 가전은 비수기 진입과 수익성 제고를 위한 사업부 재편으로 2분기 대비 적자폭이 확대되었다\np.1 [thesis] DRAM 매출이 사상 처음으로 분기 100조원을 상회한 것으로 추정한다\np.1 [thesis,catalyst] 3분기에 HBM4 출하 확대에 집중하며 출하 B/G를 크게 높이지 않아 4분기 실적 기대감으로 이어진다\np.1 [thesis] 3분기 HBM 매출은 2분기 대비 2배 수준으로 증가했으며 HBM 경쟁력이 빠르게 회복되고 있다\np.1 [valuation] 투자의견 매수, 목표주가 53만원을 유지한다",
+      "value_type": "text",
+      "source": {
+        "name": "DS투자증권 리포트 · Claim 10/10 (llm)",
+        "url": "/home/claude/kstock/data/reports/삼성전자/삼성전자_96634.pdf",
+        "retrieved_at": "2026-10-08"
+      },
+      "as_of": "2026-10-21",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    }
+  },
+  "meta": {
+    "draft": {
+      "tp_distribution": {
+        "n": 3,
+        "min": 460000.0,
+        "max": 560000.0,
+        "median": 530000.0,
+        "mean": 516666.6666666667,
+        "spread": 0.1887,
+        "by_broker": {
+          "IBK투자증권": 460000.0,
+          "유진투자증권": 560000.0,
+          "DS투자증권": 530000.0
+        }
+      },
+      "method": "reports+rules",
+      "generated_at": "2026-10-21",
+      "report_as_of": "2026-10-12",
+      "reports": [
+        {
+          "file": "삼성전자_96588.pdf",
+          "broker": "IBK투자증권",
+          "date": "2026-10-12",
+          "opinion": "BUY",
+          "target_price": 460000.0,
+          "prev_target_price": 460000.0
+        },
+        {
+          "file": "삼성전자_96597.pdf",
+          "broker": "유진투자증권",
+          "date": "2026-10-12",
+          "opinion": "BUY",
+          "target_price": 560000.0,
+          "prev_target_price": 560000.0
+        },
+        {
+          "file": "삼성전자_96634.pdf",
+          "broker": "DS투자증권",
+          "date": "2026-10-08",
+          "opinion": "BUY",
+          "target_price": 530000.0,
+          "prev_target_price": 530000.0
+        }
+      ],
+      "consensus": {
+        "n": 3,
+        "mean": 516666.6666666667,
+        "median": 530000.0,
+        "min": 460000.0,
+        "max": 560000.0,
+        "revision": "flat"
+      },
+      "anchors": {},
+      "sector": "KR-SEMI",
+      "price_source": "유진투자증권 2026-10-12 리포트 현재주가 (2026-10-12)",
+      "notes": [
+        "섹터 추정 반도체 (점수 112)",
+        "현재가 262,000 (2026-10-12, 리포트 현재주가)",
+        "현재가 기준일이 작성일(2026-10-21)보다 9일 전 — 작성 시점 값이 아니다. 실시간 조회를 켜거나 A0.4 를 갱신하라",
+        "시나리오: 리포트에 Bull/Base/Bear 제시가 없어 A3.1~3 을 비워 둔다 (증권사 자체 후보 3개는 meta.draft.scenario_candidates)",
+        "A2.1 내재 가정은 비워 둔다 — 증권사 전망(관측) 은 A2.1 의 자식 쟁점과 질문에만 적는다",
+        "Claim: 삼성전자_96588.pdf 저장본 사용 (llm, verified 10/11)",
+        "Claim: 삼성전자_96597.pdf 저장본 사용 (llm, verified 11/11)",
+        "Claim: 삼성전자_96634.pdf 저장본 사용 (llm, verified 10/10)",
+        "쟁점: Claim 31 → 테마 11 · 메커니즘 27 · 증권사 3",
+        "A2.1 아래 쟁점 8개 (공통 5 · 이견 1)",
+        "A3.6.3 리비전 사유 2건 (Claim)",
+        "A4 리스크 3건 ← Claim (확률·영향은 사람이)",
+        "A4.4 Kill: 근거 부족 — 질문으로 남김",
+        "A5.1 촉매 2건 ← Claim"
+      ],
+      "warnings": [
+        "순이익 기준이 섞여 있다: 지배 2, 전체 1 — 지배 기준만 평균한다"
+      ],
+      "scenario_candidates": [
+        {
+          "broker": "IBK투자증권",
+          "report_date": "2026-10-12",
+          "kind": "목표가",
+          "name": null,
+          "target_price": 460000.0,
+          "method": "",
+          "multiple": null,
+          "base_year": null,
+          "base_value": null,
+          "assumptions": [
+            "IBK투자증권 목표주가"
+          ],
+          "source_file": "삼성전자_96588.pdf"
+        },
+        {
+          "broker": "유진투자증권",
+          "report_date": "2026-10-12",
+          "kind": "목표가",
+          "name": null,
+          "target_price": 560000.0,
+          "method": "",
+          "multiple": null,
+          "base_year": null,
+          "base_value": null,
+          "assumptions": [
+            "유진투자증권 목표주가"
+          ],
+          "source_file": "삼성전자_96597.pdf"
+        },
+        {
+          "broker": "DS투자증권",
+          "report_date": "2026-10-08",
+          "kind": "목표가",
+          "name": null,
+          "target_price": 530000.0,
+          "method": "RIM",
+          "multiple": null,
+          "base_year": null,
+          "base_value": null,
+          "assumptions": [
+            "DS투자증권 목표주가 (RIM)"
+          ],
+          "source_file": "삼성전자_96634.pdf"
+        }
+      ],
+      "draft_status": "미완성",
+      "approval_status": "미승인",
+      "quality": "llm",
+      "excluded_reports": {},
+      "pre_earnings": {},
+      "price": {
+        "value": 262000.0,
+        "as_of": "2026-10-12",
+        "kind": "report",
+        "age_days": 9,
+        "candidates": [
+          {
+            "kind": "report",
+            "as_of": "2026-10-12",
+            "value": 262000.0
+          }
+        ]
+      },
+      "claims": {
+        "hk_96588": {
+          "broker": "IBK투자증권",
+          "n": 11,
+          "verified": 10,
+          "review": 1
+        },
+        "hk_96597": {
+          "broker": "유진투자증권",
+          "n": 11,
+          "verified": 11,
+          "review": 0
+        },
+        "hk_96634": {
+          "broker": "DS투자증권",
+          "n": 10,
+          "verified": 10,
+          "review": 0
+        }
+      },
+      "issues": [
+        {
+          "id": "dram_price",
+          "label": "DRAM 가격",
+          "display": "공통 견해",
+          "direction": "positive",
+          "brokers": 3
+        },
+        {
+          "id": "valuation_multiple",
+          "label": "밸류에이션 배수",
+          "display": "독립 주장",
+          "direction": "positive",
+          "brokers": 3
+        },
+        {
+          "id": "mobile_demand",
+          "label": "모바일·세트 수요",
+          "display": "핵심 이견",
+          "direction": "mixed",
+          "brokers": 3
+        },
+        {
+          "id": "hbm",
+          "label": "HBM",
+          "display": "공통 견해",
+          "direction": "positive",
+          "brokers": 2
+        },
+        {
+          "id": "foundry",
+          "label": "파운드리",
+          "display": "공통 견해",
+          "direction": "negative",
+          "brokers": 2
+        },
+        {
+          "id": "shareholder_return",
+          "label": "주주환원",
+          "display": "공통 견해",
+          "direction": "positive",
+          "brokers": 2
+        },
+        {
+          "id": "fx",
+          "label": "환율",
+          "display": "공통 견해",
+          "direction": "negative",
+          "brokers": 2
+        },
+        {
+          "id": "nand_price",
+          "label": "NAND 가격",
+          "display": "독립 주장",
+          "direction": "negative",
+          "brokers": 1
+        },
+        {
+          "id": "hbm_mix",
+          "label": "HBM 비중",
+          "display": "독립 주장",
+          "direction": "positive",
+          "brokers": 1
+        },
+        {
+          "id": "ai_demand",
+          "label": "AI 수요",
+          "display": "독립 주장",
+          "direction": "positive",
+          "brokers": 1
+        },
+        {
+          "id": "cost",
+          "label": "비용",
+          "display": "독립 주장",
+          "direction": "negative",
+          "brokers": 1
+        }
+      ],
+      "llm": true,
+      "llm_requested": false,
+      "db": false,
+      "flags": [
+        "A1.3: 컨센서스/현재 비율 11.8 — 단위가 다르거나 분기/연간이 섞였을 수 있다",
+        "A2.1: 컨센서스 편향 — 리포트 의견이 매수 일색",
+        "A0.4: 현재가 기준일 2026-10-12 가 작성일보다 9일 전 — 갱신 필요"
+      ],
+      "errors": [],
+      "pending": [
+        "[ERR ] A1.1: driver.my_estimate 가 없다",
+        "[ERR ] A1.2: driver.my_estimate 가 없다",
+        "[ERR ] A1.3: driver.my_estimate 가 없다",
+        "[ERR ] A3: 시나리오 누락: ['Base', 'Bear', 'Bull']",
+        "[ERR ] A4.4: 사실 기준 Kill criteria 가 1개 이상 필요"
+      ]
+    }
+  }
+}

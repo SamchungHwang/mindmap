@@ -74,3 +74,57 @@ class TestDotenv(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestShadowed(unittest.TestCase):
+    def test_shell_variable_shadows_dotenv(self):
+        E = envmod
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / ".env"
+            p.write_text("ANTHROPIC_API_KEY=sk-ant-usr-" + "n" * 95 + "\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-api03-" + "o" * 95}):
+                E.load_dotenv(p, force=True)
+                self.assertTrue(E.shadowed("ANTHROPIC_API_KEY"))
+                d = E.describe("ANTHROPIC_API_KEY")
+                self.assertIn("셸 변수가 우선이라 안 읽혔다", d)            # 충돌을 말한다
+                self.assertIn("sk-ant-usr-", d)                          # .env 값의 계열만
+                self.assertNotIn("n" * 20, d)                            # 값은 안 보인다
+            with mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("ANTHROPIC_API_KEY", None)
+                E.load_dotenv(p, force=True)
+                self.assertFalse(E.shadowed("ANTHROPIC_API_KEY"))
+                self.assertIn(".env 에서 읽음", E.describe("ANTHROPIC_API_KEY"))
+            E.load_dotenv(force=True)
+
+
+class TestPreferDotenv(unittest.TestCase):
+    """v4 부록: .env 의 KSTOCK_PREFER_DOTENV=1 은 셸 변수를 덮는다; describe 의 힌트에 출처가 들어간다 ({key} 미치환 버그 수정)."""
+
+    def test_prefer_dotenv_overrides_shell(self):
+        import tempfile
+
+        from kstock import env as E
+
+        with tempfile.TemporaryDirectory() as t:
+            p = Path(t) / ".env"
+            p.write_text("ANTHROPIC_API_KEY=sk-ant-usr-" + "b" * 90 + "\nKSTOCK_PREFER_DOTENV=1\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-api03-" + "a" * 90}, clear=False):
+                E.load_dotenv(p, force=True)
+                self.assertTrue(os.environ["ANTHROPIC_API_KEY"].startswith("sk-ant-usr-"))
+                self.assertTrue(E.overrode("ANTHROPIC_API_KEY"))
+                self.assertFalse(E.shadowed("ANTHROPIC_API_KEY"))
+                d = E.describe("ANTHROPIC_API_KEY")
+                self.assertIn("KSTOCK_PREFER_DOTENV", d)
+                self.assertNotIn("sk-ant-usr-b", d)                      # 값은 안 찍힌다
+            # 기본(셸 우선) 에서는 가려지고, 힌트에 {key} 가 아니라 이름이 들어간다
+            p.write_text("ANTHROPIC_API_KEY=sk-ant-usr-" + "b" * 90 + "\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "sk-ant-api03-" + "a" * 90}, clear=False):
+                E.load_dotenv(p, force=True)
+                self.assertTrue(E.shadowed("ANTHROPIC_API_KEY"))
+                d = E.describe("ANTHROPIC_API_KEY")
+                self.assertNotIn("{key}", d)
+                self.assertIn("ANTHROPIC_API_KEY 를 지우거나", d)
+                self.assertIn("KSTOCK_PREFER_DOTENV=1", d)
+                hint = E.shell_var_fix_hint("ANTHROPIC_API_KEY")
+                self.assertIn("Remove-Item Env:ANTHROPIC_API_KEY", hint)
+        E.load_dotenv(force=True)

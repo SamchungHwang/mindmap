@@ -276,6 +276,16 @@ class Console:
         work.add_separator()
         work.add_command(label="A 맵 생성 (고른 종목)", command=lambda: self._guard(self.a_create))
         work.add_command(label="리포트로 A 맵 자동 생성 (초안)…", command=lambda: self._guard(self.a_draft_reports))
+        work.add_command(label="A 맵 현재가 갱신 (지금 기준 — 네이버/리서치 DB)", command=lambda: self._guard(self.a_refresh_price))
+        work.add_command(label="LLM 연결 확인 (ANTHROPIC_API_KEY 동작)", command=lambda: self._guard(self.llm_check))
+        work.add_separator()
+        work.add_command(label="시나리오 후보 넣기… (증권사 자체 후보 → Bear/Base/Bull)", command=lambda: self._guard(self.a_scenario_candidates))
+        work.add_command(label="예시 확률 입력 (30/45/25 — 미검증 가정)", command=lambda: self._guard(self.a_example_probs))
+        work.add_command(label="Kill 후보 확정… (조건부 리스크 → 관측·주기·행동 채워 Rule)", command=lambda: self._guard(self.a_kill_candidates))
+        work.add_command(label="쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결)", command=lambda: self._guard(self.a_issues))
+        work.add_command(label="Claim 검토 대기함…", command=lambda: self._guard(self.a_review_queue))
+        work.add_command(label="노드 출처 보기…", command=lambda: self._guard(self.a_source))
+        work.add_command(label="새 리포트 → 변경안… (승인한 것만 적용)", command=lambda: self._guard(self.a_changes))
         work.add_command(label="A 맵 저장·검증", command=lambda: self._guard(self.a_save))
         work.add_command(label="A 맵 평가", command=lambda: self._guard(self.a_eval))
         work.add_command(label="매수 체결 → B 맵…", command=lambda: self._guard(self.a_snapshot))
@@ -473,6 +483,9 @@ class Console:
         ttk.Button(bar, text="저장·검증", width=10, command=lambda: self._guard(self.a_save)).pack(side="right", padx=(0, 6))
         ttk.Button(bar, text="A 맵 생성", width=10, command=lambda: self._guard(self.a_create)).pack(side="right", padx=(0, 12))
         ttk.Button(bar, text="리포트로 자동 생성…", width=16, command=lambda: self._guard(self.a_draft_reports)).pack(side="right", padx=(0, 6))
+        ttk.Button(bar, text="현재가 갱신", width=10, command=lambda: self._guard(self.a_refresh_price)).pack(side="right", padx=(0, 6))
+        ttk.Button(bar, text="시나리오 후보…", width=12, command=lambda: self._guard(self.a_scenario_candidates)).pack(side="right", padx=(0, 6))
+        ttk.Button(bar, text="쟁점", width=6, command=lambda: self._guard(self.a_issues)).pack(side="right", padx=(0, 6))
 
         f = self._scrollable(frame)
         f.columnconfigure(1, weight=1)
@@ -725,7 +738,13 @@ class Console:
             self.status(f"오류 — {error}")
             if self.debug:
                 raise
-            messagebox.showerror("오류", f"{error}\n\n자세한 것은 실행 로그에 있습니다.", parent=self.root)
+            hint = ""
+            if isinstance(error, ImportError) and "kstock" in str(error):
+                # 콘솔이 떠 있는 동안 코드가 갱신되면, 시작 때 읽어 둔 모듈(models 등) 은 옛것이고 나중에 처음 읽는 모듈은 새것이라
+                # 둘이 안 맞아 이런 ImportError 가 난다. 파일이 틀린 게 아니다 — 콘솔을 다시 시작하면 된다.
+                hint = "\n\n코드가 갱신된 뒤 콘솔을 다시 시작하지 않은 것 같습니다 — 콘솔을 닫고 다시 실행하세요."
+                self.log("힌트: 코드 갱신 뒤 콘솔 재시작 필요 (시작 때 읽은 옛 모듈과 새 모듈이 섞임)")
+            messagebox.showerror("오류", f"{error}{hint}\n\n자세한 것은 실행 로그에 있습니다.", parent=self.root)
 
     def status(self, line: str) -> None:
         self.status_var.set(line)
@@ -1009,12 +1028,15 @@ class Console:
                 f"{', '.join(pk['brokers']) or '증권사 미상'} · 최신 리포트 {pk['as_of']}\n"
                 "숫자(현재가·컨센서스·추정치 표)는 규칙으로 채우고 판단은 WATCH 로 둡니다. 채운 값에는 전부 draft 태그가 붙습니다.\n"
                 f"LLM: {llm_status()}")
+        if pk.get("rows"):
+            note += "\n" + "\n".join(pk["rows"][:8]) + ("\n…" if len(pk["rows"]) > 8 else "")
         if pk["warnings"]:
             note += "\n! " + "\n! ".join(pk["warnings"][:4])
         dlg = FormDialog(self.root, "리포트로 A 맵 자동 생성 (초안)", [
             ("ticker", "종목코드", "entry", pk["ticker"], None),
             ("name", "종목명", "entry", pk["name"], None),
             ("invest_type", "투자유형", "combo", pk["invest_type"], INVEST_TYPES),
+            ("fetch_price", "현재가를 작성 시점 기준으로 조회 (네이버 금융) — 끄면 리서치 DB 종가·리포트 현재주가", "check", True, None),
             ("use_llm", "LLM 그룹 채움 — 논제·뷰·시나리오 가정·리스크·촉매를 LLM 이 쓴다 (.env 의 ANTHROPIC_API_KEY)", "check", llm_ok, None),
             ("open_html", "끝나면 마인드맵 HTML 열기", "check", True, None),
         ], note=note)
@@ -1042,6 +1064,194 @@ class Console:
         self.status(f"A 맵 초안 {r.map.map_id} — 검증 오류 {len(r.errors)} · 개요 탭에 생성 메모, 「A 맵 채우기」 탭에서 확정")
         if f.get("open_html"):
             self.open_html("A")
+
+    def a_refresh_price(self) -> None:
+        """고른 A 맵의 현재가를 지금 기준으로 (네이버 실시간 → 리서치 DB 종가)."""
+        m = self._need("A")
+        self.status("현재가 조회 중…")
+        self.root.update_idletasks()
+        price, as_of, src = self.ops.refresh_price(m)
+        self._drain_ops_log()
+        self.a_load()
+        self.read_db()
+        self._select(m.ticker)
+        self._set(self.over_text, self.ops.overview_text(m.ticker or ""))
+        self.status(f"현재가 {price:,.0f} ({as_of}) — {src}")
+
+    def a_scenario_candidates(self) -> None:
+        """증권사 자체 후보를 Bear/Base/Bull 로 — 서로 다른 증권사의 가정을 섞지 않는다. 확률은 비워 둔다."""
+        m = self._need("A")
+        labels = self.ops.candidate_labels(m)
+        if not labels:
+            raise OpsError("시나리오 후보가 없습니다 — 리포트로 자동 생성한 맵이거나 목표가가 읽힌 리포트가 있어야 합니다")
+        none = "(비움)"
+        fields = [("h", "증권사 한 곳의 가정 묶음만 고릅니다 (리포트 제시 케이스 > 산식 재계산 > 목표가). 확률은 넣지 않습니다.", "heading", None, None),
+                  ("Bear", "Bear", "combo", none, [none, *labels]), ("Base", "Base", "combo", none, [none, *labels]), ("Bull", "Bull", "combo", none, [none, *labels])]
+        dlg = FormDialog(self.root, "시나리오 후보 넣기", fields, width=70)
+        if dlg.result is None:
+            return
+        done = []
+        for name in ("Bear", "Base", "Bull"):
+            v = dlg.result.get(name) or none
+            if v == none:
+                continue
+            idx = labels.index(v)
+            done.append(self.ops.apply_scenario_candidate(m, idx, name, save=False))
+        if done:
+            self.store.save_map(m)
+        self._drain_ops_log()
+        self.a_load()
+        self.read_db()
+        self._select(m.ticker)
+        self.status("시나리오: " + " · ".join(done) if done else "시나리오 변경 없음")
+
+    def a_kill_candidates(self) -> None:
+        """리포트의 조건부 리스크 후보를 Kill Rule 로 — 관측 지표·갱신 주기·위반 시 행동을 사람이 채워야 들어간다 (설계 v4 V6)."""
+        m = self._need("A")
+        labels = self.ops.kill_candidate_labels(m)
+        if not labels:
+            raise OpsError("Kill 후보가 없습니다 — 리포트에 조건부 리스크 Claim 이 없으면 A4.4.x 를 직접 적습니다")
+        fields = [("h", "자동으로는 후보까지만 만듭니다. '수익성 개선 지연' 은 '논제 붕괴' 가 아니니, 관측 지표·갱신 주기·위반 시 행동을 채운 것만 Rule 이 됩니다.", "heading", None, None),
+                  ("cand", "후보", "combo", labels[0], labels),
+                  ("observable", "관측 지표 (어디서 무엇을 보나)", "entry", "", None),
+                  ("cadence", "갱신 주기", "combo", "분기", ["분기", "월", "주", "공시 즉시"]),
+                  ("action", "위반 시 행동", "combo", "review", ["exit", "trim", "review", "hedge"]),
+                  ("cond", "조건식 (빈칸이면 후보 임계값으로; 예 driver[A1.1].current < 50)", "entry", "", None)]
+        dlg = FormDialog(self.root, "Kill 후보 확정", fields, width=74)
+        if dlg.result is None:
+            return
+        idx = labels.index(dlg.result.get("cand") or labels[0])
+        msg = self.ops.apply_kill_candidate(m, idx, observable=dlg.result.get("observable") or "", update_cadence=dlg.result.get("cadence") or "",
+                                            action=dlg.result.get("action") or "", condition=(dlg.result.get("cond") or "").strip() or None)
+        self._drain_ops_log()
+        self.a_load()
+        self.read_db()
+        self._select(m.ticker)
+        self.status("Kill 확정: " + msg)
+
+    def a_example_probs(self) -> None:
+        m = self._need("A")
+        if not messagebox.askyesno("예시 확률", "30 / 45 / 25 는 통계적 근거가 없는 예시값입니다 (미검증 가정으로 기록됩니다). 넣을까요?", parent=self.root):
+            return
+        msg = self.ops.apply_example_probs(m)
+        self._drain_ops_log()
+        self.a_load()
+        self.read_db()
+        self._select(m.ticker)
+        self.status(msg)
+
+    def a_issues(self) -> None:
+        m = self._need("A")
+        text = self.ops.issues_text(m)
+        self.log("쟁점 표:")
+        for ln in text.split("\n"):
+            self.log("  " + ln)
+        self._set(self.over_text, text)
+        self.status("쟁점 표 — 개요 칸과 실행 로그에 표시")
+
+    def a_review_queue(self) -> None:
+        m = self._need("A")
+        rows = self.ops.review_queue(m)
+        if not rows:
+            self.status("검토 대기 Claim 없음")
+            messagebox.showinfo("검토 대기함", "검토 대기 Claim 이 없습니다", parent=self.root)
+            return
+        n_req = sum(1 for r in rows if r.get("review_required") and r.get("status") == "verified")
+        fields = [("h", f"검토 대기 {len(rows)}건 (자동 통과했지만 확인 권고 ⚑ {n_req}건 포함) — 승인은 verified(맵에 쓸 수 있음), 반려는 제외."
+                        " '근거 불충분' 이었던 것을 승인하려면 이유를 적어야 합니다", "heading", None, None)]
+        for i, r in enumerate(rows[:12]):
+            flag = ("⚑ " + r["review_reason"] + "\n   ") if r.get("review_required") else ""
+            fields.append((f"c{i}", f"[{r['broker']}|{r.get('tag', '')}|{','.join(r['roles']) or '-'}] {r['proposition'][:70]}\n   {flag}{r['validation']}"
+                           + (f"\n   p.{r['page']} {r['quote'][:80]!r}" if r["quote"] else ""), "combo", "보류", ["보류", "승인", "반려"]))
+            if r.get("needs_note"):
+                fields.append((f"n{i}", "   ↳ 승인 이유 (근거 불충분 판정을 뒤집는 근거)", "entry", "", None))
+        dlg = FormDialog(self.root, "Claim 검토 대기함", fields, width=74)
+        if dlg.result is None:
+            return
+        n = 0
+        for i, r in enumerate(rows[:12]):
+            v = dlg.result.get(f"c{i}")
+            if v in ("승인", "반려"):
+                note = (dlg.result.get(f"n{i}") or "").strip()
+                if v == "승인" and r.get("needs_note") and not note:
+                    self.log(f"  {r['claim_id']}: 승인 이유가 없어 보류 (근거 불충분 판정은 이유를 적어야 승인된다)")
+                    continue
+                self.ops.review_claim(m, r["claim_id"], "approve" if v == "승인" else "reject", note=note)
+                n += 1
+        self._drain_ops_log()
+        self.status(f"검토 {n}건 처리 — 맵에 반영하려면 「리포트로 자동 생성…」 을 다시 (저장본 Claim 사용)")
+
+    def a_source(self) -> None:
+        m = self._need("A")
+        dlg = FormDialog(self.root, "노드 출처", [("nid", "노드 id (예: A2.1.1, A4.1, A8.4.1)", "entry", "A2.1.1", None)])
+        if dlg.result is None:
+            return
+        nid = (dlg.result.get("nid") or "").strip()
+        if nid not in m:
+            raise OpsError(f"노드 {nid} 가 없습니다")
+        info = self.ops.source_of(m, nid)
+        lines = [f"출처: {info['name']}"]
+        if info.get("path"):
+            lines.append(f"파일: {info['path']}" + (f"  p.{info['page']}" if info.get("page") else ""))
+        if info.get("quote"):
+            lines.append(f"인용: {info['quote'][:400]}")
+        for ln in lines:
+            self.log("  " + ln)
+        if info.get("path") and messagebox.askyesno("출처", "\n".join(lines) + "\n\n리포트 파일을 열까요?", parent=self.root):
+            try:
+                import os
+
+                os.startfile(info["path"])  # type: ignore[attr-defined]  # Windows
+            except Exception as e:  # noqa: BLE001
+                self.log(f"  파일 열기 실패: {e}")
+        self.status(f"{nid} 출처 — 실행 로그 참고")
+
+    def a_changes(self, paths: list[str] | None = None) -> None:
+        """기존 A 맵 + 새 리포트 → 변경안 대화상자 → 승인한 것만 적용 (원본은 maps/versions 에 보존)."""
+        from .generate.changes import changeset_table
+
+        m = self._need("A")
+        if paths is None:
+            paths = list(filedialog.askopenfilenames(parent=self.root, title="새 리포트 파일",
+                                                     filetypes=[("리포트", "*.pdf *.txt *.md *.html *.docx"), ("모든 파일", "*.*")]))
+        if not paths:
+            return
+        self.status("변경안 계산 중…")
+        self.root.update_idletasks()
+        cs = self.ops.propose_changes(m, paths, {"fetch_price": False})
+        self._drain_ops_log()
+        for ln in changeset_table(cs).split("\n"):
+            self.log("  " + ln)
+        if not cs.changes:
+            self.status("변경 후보 없음")
+            messagebox.showinfo("변경안", cs.summary, parent=self.root)
+            return
+        fields = [("h", cs.summary, "heading", None, None)]
+        for c in cs.changes[:14]:
+            fields.append((c.change_id, f"{c.change_id} {c.node_id} [{c.kind.value}] {c.note[:80]}" + (" (사용자 수정)" if c.user_touched else ""),
+                           "combo", "보류", ["보류", "승인", "반려"]))
+        dlg = FormDialog(self.root, "변경안 — 승인한 것만 적용", fields, width=70)
+        if dlg.result is None:
+            return
+        decisions = {cid: ("approve" if v == "승인" else "reject") for cid, v in dlg.result.items() if v in ("승인", "반려")}
+        done = self.ops.apply_changes(m, cs, decisions)
+        self._drain_ops_log()
+        self.a_load()
+        self.read_db()
+        self._select(m.ticker)
+        self.status(f"변경안 적용 {len(done)}건 → v{m.meta.get('version', 1)}")
+
+    def llm_check(self) -> None:
+        """ANTHROPIC_API_KEY 가 실제로 동작하는지 — 인증·모델·작은 호출 1회. 키 값은 어디에도 보이지 않는다."""
+        from .generate import llm_check
+
+        self.status("LLM 연결 확인 중…")
+        self.root.update_idletasks()
+        r = llm_check()
+        for ln in r.lines():
+            self.log("  " + ln)
+        self.status("LLM 연결 OK" if r.ok else "LLM 연결 실패 — 실행 로그 참고")
+        (messagebox.showinfo if r.ok else messagebox.showwarning)("LLM 연결 확인", "\n".join(r.lines()), parent=self.root)
 
     def a_load(self) -> None:
         m = self.a_map

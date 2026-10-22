@@ -88,9 +88,12 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
     if missing:
         issues.append(Issue("error", "A3", f"시나리오 누락: {sorted(missing)}"))
     else:
-        psum = sum(s.probability for s in sc.values())
-        if abs(psum - 1.0) > 0.01:
-            issues.append(Issue("error", "A3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
+        if any(s.probability is None for s in sc.values()):
+            issues.append(Issue("error", "A3", "시나리오 확률 미입력 — 사람이 넣어야 기대수익률·손익비가 계산된다"))
+        else:
+            psum = sum(s.probability for s in sc.values())  # type: ignore[misc]
+            if abs(psum - 1.0) > 0.01:
+                issues.append(Issue("error", "A3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
         if not (sc["Bear"].target_price < sc["Base"].target_price < sc["Bull"].target_price):
             issues.append(Issue("warn", "A3", "목표가 순서가 Bear < Base < Bull 이 아니다"))
     if m.current_price is None:
@@ -138,9 +141,12 @@ def validate_holding_map(m: HoldingMap, today: date | None = None) -> list[Issue
     # 시나리오 확률 합 (있을 때만)
     sc = m.scenarios()
     if sc:
-        psum = sum(s.probability for s in sc.values())
-        if abs(psum - 1.0) > 0.01:
-            issues.append(Issue("error", "B3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
+        if any(s.probability is None for s in sc.values()):
+            issues.append(Issue("error", "B3", "시나리오 확률 미입력"))
+        else:
+            psum = sum(s.probability for s in sc.values())  # type: ignore[misc]
+            if abs(psum - 1.0) > 0.01:
+                issues.append(Issue("error", "B3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
     # 핵심 질문
     if m.value("B0.1") is None:
         issues.append(Issue("warn", "B0.1", "'오늘 현금으로 새로 사겠는가' 에 답하지 않았다"))

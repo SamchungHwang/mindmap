@@ -107,6 +107,10 @@ class Store:
         base = self.db_path.parent.parent if self.db_path.parent.name == "db" else self.db_path.parent
         self.maps_dir = Path(maps_dir) if maps_dir else base / "maps"
         self.out_dir = Path(out_dir) if out_dir else base / "out"
+        self.claims_dir = base / "claims"          # 설계 v3: ClaimSet 저장 (리포트별)
+        self.issues_dir = base / "issues"          # IssueSet 저장 (종목별)
+        self.changes_dir = base / "changes"        # ChangeSet 저장 (변경안)
+        self.versions_dir = self.maps_dir / "versions"   # 승인 전 원본 보존
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.maps_dir.mkdir(parents=True, exist_ok=True)
         self.out_dir.mkdir(parents=True, exist_ok=True)

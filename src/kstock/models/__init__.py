@@ -1,5 +1,32 @@
 """kstock 데이터 모델 — 템플릿 §2 (노드 스키마), §8 (프로파일)."""
 
+from .claims import (
+    CERTAINTY_TAG,
+    AssertedBy,
+    Certainty,
+    Change,
+    ChangeDecision,
+    ChangeKind,
+    ChangeSet,
+    Claim,
+    ClaimDirection,
+    ClaimRole,
+    ClaimSet,
+    ClaimStatus,
+    Coverage,
+    EpistemicType,
+    EvidenceSpan,
+    Extractor,
+    Issue,
+    IssueDisplay,
+    IssueLevel,
+    IssueSet,
+    NumericSpread,
+    QuantRef,
+    SupportVerdict,
+    Validation,
+    report_id_for,
+)
 from .common import (
     Action,
     Confidence,
@@ -55,4 +82,9 @@ __all__ = [
     "Position", "MarketState", "load_map", "load_map_file", "new_node",
     # profiles
     "PROFILES", "Profile", "Settings", "get_profile",
+    # claims / issues / changes (설계 v3)
+    "EpistemicType", "AssertedBy", "Certainty", "CERTAINTY_TAG", "ClaimRole", "ClaimDirection", "SupportVerdict", "ClaimStatus",
+    "Coverage", "IssueLevel", "IssueDisplay",
+    "ChangeKind", "ChangeDecision", "EvidenceSpan", "QuantRef", "Validation", "Extractor", "Claim", "ClaimSet",
+    "NumericSpread", "Issue", "IssueSet", "Change", "ChangeSet", "report_id_for",
 ]

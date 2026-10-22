@@ -113,7 +113,8 @@
       "links": [],
       "history": [],
       "tags": [
-        "draft"
+        "draft",
+        "warn"
       ],
       "meta_only": false
     },
@@ -385,7 +386,7 @@
         "name": "Bear",
         "assumptions": [
           "증권사 최저 목표가 350,000×0.9 / 52주 저가 189,200 중 낮은 값",
-          "리스크 요인: 중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이…",
+          "중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이익 추정치 하향…",
           "현재가 258,000 기준"
         ],
         "probability": 0.3,
@@ -523,7 +524,7 @@
       "label": "피어 비교",
       "question": "피어 대비 프리미엄/디스카운트와 그 정당성은?",
       "node_type": "fact",
-      "value": "밸류에이션 부담: 과거 10년 PER 밴드 6~20배의 하단이지만 이 익 정점 가능성을 감안하면 추가 상승 여력은 제한적이라고 판단 한다.",
+      "value": "HBM4 매출은 2026년 대비 3배 증가해 2027년 메모 리 호황을 2028년까지 연장시킬 것으로 판단한다.",
       "value_type": "text",
       "source": {
         "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
@@ -591,7 +592,7 @@
       "value": {
         "probability": 0.25,
         "impact_pct": -25,
-        "text": "리스크 요인: 중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이익 추정치 하향 요인이다. (초안: 확률·영향은 기본값)"
+        "text": "중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이익 추정치 하향 요인이다. (초안: 확률·영향은 기본값)"
       },
       "value_type": "range",
       "source": {
@@ -618,7 +619,7 @@
       "value": {
         "probability": 0.25,
         "impact_pct": -20,
-        "text": "리스크: 미국 금리 상승과 원화 약세에 따른 외국인 자금 이탈, 중국 CXMT의 4F2 DDR5 발표에 따른 범용 DRAM 가격 경쟁 우 려, 2027년 하반기 DRAM 계약가 하락 전환 가능성을 리스크로 본다. (초안: 확률·영향은 기본값)"
+        "text": "미국 금리 상승과 원화 약세에 따른 외국인 자금 이탈, 중국 CXMT의 4F2 DDR5 발표에 따른 범용 DRAM 가격 경쟁 우 려, 2027년 하반기 DRAM 계약가 하락 전환 가능성을 리스크로 본다. (초안: 확률·영향은 기본값)"
       },
       "value_type": "range",
       "source": {
@@ -694,11 +695,11 @@
       "meta_only": false,
       "rule": {
         "trigger_type": "fact",
-        "condition": "driver[A1.1].current < 51.2",
+        "condition": "driver[A1.1].current < 85.92",
         "action": "exit",
         "escalate_to": "RED",
         "status": "armed",
-        "note": "분기 영업이익 (4Q26) 이 컨센서스(64조원) 대비 20% 미달이면 논제 폐기 — 초안 — 논제의 주인이 확정할 것 (임계값)"
+        "note": "분기 영업이익 (4Q26) 이 지금 수준(107.40조원, 컨센서스 64.00) 에서 20% 악화(미달)되면 논제 폐기 — 다음 확인일 2027-01-08 실적으로 판정. 초안 — 논제의 주인이 확정할 것 (임계값)"
       }
     },
     "A4.5": {
@@ -1078,7 +1079,7 @@
       "label": "경영진 / 지배구조 / 주주환원",
       "question": "자본배분 이력, 대주주 리스크, 배당·자사주",
       "node_type": "fact",
-      "value": "3 3개년 주주환원 잔여 재원 110조원 (현금배당 70~80조원, 자사주 소각 30~40조원)이 하방을 지지한다.",
+      "value": "촉매: 10월 30일 3Q26 확정실적 발표와 컨퍼런스콜에서 2027 년 CAPEX 가이던스와 주주환원 정책이 발표될 예정이다.",
       "value_type": "text",
       "source": {
         "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
@@ -1215,36 +1216,6 @@
       "id": "A5.1.3",
       "map": "NEW",
       "parent": "A5.1",
-      "label": "2027년 1분기 HBM4 공급 계약과 1월 8일 4…",
-      "question": "",
-      "node_type": "event",
-      "value_type": "text",
-      "as_of": "2026-10-20",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "event": {
-        "date": "2027-01-08",
-        "fact": "2027년 1분기 HBM4 공급 계약과 1월 8일 4Q26 잠정 실적 발표가 다음 (리포트)",
-        "affects": [],
-        "direction": "중립",
-        "priced_in": "아니오",
-        "materiality": "M",
-        "source": {
-          "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
-          "url": "examples/reports_draft",
-          "retrieved_at": "2026-10-12"
-        }
-      }
-    },
-    "A5.1.4": {
-      "id": "A5.1.4",
-      "map": "NEW",
-      "parent": "A5.1",
       "label": "2027년 1월 HBM4 공급 계약 단가 확정이 예정…",
       "question": "",
       "node_type": "event",
@@ -1260,6 +1231,36 @@
       "event": {
         "date": "2027-01-15",
         "fact": "2027년 1월 HBM4 공급 계약 단가 확정이 예정되어 있어 판가 상승률을 확인할 수 있을 것이다. (리포트)",
+        "affects": [],
+        "direction": "중립",
+        "priced_in": "아니오",
+        "materiality": "M",
+        "source": {
+          "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
+          "url": "examples/reports_draft",
+          "retrieved_at": "2026-10-12"
+        }
+      }
+    },
+    "A5.1.4": {
+      "id": "A5.1.4",
+      "map": "NEW",
+      "parent": "A5.1",
+      "label": "차기 주주환원 정 책은 FCF의 50%를 초과할 가능…",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-15",
+        "fact": "차기 주주환원 정 책은 FCF의 50%를 초과할 가능성이 있으며 2027년 1월 발표가 예정되어 있다. (리포트)",
         "affects": [],
         "direction": "중립",
         "priced_in": "아니오",
@@ -1351,13 +1352,32 @@
       "sector": "KR-SEMI",
       "price_source": "하나증권 2026-10-12 리포트 현재주가 (2026-10-10)",
       "notes": [
+        "섹터 추정 반도체 (점수 48)",
+        "현재가 실시간 조회 실패 (KSTOCK_OFFLINE 설정 — 조회하지 않음) — 리서치 DB/리포트 값으로 대신한다",
+        "현재가 258,000 (2026-10-10, 리포트 현재주가)",
+        "현재가 기준일이 작성일(2026-10-20)보다 10일 전 — 작성 시점 값이 아니다. 실시간 조회를 켜거나 A0.4 를 갱신하라",
         "시나리오 확률은 기본값 Bear 30% / Base 45% / Bull 25% — 사람이 조정"
       ],
       "warnings": [],
+      "price": {
+        "value": 258000.0,
+        "as_of": "2026-10-10",
+        "kind": "report",
+        "age_days": 10,
+        "candidates": [
+          {
+            "kind": "report",
+            "as_of": "2026-10-10",
+            "value": 258000.0
+          }
+        ]
+      },
       "llm": false,
+      "llm_requested": false,
       "db": false,
       "flags": [
-        "A1.3: 컨센서스/현재 비율 9.5 — 단위가 다르거나 분기/연간이 섞였을 수 있다"
+        "A1.3: 컨센서스/현재 비율 9.5 — 단위가 다르거나 분기/연간이 섞였을 수 있다",
+        "A0.4: 현재가 기준일 2026-10-10 가 작성일보다 10일 전 — 갱신 필요"
       ],
       "errors": []
     }

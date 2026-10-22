@@ -1,0 +1,187 @@
+{
+ "report_id": "hk_96597",
+ "file": "data/reports/삼성전자/삼성전자_96597.pdf",
+ "verified": false,
+ "source": "extractor draft — 사람이 확인하면 verified: true",
+ "facts": {
+  "broker": "유진투자증권",
+  "date": "2026-10-12",
+  "ticker": "005930",
+  "name": null,
+  "opinion": "BUY",
+  "target_price": 560000.0,
+  "prev_target_price": 560000.0,
+  "current_price": 262000.0,
+  "price_date": "2026-10-12",
+  "high_52w": 374500.0,
+  "low_52w": null,
+  "title": "눈높이를 높이는 구간"
+ },
+ "estimates": {
+  "unit": "십억원",
+  "revenue": {
+   "2025A": 333606.0,
+   "2026E": 701823.0,
+   "2027E": 991682.0
+  },
+  "op": {
+   "2025A": 43601.0,
+   "2026E": 373008.0,
+   "2027E": 633233.0
+  },
+  "np": {
+   "2025A": 45207.0,
+   "2026E": 307404.0,
+   "2027E": 529421.0,
+   "2028E": 643305.0
+  },
+  "eps": {
+   "2025A": 7477.0,
+   "2026E": 51925.0,
+   "2027E": 88945.0
+  }
+ },
+ "required_claims": [
+  {
+   "id": "hk_96597:c1",
+   "proposition": "3Q26 잠정 영업이익 107.4조원은 당사 추정치 103.6조원과 컨센서스 106.7조원을 상회했다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "107.4조원(+20%qoq)을 기록했다. 영업이익은 당사 추정치(103.6조원)와\n컨센서스(106.7조원)를 상회했다"
+  },
+  {
+   "id": "hk_96597:c2",
+   "proposition": "범용 DRAM과 NAND ASP가 각각 +21%, +22% qoq 상승해 기존 가정(+18%, +18%)을 넘었다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "범용 DRAM과 NAND\n의 ASP는 각각 +21%, +22%qoq 상승한 것으로 추정되며(기존 추정\n+18%, +18%)"
+  },
+  {
+   "id": "hk_96597:c3",
+   "proposition": "HBM은 HBM4 중심으로 출하가 확대되어 B/G +25% qoq, ASP +13% qoq를 기록했다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "hbm",
+   "quote": "HBM 역시 HBM4 중심으로 출하량이 확대되며 B/G +25%qoq, ASP\n+13%qoq를 기록한 것으로 추정한다"
+  },
+  {
+   "id": "hk_96597:c6",
+   "proposition": "4Q26 영업이익 118.8조원, 1Q27 138.6조원으로 전망한다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "4Q26과 1Q27 영업이익은 각각 118.8조원(+11%qoq), 138.6조원\n(+17%qoq)으로 전망한다"
+  },
+  {
+   "id": "hk_96597:c7",
+   "proposition": "2026년·2027년 영업이익 추정치를 373.0조원, 633.2조원으로 상향했으며 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LSI·MX 부담을 상쇄한다",
+   "roles": [
+    "revision_reason",
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "2026년과 2027년 영업이익 추정치는 각각\n373.0조원(+752%yoy), 633.2조원(+70%yoy)으로 기존 대비 상향 조정\n했다. 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LSI 및 MX/NW\n의 부담을 상쇄하며 이익 성장을 이끌 전망이다"
+  }
+ ],
+ "required_risks": [
+  {
+   "id": "hk_96597:c4",
+   "proposition": "Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다",
+   "roles": [
+    "risk"
+   ],
+   "direction": "negative",
+   "driver_id": "foundry",
+   "quote": "테일러 팹 가동에 따른 감가상각비 증가 등으로 1.5조원의 영업적\n자를 기록한 것으로 보인다. 신공장 가동 확대에 따른 비용 증가로 당분간\n유의미한 적자 폭 축소는 쉽지 않을 전망이다"
+  },
+  {
+   "id": "hk_96597:c5",
+   "proposition": "MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조원까지 확대된다",
+   "roles": [
+    "risk"
+   ],
+   "direction": "negative",
+   "driver_id": "mobile_demand",
+   "quote": "MX/NW는 2.0조원의 영업적자를 기록한 것으로 추정한다. 이는 갤럭시 Z\n폴드8 등 신제품 흥행으로 판매량은 양호했으나, 메모리 가격 급등에도 제\n품 가격 인상 폭을 제한하며 시장 점유율 확대에 주력하는 전략을 펼친 결\n과다. 지속되는 메모리 가격 상승으로 2027년 적자 폭은 6.6조원까지 확\n대될 것으로 보인다"
+  }
+ ],
+ "candidate_review": [
+  {
+   "claim_id": "hk_96597:c1",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3Q26 잠정 영업이익 107.4조원은 당사 추정치 103.6조원과 컨센서스 106.7조원을 상회했다"
+  },
+  {
+   "claim_id": "hk_96597:c2",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "범용 DRAM과 NAND ASP가 각각 +21%, +22% qoq 상승해 기존 가정(+18%, +18%)을 넘었다"
+  },
+  {
+   "claim_id": "hk_96597:c3",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "HBM은 HBM4 중심으로 출하가 확대되어 B/G +25% qoq, ASP +13% qoq를 기록했다"
+  },
+  {
+   "claim_id": "hk_96597:c4",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "Foundry/LSI는 테일러 팹 가동에 따른 감가상각비 증가로 1.5조원 영업적자를 냈고 당분간 적자 폭 축소가 쉽지 않다"
+  },
+  {
+   "claim_id": "hk_96597:c5",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "MX/NW는 메모리 가격 급등에도 제품 가격 인상을 제한하는 점유율 전략으로 2.0조원 적자를 냈고 2027년 적자는 6.6조원까지 확대된다"
+  },
+  {
+   "claim_id": "hk_96597:c6",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "4Q26 영업이익 118.8조원, 1Q27 138.6조원으로 전망한다"
+  },
+  {
+   "claim_id": "hk_96597:c7",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "2026년·2027년 영업이익 추정치를 373.0조원, 633.2조원으로 상향했으며 메모리 가격 상승과 HBM4 출하 확대가 Foundry/LSI·MX 부담을 상쇄한다"
+  },
+  {
+   "claim_id": "hk_96597:c8",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "향후 추정치 상향의 핵심은 4Q26~1Q27 ASP 전망의 추가 상향이며, 모바일 가격 인상과 HBM 연간 계약 갱신이 맞물리는 1Q27이 상향 여지가 크다"
+  },
+  {
+   "claim_id": "hk_96597:c9",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "내년 1월 4Q26 실적발표회에서 추가 주주환원과 차기 3개년 정책 발표가 시장 기대를 충족할 것이다"
+  },
+  {
+   "claim_id": "hk_96597:c10",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "시장 초점이 가격 모멘텀에서 이익 수준의 지속성으로 옮겨가며, 분기 실적과 주주환원 확대가 우려를 순차적으로 해소한다"
+  },
+  {
+   "claim_id": "hk_96597:c11",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "목표주가 560,000원을 유지한다"
+  }
+ ]
+}

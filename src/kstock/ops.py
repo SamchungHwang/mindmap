@@ -40,6 +40,7 @@ from .models import (
     Measurement,
     MindMap,
     NewMap,
+    NodeStatus,
     Portfolio,
     Position,
     Rule,
@@ -727,24 +728,306 @@ class Ops:
     def peek_reports(self, paths: Sequence[str | Path]) -> dict[str, Any]:
         """파일을 읽어 종목·날짜·증권사만 미리 본다 (대화상자 기본값용). 실패는 OpsError."""
         from .reports import ReportError, digest_files
+        from .symbols import research_db_path
 
+        db = None
         try:
-            d, docs = digest_files(paths, today=self.now)
+            from .collect.adapters.research_db import ResearchDb
+
+            p = research_db_path(self.store)
+            db = ResearchDb(p) if p else None
+        except Exception:  # noqa: BLE001
+            db = None
+        try:
+            d, docs = digest_files(paths, today=self.now, db=db)
         except ReportError as e:
             raise OpsError(str(e)) from e
         sym = self.book.by_code(d.ticker) if d.ticker else None
         w = self.store.get_watch(d.ticker) if d.ticker else None
-        return {"ticker": d.ticker or "", "name": (w.name if w else sym.name if sym else d.name) or "",
+        rows: list[str] = []
+        for f in sorted(d.reports, key=lambda f: f.date or date.min, reverse=True):
+            ok_tbl = "표 ○" if f.estimates.get("op") or f.estimates.get("revenue") else "표 ✗"
+            tp = f"TP {f.target_price:,.0f}" if f.target_price else "목표가 ✗"
+            px = f"현재가 {f.current_price:,.0f}" if f.current_price else "현재가 ✗"
+            mark = "✓" if f.target_price and (f.estimates.get("op") or f.estimates.get("revenue")) else "△"
+            tail = " · 집계 제외" if f.path.name in d.excluded else ""
+            tail += " · 실적 전" if f.path.name in d.pre_earnings else ""
+            rows.append(f"{mark} {f.broker or '증권사?'} {f.date or '날짜?'} · {f.opinion or '의견?'} · {tp} · {px} · {ok_tbl}{tail}  [{f.path.name}]")
+        return {"ticker": d.ticker or "", "name": (w.name if w else sym.name if sym else d.name) or "", "rows": rows,
                 "invest_type": (w.invest_type if w and w.invest_type else "growth"), "sector": (w.sector if w else sym.sector if sym else "") or "",
                 "n_reports": len(docs), "n_readable": sum(1 for x in docs if not x.is_empty), "n_tp": d.n_tp,
                 "brokers": d.brokers, "as_of": d.as_of.isoformat(), "warnings": list(d.warnings), "digest": d}
+
+    # ------------------------------------------------------------------ 설계 v3: 시나리오 후보 · 예시 확률 · 검토 대기함 · 쟁점 · 출처
+    def scenario_candidates(self, m: NewMap) -> list[dict[str, Any]]:
+        """meta.draft.scenario_candidates — 증권사 자체 후보 (리포트 제시 / 산식 재계산 / 목표가)."""
+        return list((m.meta.get("draft") or {}).get("scenario_candidates") or [])
+
+    def candidate_labels(self, m: NewMap) -> list[str]:
+        from .generate.scenarios import ScenarioCandidate
+
+        out = []
+        for i, c in enumerate(self.scenario_candidates(m)):
+            cc = ScenarioCandidate(**{k: v for k, v in c.items() if k in ScenarioCandidate.__dataclass_fields__})
+            if isinstance(cc.report_date, str):
+                cc.report_date = date.fromisoformat(cc.report_date)
+            out.append(f"{i + 1}) {cc.label()}")
+        return out
+
+    def apply_scenario_candidate(self, m: NewMap, index: int, name: str, *, save: bool = True) -> str:
+        """후보 index(0부터) 를 Bear/Base/Bull 로 넣는다. 확률은 그대로 비어 있다."""
+        from .generate.scenarios import apply_candidate
+
+        cands = self.scenario_candidates(m)
+        if not (0 <= index < len(cands)):
+            raise OpsError(f"후보 번호 1~{len(cands)}")
+        if name not in ("Bear", "Base", "Bull"):
+            raise OpsError("Bear / Base / Bull 중 하나")
+        sc = apply_candidate(m, cands[index], name, today=self.now)
+        self.log(f"{m.map_id} {name} ← 후보 {index + 1} ({sc.valuation_method}) TP {sc.target_price:,.0f}")
+        if sc.valuation_method.startswith("[사용자 재해석]"):
+            self.log("  ⚠ 증권사가 이 이름으로 제시한 시나리오가 아니다 — 사용자 재해석으로 기록됨 (meta.draft.scenario_origin)")
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        return f"{name} = {sc.target_price:,.0f} ({sc.valuation_method})"
+
+    # ------------------------------------------------------------------ Kill 후보 (설계 v4 V6)
+    def kill_candidates(self, m: NewMap) -> list[dict[str, Any]]:
+        """meta.draft.kill_candidates — 리포트의 조건부 리스크에서 만든 Risk Trigger 후보. Rule 은 사람이 세 칸을 채워 확정한다."""
+        return list((m.meta.get("draft") or {}).get("kill_candidates") or [])
+
+    def kill_candidate_labels(self, m: NewMap) -> list[str]:
+        out = []
+        for i, c in enumerate(self.kill_candidates(m)):
+            thr = f" {c.get('op', '<')} {c['threshold']:g}{c.get('unit') or ''}" if c.get("threshold") is not None else ""
+            out.append(f"{i + 1}) {c.get('kpi') or '?'}{thr} — {c.get('condition') or ''} ({c.get('broker') or '?'}, {c.get('claim_id') or ''})")
+        return out
+
+    def apply_kill_candidate(self, m: NewMap, index: int, *, observable: str, update_cadence: str, action: str,
+                             condition: str | None = None, save: bool = True) -> str:
+        """후보 index(0부터) 를 A4.4.x Rule 로 확정한다. 관측 지표(observable)·갱신 주기·위반 시 행동 세 칸이 비면 넣지 않는다.
+        condition 은 DSL 조건식 (없으면 후보의 driver_node 와 임계값으로 만들고, 그것도 없으면 사용자가 적어야 한다)."""
+        cands = self.kill_candidates(m)
+        if not (0 <= index < len(cands)):
+            raise OpsError(f"후보 번호 1~{len(cands)}")
+        c = cands[index]
+        for label, v in (("관측 지표", observable), ("갱신 주기", update_cadence), ("위반 시 행동", action)):
+            if not (v or "").strip():
+                raise OpsError(f"{label} 가 비어 있다 — 세 칸을 채워야 Kill 조건이 된다 (설계 v4 V6)")
+        act = {"exit": Action.exit, "trim": Action.trim, "review": Action.review, "hedge": Action.hedge}.get(action.strip().lower())
+        if act is None:
+            raise OpsError("위반 시 행동은 exit / trim / review / hedge 중 하나")
+        cond = (condition or "").strip()
+        if not cond:
+            if c.get("driver_node") and c.get("threshold") is not None:
+                cond = f"driver[{c['driver_node']}].current {c.get('op', '<')} {c['threshold']:g}"
+            else:
+                raise OpsError("조건식이 없다 — 예: driver[A1.1].current < 50 처럼 적을 것 (후보의 KPI 가 A1 드라이버에 없음)")
+        # 빈 A4.4.x 를 찾는다 (A4.4.1 부터)
+        nid = next((f"A4.4.{k}" for k in range(1, 6) if f"A4.4.{k}" in m and m[f"A4.4.{k}"].rule is None), None)
+        if nid is None:
+            raise OpsError("A4.4.1~5 가 모두 차 있다")
+        n = m[nid]
+        n.rule = Rule(trigger_type="fact", condition=cond, action=act, escalate_to="RED",
+                      note=f"사용자 확정 Kill — 관측: {observable.strip()} · 갱신: {update_cadence.strip()} · 근거: {c.get('broker')} {c.get('claim_id')} '{(c.get('condition') or '')[:60]}'")
+        n.as_of = self.now
+        n.status = NodeStatus.confirmed
+        n.tags = sorted((set(n.tags) | {"user"}) - {"pending", "draft"})
+        n.question = (n.question or "").split(" | 후보:")[0]
+        draft = m.meta.setdefault("draft", {})
+        draft.setdefault("kill_confirmed", []).append({"node": nid, "candidate": index, "origin": "user_confirmed", "observable": observable.strip(),
+                                                        "update_cadence": update_cadence.strip(), "action": act.value, "condition": cond,
+                                                        "claim_id": c.get("claim_id"), "as_of": str(self.now)})
+        self.log(f"{m.map_id} {nid} Kill 확정 ← 후보 {index + 1}: {cond} → {act.value} (관측 {observable.strip()}, {update_cadence.strip()})")
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        return f"{nid}: {cond} → {act.value}"
+
+    def apply_example_probs(self, m: NewMap, *, save: bool = True) -> str:
+        """「예시 확률 입력」 — 30/45/25 는 통계적 근거 없는 미검증 가정. 세 시나리오가 다 있어야 한다."""
+        from .generate.scenarios import apply_example_probs
+
+        try:
+            done = apply_example_probs(m, today=self.now)
+        except ValueError as e:
+            raise OpsError(str(e) + " — 먼저 「시나리오 후보 넣기」 또는 A 탭에서 목표가를 적을 것") from e
+        ev = evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        self.log(f"{m.map_id} 예시 확률 입력 (미검증 가정): " + ", ".join(done))
+        er = f"ER {ev.expected_return:+.1%}" if ev.expected_return is not None else "ER 계산 불가"
+        rr = f"RR {ev.risk_reward:.2f}" if ev.risk_reward is not None else "RR -"
+        return f"예시 확률 입력 (미검증 가정) → {er} · {rr}"
+
+    def claim_sets_for(self, m: NewMap) -> list[Any]:
+        """이 맵을 만든 리포트들의 ClaimSet (data/claims)."""
+        from .reports.claims import load_claimsets
+
+        ids = list(((m.meta.get("draft") or {}).get("claims") or {}).keys())
+        return load_claimsets(self.store.claims_dir, report_ids=ids) if ids else []
+
+    def review_queue(self, m: NewMap) -> list[dict[str, Any]]:
+        """검토 대기 Claim 목록 (report_id, claim_id, 명제, 검증 상태, 인용)."""
+        from .reports.validate_claims import mark_review_required
+
+        rows: list[dict[str, Any]] = []
+        sets = self.claim_sets_for(m)
+        mark_review_required(sets)          # 증권사 간 수치 충돌은 묶어서 봐야 보인다 (v4 V2)
+        for cs in sets:
+            for c in cs.review_queue():
+                sp = cs.span(c.span_ids[0]) if c.span_ids else None
+                rows.append({"report_id": cs.report_id, "broker": cs.broker, "claim_id": c.claim_id, "proposition": c.proposition,
+                             "roles": [r.value for r in c.roles], "quote": sp.text if sp else "", "page": sp.page if sp else None,
+                             "validation": f"인용 {c.validation.quote} · 숫자 {c.validation.numbers} · 의미 {c.validation.support.value}",
+                             "inferred": c.inferred, "path": cs.path,
+                             "status": c.status.value, "tag": c.tag,
+                             "review_required": c.review_required, "review_reason": c.review_reason,
+                             "needs_note": c.validation.support.value == "insufficient"})
+        return rows
+
+    def review_claim(self, m: NewMap, claim_id: str, decision: str, *, note: str = "") -> str:
+        """검토함에서 승인/반려 → ClaimSet 저장. (맵 반영은 「리포트로 자동 생성」 을 다시 돌리거나 변경안으로.)"""
+        from .reports.claims import save_claimset
+        from .reports.validate_claims import review
+
+        for cs in self.claim_sets_for(m):
+            if any(c.claim_id == claim_id for c in cs.claims):
+                try:
+                    c = review(cs, claim_id, decision, who="user", note=note)
+                except ValueError as e:                  # 근거 불충분 승인에 이유 없음 (v4 V2)
+                    raise OpsError(str(e)) from e
+                save_claimset(cs, self.store.claims_dir)
+                self.log(f"Claim {decision}: {claim_id} — {c.proposition[:60]}")
+                return f"{decision}: {c.proposition[:80]}"
+        raise OpsError(f"Claim {claim_id} 을 찾지 못함")
+
+    def issues_text(self, m: NewMap) -> str:
+        from .generate.issues import build_issues, issues_table
+
+        css = self.claim_sets_for(m)
+        if not css:
+            return "(Claim 없음 — 리포트로 자동 생성 을 먼저)"
+        return issues_table(build_issues(css, ticker=m.ticker))
+
+    def source_of(self, m: NewMap, node_id: str) -> dict[str, Any]:
+        """노드의 출처 — 파일 경로·페이지·인용 (PDF 열기용). claim_id 가 source.name 에 있으면 그 인용까지."""
+        n = m[node_id]
+        out: dict[str, Any] = {"node": node_id, "name": n.source.name if n.source else "", "path": n.source.url if n.source else "", "page": None, "quote": ""}
+        import re as _re
+
+        ids = _re.findall(r"(hk_\d+:c\d+|f_[0-9a-f]+:[cr]\d+)", (n.source.name if n.source else "") + " " + (n.question or ""))
+        if ids:
+            for cs in self.claim_sets_for(m):
+                c = next((x for x in cs.claims if x.claim_id == ids[0]), None)
+                if c is not None:
+                    sp = cs.span(c.span_ids[0]) if c.span_ids else None
+                    out.update({"path": cs.path, "page": sp.page if sp else None, "quote": sp.text if sp else "", "claim": c.proposition})
+                    break
+        return out
+
+    # ------------------------------------------------------------------ 설계 v3 P5: 변경안
+    def _report_files_of(self, m: NewMap, new_paths: Sequence[str | Path]) -> list[Path]:
+        """기존 맵을 만든 리포트 파일들 — meta.draft.reports[].file 을 새 파일과 같은 폴더(들) 에서 찾는다."""
+        names = [r.get("file") for r in ((m.meta.get("draft") or {}).get("reports") or []) if r.get("file")]
+        dirs = {Path(p).resolve().parent for p in new_paths}
+        found: list[Path] = []
+        for nm in names:
+            for d in dirs:
+                if (d / nm).is_file():
+                    found.append(d / nm)
+                    break
+        return found
+
+    def propose_changes(self, m: NewMap, new_paths: Sequence[str | Path], f: dict[str, Any] | None = None, *,
+                        old_paths: Sequence[str | Path] | None = None, progress: Callable[[str, int, int], None] | None = None) -> Any:
+        """기존 A 맵 + 새 리포트 → ChangeSet (저장: data/changes). 맵은 바꾸지 않는다."""
+        from .generate import DraftError, draft_from_reports, make_filler
+        from .generate.changes import propose_changes, save_changeset
+        from .models import report_id_for
+        from .symbols import research_db_path
+
+        f = f or {}
+        new_paths = [Path(p) for p in new_paths]
+        if not new_paths:
+            raise OpsError("새 리포트 파일을 하나 이상 고르세요")
+        olds = [Path(p) for p in old_paths] if old_paths else self._report_files_of(m, new_paths)
+        missing = [r.get("file") for r in ((m.meta.get("draft") or {}).get("reports") or []) if r.get("file") and not any(Path(o).name == r.get("file") for o in olds)]
+        filler = None
+        if f.get("use_llm"):
+            try:
+                filler = make_filler(text(f.get("llm_kind")) or "auto")
+            except RuntimeError as e:
+                raise OpsError(f"LLM 을 쓸 수 없습니다 — {e}") from e
+        all_paths = [*olds, *[p for p in new_paths if p not in olds]]
+        try:
+            fresh = draft_from_reports(all_paths, ticker=m.ticker, name=m.name, invest_type=(m.profile.value if m.profile else None), today=self.now,
+                                       symbols=self.book, filler=filler, research_db=research_db_path(self.store), progress=progress,
+                                       fetch_price=bool(f.get("fetch_price", False)), claims=text(f.get("claims")) or "auto",
+                                       claims_dir=self.store.claims_dir, n_drivers=5)
+        except DraftError as e:
+            raise OpsError(str(e)) from e
+        cs = propose_changes(m, fresh.map, new_report_ids=[report_id_for(str(p)) for p in new_paths], today=self.now,
+                             all_report_ids=[report_id_for(str(p)) for p in all_paths])
+        if missing:
+            cs.summary += f" · 기존 리포트 {len(missing)}건을 못 찾아 비교에서 빠짐: {', '.join(missing[:3])}"
+        p = save_changeset(cs, self.store.changes_dir)
+        self.log(f"변경안 {p.name}: {cs.summary}")
+        return cs
+
+    def apply_changes(self, m: NewMap, cs: Any, decisions: dict[str, str], *, save: bool = True) -> list[str]:
+        """decisions: change_id → approve | reject. 승인분만 적용, 원본은 maps/versions 에 보존."""
+        from .generate.changes import apply_changes, save_changeset
+        from .models import ChangeDecision
+
+        for c in cs.changes:
+            d = decisions.get(c.change_id)
+            if d == "approve":
+                c.decision = ChangeDecision.approved
+            elif d == "reject":
+                c.decision = ChangeDecision.rejected
+        from .generate.changes import partial_approval_warnings
+
+        try:
+            done = apply_changes(m, cs, today=self.now, versions_dir=self.store.versions_dir)
+        except ValueError as e:
+            raise OpsError(str(e)) from e
+        save_changeset(cs, self.store.changes_dir)
+        if done:
+            for w in partial_approval_warnings(cs):
+                self.log("  ⚑ " + w)
+            evaluate_new_map(m, today=self.now, enforce_gate=True)
+            if save:
+                self.store.save_map(m)
+            self.log(f"{m.map_id} 변경안 적용 {len(done)}건 → v{m.meta.get('version')}")
+        return done
+
+    def refresh_price(self, m: NewMap, *, fetch: bool = True, fetcher: Callable[[str], Any] | None = None) -> tuple[float, date, str]:
+        """A0.4 현재가를 지금 기준으로 갱신 (네이버 실시간 → 리서치 DB 종가) 하고 다시 평가·저장한다."""
+        from .generate import PRICE_STALE_DAYS, latest_price
+        from .symbols import research_db_path
+
+        pick, notes = latest_price(m.ticker or "", today=self.now, research_db=research_db_path(self.store), fetch=fetch, fetcher=fetcher)
+        for n in notes:
+            self.log("  · " + n)
+        if pick is None:
+            raise OpsError("현재가를 가져오지 못했습니다 — 네트워크(네이버 금융)와 리서치 DB 모두 없음. A 탭의 현재가 칸에 직접 적으세요")
+        m["A0.4"].set(pick.value, as_of=pick.as_of, source=pick.source)
+        m["A0.4"].tags = sorted((set(m["A0.4"].tags) - {"warn"}) | ({"warn"} if pick.age_days(self.now) > PRICE_STALE_DAYS else set()))
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        self.store.save_map(m)
+        self.log(f"현재가 갱신 {m.map_id}: {pick.value:,.0f} ({pick.as_of}, {pick.kind})")
+        return pick.value, pick.as_of, pick.source.name
 
     def draft_from_reports(self, paths: Sequence[str | Path], f: dict[str, Any] | None = None, *,
                            progress: Callable[[str, int, int], None] | None = None) -> Any:
         """리포트 파일들 → A 맵 초안 → (save 면) 관심종목 등록 + 저장. 돌려주는 것은 generate.DraftResult.
 
-        f: {ticker, name, invest_type, use_llm, save} — 전부 선택. 종목은 지정값 > 리포트 본문 코드."""
-        from .generate import ClaudeGroupFiller, DraftError, draft_from_reports, llm_available, llm_status
+        f: {ticker, name, invest_type, use_llm, save, fetch_price} — 전부 선택. 종목은 지정값 > 리포트 본문 코드.
+        fetch_price (기본 True): 현재가를 작성 시점 기준으로 네이버에서 조회한다 (실패하면 리서치 DB·리포트 값)."""
+        from .generate import ClaudeGroupFiller, DraftError, draft_from_reports, llm_status, make_filler
+        from .generate.llm_fill import key_problem
         from .symbols import research_db_path
 
         f = f or {}
@@ -766,16 +1049,31 @@ class Ops:
         sector = text(f.get("sector")) or (w.sector if w else None) or (sym.sector if sym and sym.sector and sym.sector.startswith("KR-") else None)
         filler = None
         if f.get("use_llm"):
-            if not llm_available():
-                raise OpsError("LLM 을 쓸 수 없습니다 — " + llm_status()
-                               + ". 프로젝트 루트 .env 에 ANTHROPIC_API_KEY=… 를 적고 `pip install -e \".[llm]\"` 하세요. 체크를 끄면 규칙 채움만으로 초안을 만듭니다")
-            filler = ClaudeGroupFiller()
-            self.log("LLM 그룹 채움: " + llm_status())
+            kind = text(f.get("llm_kind")) or "auto"
+            if kind in ("auto", "claude"):
+                prob = key_problem()
+                if prob and kind == "claude":
+                    raise OpsError(prob + " — 체크를 끄면 규칙 채움만으로 초안을 만듭니다")
+            try:
+                filler = make_filler(kind)
+            except RuntimeError as e:
+                raise OpsError(f"LLM 을 쓸 수 없습니다 — {e}. 체크를 끄면 규칙 채움만으로 초안을 만듭니다") from e
+            self.log("LLM 그룹 채움: " + (llm_status() if isinstance(filler, ClaudeGroupFiller) else f"로컬 OpenAI 호환 서버 ({getattr(filler, 'model', '')})"))
+        fetch = bool(f.get("fetch_price", True))
         try:
             r = draft_from_reports(paths, ticker=ticker, name=name, invest_type=invest_type, sector=sector, today=self.now,
-                                   symbols=self.book, filler=filler, research_db=research_db_path(self.store), progress=progress)
+                                   symbols=self.book, filler=filler, research_db=research_db_path(self.store), progress=progress,
+                                   fetch_price=fetch, price_fetcher=f.get("price_fetcher"),
+                                   claims=text(f.get("claims")) or "auto", claims_dir=self.store.claims_dir, n_drivers=5,
+                                   llm_groups=bool(f.get("llm_groups", False)), issue_check=bool(f.get("issue_check", True)))
         except DraftError as e:
             raise OpsError(str(e)) from e
+        if r.issue_set is not None:
+            try:
+                self.store.issues_dir.mkdir(parents=True, exist_ok=True)
+                (self.store.issues_dir / f"{r.map.ticker}.json").write_text(r.issue_set.model_dump_json(indent=2), encoding="utf-8")
+            except OSError:
+                pass
         m = r.map
         if f.get("save", True):
             if self.store.get_watch(m.ticker or "") is None:

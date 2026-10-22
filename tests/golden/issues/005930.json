@@ -1,0 +1,15 @@
+{
+  "ticker": "005930",
+  "name": "삼성전자",
+  "verified": false,
+  "source": "2026-10-21 실측 (IBK 96588 · 유진 96597 · DS 96634, 프롬프트 c2) 과 사람이 쓴 Claim 실험에서 관찰 — 사람이 PDF 로 확인하면 verified:true",
+  "required_issues": [
+    {"driver_id": "dram_price", "label": "DRAM 가격", "display": "공통 견해", "direction": "positive"},
+    {"driver_id": "hbm", "label": "HBM", "display": "공통 견해", "direction": "positive"},
+    {"driver_id": "foundry", "label": "파운드리", "display": "공통 견해", "direction": "negative"},
+    {"driver_id": "shareholder_return", "label": "주주환원", "display": "공통 견해", "direction": "positive"},
+    {"driver_id": "mobile_demand", "label": "모바일·세트 수요", "display": "핵심 이견", "direction": "mixed",
+     "brokers_disagree": ["DS투자증권", "IBK투자증권", "유진투자증권"],
+     "note": "DS 는 SDC·MX 적자 축소(긍정), IBK·유진은 MX/VD 적자 확대(부정)"}
+  ]
+}

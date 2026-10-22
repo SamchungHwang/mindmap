@@ -20,10 +20,12 @@ def expected_return(scenarios: Mapping[str, Scenario], p0: float) -> float:
         raise CalcError("P0 must be positive")
     if not scenarios:
         raise CalcError("no scenarios")
-    psum = sum(s.probability for s in scenarios.values())
+    if any(s.probability is None for s in scenarios.values()):
+        raise CalcError("확률 없음 — 시나리오 확률을 입력하면 계산한다 (자동 초안은 확률을 만들지 않는다)")
+    psum = sum(s.probability for s in scenarios.values())  # type: ignore[misc]
     if abs(psum - 1.0) > 0.01:
         raise CalcError(f"scenario probabilities sum to {psum:.3f}, not 1.0")
-    return sum(s.probability * (s.target_price / p0 - 1.0) for s in scenarios.values())
+    return sum(s.probability * (s.target_price / p0 - 1.0) for s in scenarios.values())  # type: ignore[operator]
 
 
 def risk_reward(scenarios: Mapping[str, Scenario], p0: float, upside: str = "base") -> float | None:

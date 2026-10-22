@@ -1,0 +1,53 @@
+{
+  "report_id": "hk_96428",
+  "file": "data/reports/NAVER/company_96428.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "한화투자증권",
+    "date": "2026-10-02",
+    "ticker": "035420",
+    "name": "VER",
+    "opinion": "BUY",
+    "target_price": 300000.0,
+    "prev_target_price": 300000.0,
+    "current_price": 191200.0,
+    "price_date": "2026-10-01",
+    "high_52w": 287000.0,
+    "low_52w": 183200.0,
+    "title": "비용 압박은 하반기가 정점"
+  },
+  "estimates": {
+    "unit": null,
+    "revenue": {
+      "2023A": 9671.0,
+      "2024A": 10738.0,
+      "2025A": 12035.0,
+      "2026E": 13797.0,
+      "2027E": 15280.0
+    },
+    "op": {
+      "2023A": 1489.0,
+      "2024A": 1979.0,
+      "2025A": 2208.0,
+      "2026E": 2076.0,
+      "2027E": 2495.0
+    },
+    "np": {
+      "2023A": 985.0,
+      "2024A": 1923.0,
+      "2025A": 1953.0,
+      "2026E": 1906.0,
+      "2027E": 2098.0
+    },
+    "eps": {
+      "2024A": 12139.0,
+      "2025A": 13256.0,
+      "2026E": 12930.0,
+      "2027E": 14229.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

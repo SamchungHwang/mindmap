@@ -79,7 +79,7 @@ class Scenario(BaseModel):
 
     name: str  # Bear | Base | Bull
     assumptions: list[str] = Field(default_factory=list)
-    probability: float = Field(ge=0.0, le=1.0)
+    probability: float | None = Field(default=None, ge=0.0, le=1.0)   # None = 미입력 (자동 초안은 확률을 만들지 않는다 — 설계 v3 §2.5)
     target_price: float = Field(gt=0)
     horizon_months: int = 12
     valuation_method: str = ""

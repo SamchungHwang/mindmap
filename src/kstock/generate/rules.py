@@ -7,6 +7,7 @@ LLM 없이 돌아간다. 채운 노드에는 전부 `draft` 태그가 붙고, �
 
 from __future__ import annotations
 
+import statistics
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Any
@@ -26,10 +27,13 @@ from ..models import (
 )
 from ..reports.digest import AMOUNT_METRICS, ReportDigest
 from .kpi_catalog import kpi_candidates
+from .scenarios import PENDING_TAG
 
 DRAFT = "초안 — 논제의 주인이 확정할 것"
 DRAFT_TAG = "draft"
 SCENARIO_P = {"Bear": 0.30, "Base": 0.45, "Bull": 0.25}
+BEAR_FLOOR = 0.60          # Bear 앵커는 현재가의 60% 아래로 두지 않는다
+DRIVER_METRIC_ORDER = {"op": 0, "revenue": 1, "eps": 2, "opm": 3, "roe": 4}  # 표에서 채우는 드라이버 순서: 영업이익이 먼저
 
 
 @dataclass
@@ -112,7 +116,7 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
     """A1.x — 추정치 표에서 바로 채울 수 있는 KPI 만. current = 최근 실적(A), consensus = 차년도 E 평균, my_estimate = 컨센(초안)."""
     src = d.source_all()
     slots = [n.id for n in m.children("A1")]
-    cands = [k for k in kpi_candidates(sector) if k.metric]
+    cands = sorted((k for k in kpi_candidates(sector) if k.metric), key=lambda k: DRIVER_METRIC_ORDER.get(k.metric or "", 9))
     filled: list[str] = []
     used_metrics: set[str] = set()
     nxt_dates = next_earnings(today)
@@ -159,10 +163,11 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
         n.driver = Driver(
             current=Measurement(value=round(cur_val, 2), as_of=d.as_of, source=src, rationale=cur_note),
             consensus=Measurement(value=round(cons_val, 2), as_of=d.as_of, source=src, rationale=cons_note),
-            my_estimate=Measurement(value=round(cons_val, 2), as_of=today, rationale=f"컨센서스와 동일하게 둔 값. {DRAFT}"),
+            my_estimate=Measurement(value=None, as_of=None, rationale="내 추정은 논제의 주인이 쓴다 — 비워 두면 계산은 컨센서스 기준(임시)"),
             check_indicator=kpi.check_indicator, next_check=next_check, higher_is_better=kpi.higher_is_better)
         n.as_of = today
         mark_draft(n)
+        n.tags = sorted(set(n.tags) | {PENDING_TAG})
         res.filled.append(nid)
         filled.append(nid)
         used_metrics.add(metric)
@@ -192,6 +197,9 @@ def scenario_anchors(d: ReportDigest, p0: float | None) -> tuple[dict[str, float
         if bear >= p0:
             bear = p0 * 0.85
             notes.append("최저 목표가가 현재가 위에 있어 Bear 를 현재가 −15% 로 두었다 (컨센서스가 전부 위쪽)")
+        elif bear < p0 * BEAR_FLOOR:
+            notes.append(f"Bear 앵커 {bear:,.0f} 가 현재가 대비 {bear / p0 - 1:.0%} — 1년 전 저가는 하락 시나리오로 과하다. 현재가 −{1 - BEAR_FLOOR:.0%} 로 제한")
+            bear = p0 * BEAR_FLOOR
         if base <= p0:
             notes.append(f"컨센서스 하위 1/3 목표가 {base:,.0f} 가 현재가 아래 — 시장이 목표가를 넘어섰다. 사람이 봐야 한다")
     if base <= bear:
@@ -255,11 +263,14 @@ def fill_view(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, p
     if d.reports and dist.get("BUY", 0) == sum(v for k, v in dist.items() if k != "미상") and dist.get("BUY", 0) >= 2:
         parts.append("컨센서스 편향: 매도·중립 의견 0건 (매수 일색) — 리포트만으로는 반대 논리를 볼 수 없다")
     if parts:
-        _set(m, "A2.1", ". ".join(parts), today=today, source=src, res=res)
-    mine = d.top("thesis", 2)
-    if mine:
-        _set(m, "A2.2", "[초안: 리포트 논거를 옮긴 것 — 내가 다르게 보는 것은 논제의 주인이 쓴다] " + " / ".join(_trim(s, 120) for s in mine),
-             today=today, status=NodeStatus.unverified, res=res)
+        # 증권사 컨센서스 ≠ 주가에 내재된 기대 (설계 v3 §2.4). 값은 비워 두고 관측치는 질문에 붙인다; 자식 A2.1.x 는 쟁점(Issue).
+        m["A2.1"].question = (m["A2.1"].question.split(" | 리포트 관측:")[0] + " | 리포트 관측: " + ". ".join(parts))[:600]
+        m["A2.1"].tags = sorted(set(m["A2.1"].tags) | {PENDING_TAG})
+        m["A2.1"].source = src
+        res.notes.append("A2.1 내재 가정은 비워 둔다 — 증권사 전망(관측) 은 A2.1 의 자식 쟁점과 질문에만 적는다")
+    # A2.2 · A2.3 은 사람 몫 — 비운다
+    for nid in ("A2.2", "A2.3"):
+        m[nid].tags = sorted(set(m[nid].tags) | {PENDING_TAG})
     if d.revision:
         _set(m, "A3.6.3", d.revision, today=today, source=Source(name=f"직전 목표가 대비 상향/하향 건수 (리포트 {d.n_tp}건)", url=src.url, retrieved_at=d.as_of), res=res)
     m["A3.6"].question = d.consensus_line()
@@ -274,9 +285,7 @@ def fill_thesis(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult,
         bits.append(f"{ye} 영업이익 컨센서스 {d.fmt_amt('op', ye)}")
     if d.n_tp:
         bits.append(f"증권사 {d.n_tp}곳 평균 목표가 {d.tp_mean:,.0f}원")
-    base = res.anchors.get("Base")
-    tail = f" 이 맵의 Base 목표가 {base:,.0f}원은 그 분포의 하위 1/3 이다." if base else ""
-    body = (f"[초안] {name}: " + (", ".join(bits) if bits else "리포트 요약") + "." + tail
+    body = (f"[초안 · 증권사 종합] {name}: " + (", ".join(bits) if bits else "리포트 요약") + "."
             + " 시장이 아직 반영하지 않은 것이 무엇인지(A2.2)는 논제의 주인이 쓴다.")
     _set(m, "A0", body, today=today, status=NodeStatus.unverified, res=res)
     _set(m, "A0.2", "1Y", today=today, status=NodeStatus.unverified, res=res)
@@ -285,26 +294,21 @@ def fill_thesis(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult,
 
 
 def fill_risks(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) -> None:
-    src = d.source_all()
     risks = d.top("risk", 3)
-    impacts = (-25, -20, -15)
-    for i, (nid, text) in enumerate(zip(("A4.1", "A4.2", "A4.3"), risks, strict=False)):
-        _set(m, nid, {"probability": 0.25, "impact_pct": impacts[i], "text": _trim(text, 160) + " (초안: 확률·영향은 기본값)"},
-             today=today, source=src, res=res)
+    # 설계 v4 V8: 키워드로 고른 문장은 '리스크' 로 확정하지 않는다 — 값은 비우고(pending) 질문에 후보로만 적는다.
+    # LLM Claim 이 있으면 mapping 이 인용 근거가 있는 리스크로 채운다. 확률·영향(0.25 / -25%) 같은 기본값도 더 넣지 않는다.
+    for nid, text in zip(("A4.1", "A4.2", "A4.3"), risks, strict=False):
+        n = m[nid]
+        base_q = (n.question or "").split(" | 키워드 후보")[0]
+        n.question = (base_q + f" | 키워드 후보(미검증): {_trim(text, 120)}")[:400]
+        n.tags = sorted(set(n.tags) | {PENDING_TAG})
+        res.notes.append(f"{nid}: 키워드 문장은 후보로만 (질문) — 리스크 확정은 Claim 또는 사람")
     drivers = m.drivers()
-    if drivers:
+    # Kill 기준은 자동으로 만들지 않는다 (설계 v3): 원문 근거(조건부 리스크 주장) 가 있으면 mapping 이 제안하고, 없으면 질문으로 남긴다
+    m["A4.4.1"].tags = sorted(set(m["A4.4.1"].tags) | {PENDING_TAG})
+    if drivers and drivers[0].driver and drivers[0].driver.current.value:
         n = drivers[0]
-        dr = n.driver
-        assert dr is not None
-        base = dr.consensus.value if dr.consensus.value is not None else dr.current.value
-        if base is not None:
-            thr = base * (0.8 if dr.higher_is_better else 1.2)
-            op = "<" if dr.higher_is_better else ">"
-            m["A4.4.1"].rule = Rule(trigger_type="fact", condition=f"driver[{n.id}].current {op} {thr:g}", action=Action.exit, escalate_to="RED",
-                                    note=f"{n.label} 이 컨센서스({base:,.0f}{n.unit or ''}) 대비 20% {'미달' if dr.higher_is_better else '초과'}이면 논제 폐기 — {DRAFT} (임계값)")
-            m["A4.4.1"].as_of = today
-            mark_draft(m["A4.4.1"])
-            res.filled.append("A4.4.1")
+        m["A4.4.1"].question = (m["A4.4.1"].question + f" | 예시(미검증): {n.label} 이 지금 수준 {n.driver.current.value:,.2f}{n.unit or ''} 에서 20% 악화되면 폐기").strip(" |")
     indicators = sorted({n.driver.check_indicator for n in drivers if n.driver and n.driver.check_indicator})
     if indicators:
         _set(m, "A4.5", " · ".join(indicators), today=today, source=Source(name="섹터 KPI 사전 (자동)", retrieved_at=today), res=res)
@@ -371,7 +375,7 @@ def _safe_date(y: int, mth: int, d: int) -> date | None:
 
 
 def fill_exec(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) -> None:
-    base = res.anchors.get("Base")
+    base = None   # 시나리오를 자동으로 만들지 않으므로 익절 기준도 비워 둔다 (사람이 Base 를 정한 뒤)
     m["A6.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action=Action.review, escalate_to="YELLOW",
                           note=f"고점 대비 −25% 면 논제 재검토 — 기본값 ({DRAFT})")
     m["A6.3"].as_of = today
@@ -421,12 +425,41 @@ def fill_evidence(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResul
 
 
 # ---------------------------------------------------------------------------- 진입점
+def fill_tp_distribution(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, p0: float | None) -> None:
+    """A3.6.4 증권사 목표가 분포 (fact) — min/median/mean/max/n/분산 + 목표가별 상승여력. 시나리오가 아니라 분포다."""
+    if not d.n_tp:
+        return
+    nid = "A3.6.4"
+    if nid not in m.nodes:
+        m.add(Node(id=nid, map=MapKind.NEW, parent="A3.6", label="증권사 목표가 분포", node_type="fact", value_type="text",
+                   question="목표가 분포는 시나리오가 아니다 — 가장 보수적/낙관적 증권사와 그 간격"))
+    rows = []
+    for t in sorted(d.targets, key=lambda t: t.tp):
+        up = f" ({t.tp / p0 - 1:+.0%})" if p0 else ""
+        rows.append(f"{t.broker or '?'} {t.tp:,.0f}{up}")
+    xs = d.tp_values
+    spread = (max(xs) - min(xs)) / (statistics.median(xs) or 1) if xs else 0.0
+    ref = ""
+    if p0 and d.low_52w:
+        ref = f" · 참고: 52주 저가 {d.low_52w:,.0f} ({d.low_52w / p0 - 1:+.0%}), 현재가 −40% {p0 * 0.6:,.0f}"
+    val = (f"목표가 {d.n_tp}건 {d.tp_min:,.0f}~{d.tp_max:,.0f} · 중앙 {d.tp_median:,.0f} · 평균 {d.tp_mean:,.0f} · 분산 {spread:.0%}"
+           + (f" · 현재가 대비 평균 {d.tp_mean / p0 - 1:+.0%}" if p0 else "") + " | " + ", ".join(rows) + ref)
+    _set(m, nid, val, today=today, source=d.source_all(), res=res)
+    m.meta.setdefault("draft", {})["tp_distribution"] = {"n": d.n_tp, "min": d.tp_min, "max": d.tp_max, "median": d.tp_median, "mean": d.tp_mean,
+                                                        "spread": round(spread, 4), "by_broker": {(t.broker or "?"): t.tp for t in d.targets}}
+
+
 def fill_from_digest(m: NewMap, d: ReportDigest, *, today: date, sector: str | None = None,
-                     price: tuple[float, date | None, Source] | None = None) -> RuleFillResult:
+                     price: tuple[float, date | None, Source] | None = None, texts: dict[str, str] | None = None) -> RuleFillResult:
     res = RuleFillResult(sector=sector)
     p0 = fill_price(m, d, today=today, res=res, price=price)
     fill_drivers(m, d, today=today, res=res, sector=sector)
-    fill_scenarios(m, d, today=today, res=res, p0=p0)
+    from .scenarios import fill_scenarios_v3
+
+    sc_notes, cands = fill_scenarios_v3(m, d, texts or {}, today=today, p0=p0)
+    res.notes += sc_notes
+    res.anchors = {}
+    fill_tp_distribution(m, d, today=today, res=res, p0=p0)
     fill_view(m, d, today=today, res=res, p0=p0)
     fill_thesis(m, d, today=today, res=res, p0=p0)
     fill_risks(m, d, today=today, res=res)
@@ -440,7 +473,9 @@ def fill_from_digest(m: NewMap, d: ReportDigest, *, today: date, sector: str | N
                      "opinion": f.opinion, "target_price": f.target_price, "prev_target_price": f.prev_target_price} for f in d.reports],
         "consensus": {"n": d.n_tp, "mean": d.tp_mean, "median": d.tp_median, "min": d.tp_min, "max": d.tp_max, "revision": d.revision},
         "anchors": res.anchors, "sector": sector, "price_source": res.price_source,
-        "notes": list(res.notes), "warnings": list(d.warnings),
+        "notes": list(res.notes), "warnings": list(d.warnings), "scenario_candidates": cands,
+        "draft_status": "미완성", "approval_status": "미승인", "quality": "rules",
+        "excluded_reports": dict(d.excluded), "pre_earnings": dict(d.pre_earnings),
     })
     return res
 

@@ -21,6 +21,8 @@ _LINE = re.compile(r"^\s*(?:export\s+)?(?P<key>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P
 
 _loaded_from: Path | None = None
 _loaded_keys: list[str] = []
+_file_values: dict[str, str] = {}   # .env 에 적힌 값 (셸 환경변수에 밀려 안 쓰인 것 포함) — 충돌 감지용, 밖으로 내보내지 않는다
+_overrode: list[str] = []            # KSTOCK_PREFER_DOTENV 로 셸 변수를 덮어쓴 키
 _tried = False
 
 
@@ -67,12 +69,13 @@ def find_dotenv(start: Path | None = None) -> Path | None:
 
 def load_dotenv(path: str | Path | None = None, *, override: bool = False, force: bool = False) -> list[str]:
     """`.env` 를 os.environ 에 넣는다. 돌려주는 것은 새로 넣은 키 이름들 (값은 아니다). 두 번째부터는 캐시 (force 로 다시)."""
-    global _loaded_from, _loaded_keys, _tried
+    global _loaded_from, _loaded_keys, _file_values, _tried
     if _tried and not force and path is None:
         return list(_loaded_keys)
     _tried = True
     p = Path(path).expanduser() if path else find_dotenv()
     _loaded_keys = []
+    _file_values = {}
     if p is None or not p.is_file():
         _loaded_from = None
         return []
@@ -81,10 +84,19 @@ def load_dotenv(path: str | Path | None = None, *, override: bool = False, force
     except OSError:
         _loaded_from = None
         return []
+    _file_values = dict(data)
+    # KSTOCK_PREFER_DOTENV=1 이 .env 에 있으면 .env 에 적힌 키는 셸 환경변수를 덮는다 — 예전 키가 Windows 환경변수에 남아
+    # 자꾸 .env 를 가리는 경우의 탈출구 (기본은 셸 우선: 운영 환경에서 환경변수로 주입하는 관례를 지킨다)
+    prefer = override or str(data.get("KSTOCK_PREFER_DOTENV", "")).strip().lower() in ("1", "true", "yes", "on")
+    _overrode.clear()
     for k, v in data.items():
-        if override or k not in os.environ:
+        if k not in os.environ:
             os.environ[k] = v
             _loaded_keys.append(k)
+        elif prefer and os.environ.get(k) != v:
+            os.environ[k] = v
+            _loaded_keys.append(k)
+            _overrode.append(k)
     _loaded_from = p
     return list(_loaded_keys)
 
@@ -104,6 +116,73 @@ def has(key: str) -> bool:
     return env(key) is not None
 
 
+
+def overrode(key: str) -> bool:
+    """KSTOCK_PREFER_DOTENV 로 .env 값이 셸 변수를 덮어쓴 키인가."""
+    return key in _overrode
+
+
+def shell_var_origin(key: str) -> str:
+    """셸 환경변수가 어디서 왔는지 (Windows 레지스트리로 확인; 다른 OS 는 '셸 세션'). 값은 읽지만 돌려주지 않는다."""
+    if os.name != "nt":
+        return "셸 세션 (프로필·export)"
+    try:
+        import winreg  # type: ignore
+
+        def _has(root, sub):  # noqa: ANN001
+            try:
+                with winreg.OpenKey(root, sub) as h:
+                    winreg.QueryValueEx(h, key)
+                    return True
+            except OSError:
+                return False
+
+        user = _has(winreg.HKEY_CURRENT_USER, r"Environment")
+        mach = _has(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment")
+    except Exception:  # noqa: BLE001  # pragma: no cover
+        return "알 수 없음"
+    if user and mach:
+        return "Windows 사용자 환경변수 + 시스템 환경변수 둘 다"
+    if user:
+        return "Windows 사용자 환경변수"
+    if mach:
+        return "Windows 시스템 환경변수 (관리자 권한으로 지워야 한다)"
+    return "이 셸 세션에서 설정됨 — PowerShell 프로필($PROFILE) 또는 conda 환경 변수(conda env config vars list -n ksa) 를 볼 것"
+
+
+def shell_var_fix_hint(key: str) -> str:
+    """셸 변수를 지우는 명령 안내 (출처별)."""
+    o = shell_var_origin(key)
+    lines = [f"셸 변수 출처: {o}", f"  이번 창만: Remove-Item Env:{key}"]
+    if "사용자" in o:
+        lines.append(f"  영구:      [Environment]::SetEnvironmentVariable('{key}', $null, 'User')")
+    if "시스템" in o:
+        lines.append(f"  영구:      [Environment]::SetEnvironmentVariable('{key}', $null, 'Machine')   (관리자 PowerShell)")
+    if "세션" in o:
+        lines.append(f"  conda:     conda env config vars unset {key} -n ksa  → conda activate ksa 다시")
+        lines.append(f"  프로필:    notepad $PROFILE 에서 {key} 줄 삭제")
+    lines.append("  또는 .env 에 KSTOCK_PREFER_DOTENV=1 을 한 줄 넣으면 .env 의 키가 셸 변수를 덮는다")
+    return "\n".join(lines)
+
+
+def shadowed(key: str) -> bool:
+    """셸 환경변수가 .env 의 값을 가리고 있는가 (둘 다 있고 서로 다름). 흔한 함정: 예전 키가 Windows 사용자 환경변수에 남아 있어
+    .env 를 고쳐도 반영되지 않는다."""
+    load_dotenv()
+    v = os.environ.get(key)
+    return bool(v) and key in _file_values and _file_values[key] != v and key not in _loaded_keys
+
+
+def file_value_shape(key: str) -> str:
+    """.env 에 적힌 값의 모양만 (계열·길이) — 값은 아니다."""
+    v = _file_values.get(key, "")
+    if not v:
+        return "-"
+    parts = v.split("-", 3)
+    fam = "-".join(parts[:3]) + "-" if len(parts) >= 4 else v[:7]
+    return f"{fam} {len(v)}자"
+
+
 def describe(key: str) -> str:
     """'ANTHROPIC_API_KEY: .env 에서 읽음 (경로)' 처럼 값 없이 출처만 말하는 한 줄."""
     load_dotenv()
@@ -111,8 +190,12 @@ def describe(key: str) -> str:
         src = loaded_from()
         return f"{key} 없음" + (f" — {src} 에도 없다" if src else " — .env 파일을 찾지 못함 (.env.example 참고)")
     if key in _loaded_keys and _loaded_from is not None:
-        return f"{key}: .env 에서 읽음 ({_loaded_from})"
+        return f"{key}: .env 에서 읽음 ({_loaded_from})" + (" — 셸 변수가 있었지만 KSTOCK_PREFER_DOTENV 로 .env 를 썼다" if overrode(key) else "")
+    if shadowed(key):
+        return (f"{key}: 셸 환경변수 — ⚠ {_loaded_from} 에는 다른 값({file_value_shape(key)})이 있는데 셸 변수가 우선이라 안 읽혔다. "
+                f".env 값을 쓰려면 셸 환경변수 {key} 를 지우거나 .env 에 KSTOCK_PREFER_DOTENV=1 을 넣을 것 ({shell_var_origin(key)})")
     return f"{key}: 환경변수"
 
 
-__all__ = ["parse_dotenv", "find_dotenv", "load_dotenv", "loaded_from", "env", "has", "describe", "ROOT", "DEFAULT_NAME"]
+__all__ = ["parse_dotenv", "find_dotenv", "load_dotenv", "loaded_from", "env", "has", "describe", "shadowed", "file_value_shape",
+           "overrode", "shell_var_origin", "shell_var_fix_hint", "ROOT", "DEFAULT_NAME"]

@@ -210,7 +210,7 @@ class Console:
             if c in (None, "0"):
                 return
             for key, _, fn in items:
-                if c == key:
+                if c.strip().lower() == key.lower():
                     try:
                         fn()
                     except (ValueError, KeyError, AssertionError) as e:
@@ -334,6 +334,15 @@ class Console:
             ("6", "A 맵 HTML 렌더링", lambda: self._render_pick(MapKind.NEW)),
             ("7", "A 맵 삭제 (인덱스+파일)", lambda: self._delete_pick(MapKind.NEW)),
             ("8", "리포트 파일들로 A 맵 자동 생성 (초안 — 규칙 채움, 선택 LLM)", self.new_draft),
+            ("9", "A 맵 현재가 갱신 (지금 기준 — 네이버 실시간 → 리서치 DB 종가)", self.new_refresh_price),
+            ("L", "LLM 연결 확인 (ANTHROPIC_API_KEY 동작 — 인증·모델·작은 호출 1회)", self.new_llm_check),
+            ("C", "시나리오 후보 넣기 (증권사 자체 후보 → Bear/Base/Bull, 확률은 비움)", self.new_scenario_candidate),
+            ("P", "예시 확률 입력 (30/45/25 — 통계적 근거 없는 미검증 가정)", self.new_example_probs),
+            ("K", "Kill 후보 확정 (리포트 조건부 리스크 → 관측 지표·갱신 주기·행동을 채워 Rule)", self.new_kill_candidate),
+            ("I", "쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결)", self.new_issues),
+            ("R", "Claim 검토 대기함 (승인/반려)", self.new_review_queue),
+            ("S", "노드 출처 보기 (리포트·페이지·인용)", self.new_source),
+            ("N", "새 리포트 → 변경안 (승인한 것만 적용, 원본 버전 보존)", self.new_changes),
         ])
 
     def _rows(self, kind: MapKind, include_closed: bool = False) -> list[MapRow]:
@@ -403,6 +412,8 @@ class Console:
             self.say(f"  ! {e}")
             return
         self.say(f"  파일 {pk['n_reports']}개 (읽힘 {pk['n_readable']}) · 목표주가 {pk['n_tp']}건 · {', '.join(pk['brokers']) or '증권사 미상'} · 최신 {pk['as_of']}")
+        for row in pk.get("rows", []):
+            self.say("   " + row)
         for w in pk["warnings"][:5]:
             self.say(f"  ! {w}")
         ticker = self.ask("종목코드", pk["ticker"] or None)
@@ -413,8 +424,10 @@ class Console:
 
         self.say(f"  LLM: {llm_status()}")
         use_llm = self.ask_yes("LLM 그룹 채움을 쓸까요?", llm_available())
+        fetch = self.ask_yes("현재가를 작성 시점 기준으로 네이버에서 조회할까요?", True)
         try:
-            r = ops.draft_from_reports(paths, {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True},
+            r = ops.draft_from_reports(paths, {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True,
+                                               "fetch_price": fetch},
                                        progress=lambda label, i, n: self.say(f"  [{i}/{n}] {label}"))
         except OpsError as e:
             self.say(f"  ! {e}")
@@ -424,6 +437,189 @@ class Console:
         self.say(r.summary_text())
         if self.ask_yes("HTML 로 열까요?", True):
             self._render(r.map)
+
+    def new_refresh_price(self) -> None:
+        from .ops import Ops, OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = Ops(self.store, today=self.today)
+        try:
+            price, as_of, src = ops.refresh_price(m)
+        except OpsError as e:
+            self.say(f"  ! {e}")
+            return
+        self._drain(ops)
+        self.say(f"  ✓ 현재가 {price:,.0f} ({as_of}) — {src}")
+        self._print_new_eval(m)
+
+    def _ops(self):  # noqa: ANN202
+        from .ops import Ops
+
+        return Ops(self.store, today=self.today)
+
+    def new_scenario_candidate(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        labels = ops.candidate_labels(m)
+        if not labels:
+            self.say("  후보가 없습니다 (리포트로 자동 생성한 맵이 아니거나 목표가를 못 읽음)")
+            return
+        self.say("  증권사 자체 후보 — 한 증권사 안의 가정만 쓴다 (서로 섞지 않는다):")
+        for ln in labels:
+            self.say("   " + ln)
+        for name in ("Bear", "Base", "Bull"):
+            raw = self.ask(f"{name} 에 넣을 후보 번호 (건너뛰려면 빈칸)")
+            if not raw or not raw.isdigit():
+                continue
+            try:
+                self.say("  ✓ " + ops.apply_scenario_candidate(m, int(raw) - 1, name))
+            except OpsError as e:
+                self.say(f"  ! {e}")
+        self._drain(ops)
+        self._print_new_eval(m)
+
+    def new_kill_candidate(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        labels = ops.kill_candidate_labels(m)
+        if not labels:
+            self.say("  Kill 후보가 없습니다 (리포트에 조건부 리스크 Claim 이 없음) — A4.4.x 는 직접 적을 것")
+            return
+        self.say("  Kill 후보 — 리포트의 조건부 리스크. '수익성 개선 지연' 은 '논제 붕괴' 가 아니므로 자동으로 넣지 않는다:")
+        for ln in labels:
+            self.say("   " + ln)
+        raw = self.ask("확정할 후보 번호 (빈칸이면 취소)")
+        if not raw or not raw.isdigit():
+            return
+        observable = self.ask("관측 지표 (어디서 무엇을 보나 — 예: 분기 실적 발표의 HBM 수율 코멘트)") or ""
+        cadence = self.ask("갱신 주기 (예: 분기 / 월 / 공시 즉시)") or ""
+        action = self.ask("위반 시 행동 (exit / trim / review / hedge)") or ""
+        cond = self.ask("조건식 (빈칸이면 후보의 임계값으로 — 예: driver[A1.1].current < 50)") or ""
+        try:
+            self.say("  ✓ " + ops.apply_kill_candidate(m, int(raw) - 1, observable=observable, update_cadence=cadence, action=action, condition=cond or None))
+        except OpsError as e:
+            self.say(f"  ! {e}")
+        self._drain(ops)
+        self._print_new_eval(m)
+
+    def new_example_probs(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        if not self.ask_yes("30/45/25 는 통계적 근거가 없는 예시값입니다. 그래도 넣을까요?", False):
+            return
+        ops = self._ops()
+        try:
+            self.say("  ✓ " + ops.apply_example_probs(m))
+        except OpsError as e:
+            self.say(f"  ! {e}")
+        self._drain(ops)
+        self._print_new_eval(m)
+
+    def new_issues(self) -> None:
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        for ln in self._ops().issues_text(m).split("\n"):
+            self.say("  " + ln)
+
+    def new_review_queue(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        rows = ops.review_queue(m)
+        if not rows:
+            self.say("  검토 대기 Claim 이 없습니다")
+            return
+        for i, r in enumerate(rows, start=1):
+            flag = f" ⚑ {r['review_reason']}" if r.get("review_required") else ""
+            self.say(f"  {i}) [{r['broker']}|{r.get('tag', '')}|{','.join(r['roles']) or '-'}] {r['proposition'][:100]}{flag}")
+            self.say(f"       {r['validation']}" + (f" · p.{r['page']} 인용: {r['quote'][:100]!r}" if r["quote"] else "") + (" · 추론" if r["inferred"] else "")
+                     + (" · 승인하려면 이유 필요" if r.get("needs_note") else ""))
+        raw = self.ask("승인할 번호 (쉼표, 빈칸이면 없음)")
+        rej = self.ask("반려할 번호 (쉼표, 빈칸이면 없음)")
+        note = ""
+        picked = [int(t) for t in (raw or "").split(",") if t.strip().isdigit()]
+        if any(1 <= k <= len(rows) and rows[k - 1].get("needs_note") for k in picked):
+            note = self.ask("승인 이유 (근거 불충분 판정을 뒤집는 근거 — 비우면 그 항목은 보류)") or ""
+        for txt, decision in ((raw, "approve"), (rej, "reject")):
+            for tok in (txt or "").split(","):
+                tok = tok.strip()
+                if tok.isdigit() and 1 <= int(tok) <= len(rows):
+                    try:
+                        self.say("  ✓ " + ops.review_claim(m, rows[int(tok) - 1]["claim_id"], decision, note=note if decision == "approve" else ""))
+                    except (OpsError, ValueError) as e:
+                        self.say(f"  ! {e}")
+        self._drain(ops)
+
+    def new_source(self) -> None:
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        nid = self.ask("노드 id (예: A2.1.1, A4.1)")
+        if not nid or nid not in m:
+            self.say("  ! 그런 노드가 없습니다")
+            return
+        info = self._ops().source_of(m, nid)
+        self.say(f"  출처: {info['name']}")
+        if info.get("path"):
+            self.say(f"  파일: {info['path']}" + (f" p.{info['page']}" if info.get("page") else ""))
+        if info.get("quote"):
+            self.say(f"  인용: {info['quote'][:300]}")
+
+    def new_changes(self) -> None:
+        from .generate.changes import changeset_table
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        raw = self.ask("새 리포트 파일 경로 (쉼표로 구분)")
+        if not raw:
+            return
+        paths = [p.strip() for p in raw.split(",") if p.strip()]
+        ops = self._ops()
+        try:
+            cs = ops.propose_changes(m, paths, {"fetch_price": False})
+        except OpsError as e:
+            self.say(f"  ! {e}")
+            return
+        for ln in changeset_table(cs).split("\n"):
+            self.say("  " + ln)
+        if not cs.changes:
+            return
+        ap = self.ask("승인할 변경 id (쉼표, 예: ch1,ch2 — 빈칸이면 없음)")
+        rj = self.ask("반려할 변경 id (쉼표)")
+        decisions = {x.strip(): "approve" for x in (ap or "").split(",") if x.strip()}
+        decisions.update({x.strip(): "reject" for x in (rj or "").split(",") if x.strip()})
+        try:
+            done = ops.apply_changes(m, cs, decisions)
+        except OpsError as e:
+            self.say(f"  ! {e}")
+            return
+        self._drain(ops)
+        self.say(f"  ✓ 적용 {len(done)}건 → v{m.meta.get('version')}")
+
+    def new_llm_check(self) -> None:
+        from .generate import llm_check
+
+        for ln in llm_check().lines():
+            self.say("  " + ln)
 
     # ---------------------------------------------------------------- 채우기
     def new_fill(self) -> None:

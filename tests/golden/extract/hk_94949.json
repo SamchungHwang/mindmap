@@ -1,0 +1,50 @@
+{
+  "report_id": "hk_94949",
+  "file": "data/reports/두산에너빌리티/두산에너빌리티_94949.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "iM증권",
+    "date": "2026-08-03",
+    "ticker": "034020",
+    "name": "두산에너빌리티",
+    "opinion": "NR",
+    "target_price": null,
+    "prev_target_price": null,
+    "current_price": 67100.0,
+    "price_date": "2026-07-31",
+    "high_52w": 136400.0,
+    "low_52w": 57400.0,
+    "title": "하반기 원전 및 가스터빈 등 수주 모멘텀 가시화"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2022A": 15421.0,
+      "2023A": 17590.0,
+      "2024A": 16233.0,
+      "2025A": 17058.0
+    },
+    "op": {
+      "2022A": 1106.0,
+      "2023A": 1467.0,
+      "2024A": 1018.0,
+      "2025A": 763.0
+    },
+    "np": {
+      "2022A": -772.0,
+      "2023A": 56.0,
+      "2024A": 111.0,
+      "2025A": 85.0
+    },
+    "eps": {
+      "2022A": -1249.0,
+      "2023A": 87.0,
+      "2024A": 174.0,
+      "2025A": 132.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

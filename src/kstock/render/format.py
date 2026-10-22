@@ -92,7 +92,8 @@ def node_line(n: Node, *, show_question: bool = True, show_meta: bool = True) ->
         parts.append(s)
     elif n.scenario is not None:
         sc = n.scenario
-        s = f"{fmt_num(sc.target_price, value_type='price')} (p={sc.probability:.2f}, {sc.horizon_months}M)"
+        p = f"p={sc.probability:.2f}" if sc.probability is not None else "p=미입력"
+        s = f"{fmt_num(sc.target_price, value_type='price')} ({p}, {sc.horizon_months}M)"
         if sc.assumptions:
             s += " — " + "; ".join(sc.assumptions[:3])
         parts.append(s)

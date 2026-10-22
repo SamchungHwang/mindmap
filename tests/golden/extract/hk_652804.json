@@ -1,0 +1,47 @@
+{
+  "report_id": "hk_652804",
+  "file": "data/reports/NAVER/네이버_652804.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "메리츠증권",
+    "date": "2026-10-08",
+    "ticker": "035420",
+    "name": "NAVER",
+    "opinion": "BUY",
+    "target_price": 330000.0,
+    "prev_target_price": null,
+    "current_price": 189000.0,
+    "price_date": "2026-10-07",
+    "high_52w": 287000.0,
+    "low_52w": 183200.0,
+    "title": "3Q26E: 커머스 투자로 3분기와 4분기 실적 대폭 하향"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2024A": 10737.7,
+      "2025A": 12035.0,
+      "2026E": 13768.0,
+      "2027E": 16361.5,
+      "2028E": 20297.3
+    },
+    "op": {
+      "2024A": 1979.3,
+      "2025A": 2208.1,
+      "2026E": 2079.6,
+      "2027E": 2582.5,
+      "2028E": 3702.5
+    },
+    "np": {
+      "2024A": 1932.0,
+      "2025A": 1818.8,
+      "2026E": 1868.3,
+      "2027E": 2363.9,
+      "2028E": 3329.5
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

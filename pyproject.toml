@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kstock-mindmap"
-version = "0.2.0"
+version = "0.3.0"
 description = "주식투자 마인드맵 생성·대응 엔진 — 신규 투자 맵(A), 보유 종목 맵(B), 포트폴리오 롤업(C)"
 readme = "README.md"
 requires-python = ">=3.10"

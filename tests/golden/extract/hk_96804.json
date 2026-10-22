@@ -1,0 +1,51 @@
+{
+  "report_id": "hk_96804",
+  "file": "data/reports/두산에너빌리티/두산에너빌리티_96804.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "하나증권",
+    "date": "2026-10-16",
+    "ticker": "034020",
+    "name": "두산에너빌리티",
+    "opinion": "BUY",
+    "target_price": 120000.0,
+    "prev_target_price": 165000.0,
+    "current_price": 63300.0,
+    "price_date": "2026-10-15",
+    "high_52w": 136400.0,
+    "low_52w": 60200.0,
+    "title": "연내 SMR 추가 수주 기대"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2024A": 16233.1,
+      "2025A": 17057.9,
+      "2026E": 17970.4,
+      "2027E": 18953.3
+    },
+    "op": {
+      "2024A": 1017.6,
+      "2025A": 762.7,
+      "2026E": 1006.6,
+      "2027E": 1250.6
+    },
+    "np": {
+      "2024A": 111.4,
+      "2025A": 84.8,
+      "2026E": 371.0,
+      "2027E": 530.4
+    },
+    "eps": {
+      "2024A": 174.0,
+      "2025A": 132.0,
+      "2026E": 579.0,
+      "2027E": 828.0,
+      "2028E": 984.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

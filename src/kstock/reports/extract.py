@@ -49,27 +49,33 @@ RE_DATE4 = re.compile(r"(?<!\d)(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(
 RE_DATE_YM = re.compile(r"(?<!\d)(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*월?(?![\d.])")
 RE_DATE2 = re.compile(r"(?<![\d.])'?(\d{2})\.\s*(\d{1,2})\.\s*(\d{1,2})(?![\d.])")
 RE_FILENAME_DATE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
+_MON = r"(?P<mon>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?"
+RE_DATE_EN = re.compile(_MON + r"\s+(?P<d>\d{1,2}),?\s+(?P<y>20\d{2})|(?P<d2>\d{1,2})\s+" + _MON.replace("mon", "mon2") + r",?\s+(?P<y2>20\d{2})", re.I)
+MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12}
+RE_TICKER_LINE = re.compile(r"^(?P<name>[가-힣A-Za-z0-9&·\.\- ]{1,30}?)\s+(?P<code>\d{6})(?:\s*(?:KS|KQ))?\s*$", re.M)
 RE_EMAIL = re.compile(r"[\w.\-]+@([\w\-]+(?:\.[\w\-]+)+)")
 RE_ANALYST = re.compile(r"(?:Analyst|애널리스트|연구원|RA)\s*[:：]?\s*([가-힣]{2,4})(?!증권)")
 
+_TP_WORD = r"(?:목표\s*주가|적정\s*주가|목표가|적정가)"
 RE_TP = re.compile(
-    r"목표\s*주가(?:\s*\((?:12M|6M|12개월|6개월|원)\))?[를을은는도와과의]?\s*(?:\((?:" + _CHANGE + r")\))?\s*(?:" + _CHANGE
+    _TP_WORD + r"(?:\s*\((?:12M|6M|12개월|6개월|원)\))?[를을은는도와과의]?\s*(?:\((?:" + _CHANGE + r")\))?\s*(?:" + _CHANGE
     + r")?\s*[:：]?\s*(?:\(원\))?\s*(?P<num>" + _NUM + r")\s*원?", re.I)
-RE_TP_MAN = re.compile(r"목표\s*주가(?:\s*\([^)]{1,8}\))?[를을은는도와과의]?\s*(?:\((?:" + _CHANGE + r")\))?\s*[:：]?\s*(?P<man>\d+(?:\.\d+)?)\s*만\s*원")
-RE_TP_EN = re.compile(r"(?:\bTP|Target\s*Price|목표가)\s*(?:\(KRW\)|\(원\))?\s*[:：]?\s*(?P<num>" + _NUM + r")\s*원?", re.I)
-RE_TP_ARROW = re.compile(r"목표\s*주가[^\n]{0,25}?(?P<prev>" + _NUM + r")\s*원?\s*(?:→|->|에서|⇒)\s*(?P<new>" + _NUM + r")\s*원")
+RE_TP_MAN = re.compile(_TP_WORD + r"(?:\s*\([^)]{1,8}\))?[를을은는도와과의]?\s*(?:\((?:" + _CHANGE + r")\))?\s*[:：]?\s*(?P<man>\d+(?:\.\d+)?)\s*만\s*원")
+RE_TP_EN = re.compile(r"(?:\bTP|Target\s*Price)\s*(?:\(KRW\)|\(원\))?\s*[:：]?\s*(?P<num>" + _NUM + r")\s*원?", re.I)
+RE_TP_ARROW = re.compile(_TP_WORD + r"[^\n]{0,25}?(?P<prev>" + _NUM + r")\s*원?\s*(?:→|->|에서|⇒)\s*(?P<new>" + _NUM + r")\s*원")
 RE_TP_PREV = re.compile(r"(?:기존|직전|이전|종전|전)\s*(?:목표\s*주가|TP)?\s*[:：]?\s*(?:대비\s*)?(?P<num>" + _NUM + r")\s*원", re.I)
-RE_TP_CHANGE = re.compile(r"목표\s*주가[^\n]{0,40}?(?P<chg>상향|하향|유지|신규|Maintain|Upgrade|Downgrade|Initiate)|"
-                          r"(?P<chg2>상향|하향|유지|신규)[^\n]{0,12}?목표\s*주가", re.I)
+RE_TP_CHANGE = re.compile(_TP_WORD + r"[^\n]{0,40}?(?P<chg>상향|하향|유지|신규|Maintain|Upgrade|Downgrade|Initiate)|"
+                          r"(?P<chg2>상향|하향|유지|신규)[^\n]{0,12}?" + _TP_WORD, re.I)
 RE_UPSIDE = re.compile(r"(?:상승\s*여력|Upside)\s*[:：]?\s*\(?(?P<pct>-?\d{1,3}(?:\.\d+)?)\s*%", re.I)
 RE_PRICE = re.compile(
-    r"(?:현재\s*(?:주가|가)|주가|전일\s*종가|종가|기준\s*주가|\bCP|Price)\s*(?:\((?P<d>[^()]{3,14})\))?\s*(?:\(원\)|\(KRW\))?\s*[:：]?\s*"
+    r"(?:현재\s*(?:주가|가)|(?<![가-힣])주가|전일\s*종가|(?<![가-힣])종가|기준\s*주가|\bCP|\bPrice)\s*(?:\((?P<d>[^()]{3,14})\))?\s*(?:\(원\)|\(KRW\))?\s*[:：]?\s*"
     r"(?P<num>" + _NUM + r")\s*원?(?!\s*(?:→|->))", re.I)
 RE_PRICE_WITH_DATE_AFTER = re.compile(r"현재\s*주가\s*\(원\)\s*(?P<num>" + _NUM + r")\s+(?P<d>20\d{2}\.\s*\d{1,2}\.\s*\d{1,2})")
 RE_OPINION = re.compile(r"투자\s*의견\s*[:：]?\s*(?P<op>" + _OPINION + r")\s*(?:\((?P<chg>" + _CHANGE + r")\))?", re.I)
-RE_OPINION_LINE = re.compile(r"^(?P<op>" + _OPINION + r")\s*(?:\((?P<chg>" + _CHANGE + r")\))?\s*(?:$|현재|목표|\||I\b|·)", re.I | re.M)
+RE_OPINION_LINE = re.compile(r"^(?P<op>" + _OPINION + r")\s*(?:\((?P<chg>" + _CHANGE + r")\))?\s*(?P<chg2>" + _CHANGE + r")?\s*(?:$|\(|현재|목표|적정|\||I\b|·|,)", re.I | re.M)
 RE_52W_HI = re.compile(r"52\s*주\s*(?:최고가|최고|고가|High)(?:\s*/\s*(?:최저가|최저|저가|Low))?[^\d\n]{0,14}(?P<hi>" + _NUM + r")(?:\s*원)?(?:\s*/\s*(?P<lo>" + _NUM + r"))?", re.I)
-RE_52W_LO = re.compile(r"52\s*주\s*(?:최저가|최저|저가|Low)[^\d\n]{0,14}(?P<lo>" + _NUM + r")", re.I)
+RE_52W_LO = re.compile(r"52\s*주\s*(?:최저가|최저|저가|Low)(?:\s*/\s*(?:최고가|최고|고가|High))?[^\d\n]{0,14}(?P<lo>" + _NUM + r")(?:\s*원)?(?:\s*/\s*(?P<hi>" + _NUM + r"))?", re.I)
+RE_52W_RANGE = re.compile(r"52\s*주\s*(?:주가|범위|Range)?\s*[:：]?\s*(?P<a>" + _NUM + r")\s*(?:~|-|–|—)\s*(?P<b>" + _NUM + r")\s*원?", re.I)
 RE_TP_HISTORY = re.compile(r"^(?P<d>(?:20)?\d{2}[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2})\s+(?P<op>" + _OPINION + r")\s+(?P<tp>" + _NUM + r")", re.I | re.M)
 RE_MKTCAP = re.compile(r"시가\s*총액\s*\(?(?P<unit>십억원|억원|조원|백만원)?\)?\s*[:：]?\s*(?P<num>\d[\d,]*(?:\.\d+)?)\s*(?P<unit2>십억원|억원|조원|백만원)?")
 
@@ -80,9 +86,11 @@ UNIT_TOKEN = re.compile(r"(십억원|억원|조원|백만원|천원|bn|mn)")
 NUM_TOKEN = re.compile(r"\(?-?\d[\d,]*(?:\.\d+)?\)?%?|적전|흑전|적지|흑지|N/?A|n/?a|(?<=\s)-(?=\s|$)")
 ROW_LABELS: list[tuple[str, str]] = [
     ("revenue", r"매출액|매출(?!\s*총|\s*원가|\s*채권)|영업수익|순영업수익"),
+    # 조정(일회성 제거) 영업이익은 보고 영업이익과 같은 셀에 섞지 않는다 (설계 v4 V4) — 먼저 매치시킨다
+    ("op_adj", r"조정\s*영업이익|영업이익\s*\(조정\)|Adjusted\s*OP|Adj\.?\s*OP"),
     ("op", r"영업이익(?!률)"),
     ("np", r"지배주주\s*(?:지분\s*)?순이익|순이익\s*\(지배\)|당기순이익\s*\(지배(?:주주)?\)|당기순이익|순이익|지배순이익"),
-    ("ebitda", r"EBITDA(?!\s*마진)"),
+    ("ebitda", r"EBITDA(?!\s*(?:마진|margin|Margin))"),
     ("opm", r"영업이익률|OPM|OP\s*margin"),
     ("eps", r"EPS(?!\s*(?:증감|성장|증가|growth))"),
     ("bps", r"BPS"),
@@ -94,7 +102,7 @@ ROW_LABELS: list[tuple[str, str]] = [
     ("div_yield", r"배당수익률"),
 ]
 GROWTH_WORDS = re.compile(r"증가율|성장률|증감률|증감|YoY|QoQ|growth|\(%\s*YoY\)", re.I)
-METRIC_LABEL = {"revenue": "매출액", "op": "영업이익", "np": "순이익", "ebitda": "EBITDA", "opm": "영업이익률", "eps": "EPS",
+METRIC_LABEL = {"revenue": "매출액", "op": "영업이익", "op_adj": "조정 영업이익", "np": "순이익", "ebitda": "EBITDA", "opm": "영업이익률", "eps": "EPS",
                 "bps": "BPS", "dps": "DPS", "per": "PER", "pbr": "PBR", "roe": "ROE", "ev_ebitda": "EV/EBITDA",
                 "div_yield": "배당수익률"}
 RATIO_METRICS = {"opm", "per", "pbr", "roe", "ev_ebitda", "div_yield"}
@@ -106,8 +114,8 @@ SENT_SPLIT = re.compile(r"(?<=[\.。!?])\s+(?=[A-Z가-힣①-⑩\d\(\[「“\"']
 KIND_WORDS: dict[str, list[str]] = {
     "thesis": ["전망", "예상", "기대", "확대", "성장", "증가", "개선", "상향", "수혜", "점유율", "수주", "양산", "출하", "판가",
                "가격 인상", "회복", "턴어라운드", "레벨업", "최대", "호조", "본격화", "가속", "모멘텀", "재평가", "저평가"],
-    "risk": ["리스크", "우려", "불확실", "둔화", "하락", "하향", "지연", "경쟁", "부담", "악화", "감소", "변동성", "규제", "관세",
-             "환율", "적자", "충당금", "소송", "공급 과잉", "피크아웃", "역성장", "희석", "유상증자"],
+    "risk": ["리스크", "우려", "불확실", "둔화", "하락", "하향 조정", "지연", "경쟁", "부담", "악화", "감소", "변동성", "규제", "관세",
+             "환율", "적자", "충당금", "소송", "공급 과잉", "피크아웃", "역성장", "희석", "손실"],
     "catalyst": ["예정", "발표", "출시", "공시", "승인", "계약", "착공", "가동", "컨퍼런스", "실적 발표", "잠정실적", "확정실적",
                  "주주총회", "상장", "인증", "수주 발표", "학회", "입찰", "선정", "론칭", "양산 시작", "정책"],
     "valuation": ["PER", "PBR", "EV/EBITDA", "밸류에이션", "목표주가 산정", "Target", "할인", "프리미엄", "적용", "배", "SOTP", "DCF",
@@ -115,6 +123,13 @@ KIND_WORDS: dict[str, list[str]] = {
     "shareholder": ["배당", "자사주", "주주환원", "소각", "지배구조", "밸류업", "배당성향", "환원율"],
     "business": ["사업 구조", "매출 비중", "비즈니스", "사업부", "주력 제품", "매출 구성", "매출의", "영위", "핵심 고객", "제품 포트폴리오", "매출액의"],
 }
+# 표지·표·데이터 박스·등급 정의처럼 '문장' 이 아닌 줄 — 논거/리스크 후보에서 뺀다
+NOT_PROSE = re.compile(
+    r"투자\s*의견|목표\s*주가|적정\s*주가|현재\s*주가|상승\s*여력|시가\s*총액|발행\s*주식|외국인\s*지분|주주\s*구성|배당수익률\s*\(|"
+    r"\[?\s*(?:표|그림|도표|Figure|Table|Chart)\s*\d|자료\s*[:：]|출처\s*[:：]|Source\s*[:：]|\bI\b\s*기업분석|Company\s*(?:Analysis|Brief|Report)|"
+    r"시장수익률\s*대비|%p\s*(?:이상|이하|~)|Marketperform|Underperform|Not\s*Rated|\(유지\)|\(상향\)|\(하향\)|\(신규\)|"
+    r"^\s*(?:매수|BUY|Buy|HOLD|Hold|중립|매도)\b|실적\s*추정\s*$|Preview\s|Review\s|리서치센터|리서치본부", re.I)
+RISK_HEADING = re.compile(r"^\s*(?:(?:주요\s*|핵심\s*)?리스크\s*(?:요인|요소)?|Risk\s*factors?|Risks?|(?:투자\s*)?위험\s*요인)\s*[:：]?\s*", re.I)
 TIME_WORDS = re.compile(r"\d{1,2}\s*월|[1-4]\s*분기|[1-4]Q\s*\d{2}|상반기|하반기|연내|연말|연초|20\d{2}\s*년|분기\s*말|내년|올해|이달|다음\s*달|[1-4]Q")
 
 
@@ -155,6 +170,7 @@ class ReportFacts:
     estimates: dict[str, dict[str, float]] = field(default_factory=dict)   # metric → {"2026E": v}
     quarterly: dict[str, dict[str, float]] = field(default_factory=dict)   # metric → {"3Q26E": v}
     unit: str | None = None             # 추정치 표 금액 단위 (십억원 등)
+    basis: dict[str, str] = field(default_factory=dict)                     # metric → 지배 | 전체 | 연결 | 별도 (행 라벨에서)
     sentences: list[Sentence] = field(default_factory=list)
     chars: int = 0
     warnings: list[str] = field(default_factory=list)
@@ -230,10 +246,16 @@ def find_ticker(text: str) -> tuple[str | None, str | None]:
         code = m["code"] or m["code2"]
         if code:
             codes[code] += 1
+    for m in RE_TICKER_LINE.finditer(text[:1500]):          # 'NA VER 035420' 처럼 괄호 없이 줄 하나에
+        codes[m["code"]] += 1
+        nm = re.sub(r"\s+", "", m["name"]).strip(" -·.")
+        if len(nm) >= 2 and not nm.isdigit():
+            names.setdefault(m["code"], Counter())[nm] += 1
     if not codes:
         return None, None
     code = codes.most_common(1)[0][0]
-    name = names.get(code, Counter()).most_common(1)[0][0] if names.get(code) else None
+    cand = names.get(code)
+    name = max(cand.items(), key=lambda kv: (kv[1], len(kv[0])))[0] if cand else None
     return name, code
 
 
@@ -243,6 +265,12 @@ def find_date(text: str, filename: str = "") -> date | None:
     for m in RE_DATE4.finditer(head):
         d = _valid_date(int(m[1]), int(m[2]), int(m[3]))
         if d and 2000 <= d.year <= 2100:
+            cands.append(d)
+    for m in RE_DATE_EN.finditer(head):
+        mon = (m["mon"] or m["mon2"] or "").lower()[:3]
+        dd, yy = (m["d"] or m["d2"]), (m["y"] or m["y2"])
+        d = _valid_date(int(yy), MONTHS.get(mon, 0) or 1, int(dd)) if mon in MONTHS or mon[:3] in MONTHS else None
+        if d:
             cands.append(d)
     if cands:
         return cands[0]
@@ -412,10 +440,18 @@ def find_52w(text: str) -> tuple[float | None, float | None]:
     if m:
         hi = _to_num(m["hi"])
         lo = _to_num(m["lo"]) if m["lo"] else None
-    if lo is None:
+    if lo is None or hi is None:
         m2 = RE_52W_LO.search(head)
         if m2:
-            lo = _to_num(m2["lo"])
+            lo = lo if lo is not None else _to_num(m2["lo"])
+            if hi is None and m2["hi"]:
+                hi = _to_num(m2["hi"])          # '52주 최저/최고 60,200원/136,400원'
+    if hi is None and lo is None:
+        m3 = RE_52W_RANGE.search(head)          # '52주 주가 57,400~136,400원'
+        if m3:
+            a, b = _to_num(m3["a"]), _to_num(m3["b"])
+            if a and b:
+                lo, hi = min(a, b), max(a, b)
     if hi and lo and lo > hi:
         hi, lo = lo, hi
     return hi, lo
@@ -444,20 +480,62 @@ def find_market_cap(text: str) -> float | None:
     return v * {"십억원": 1e9, "억원": 1e8, "조원": 1e12, "백만원": 1e6}.get(unit or "", 1.0)
 
 
-def find_title(text: str) -> str | None:
-    """표지 첫 12줄 가운데 날짜·증권사·코드·수치·문장이 아닌 첫 한국어 줄 — 제목일 확률이 가장 높다."""
-    for ln in text.split("\n")[:12]:
-        s = ln.strip()
-        if len(s) < 6 or len(s) > 48 or RE_DATE4.search(s) or RE_DATE2.search(s) or re.search(r"\(\s*A?\d{6}", s):
+# 표지에서 제목이 아닌 줄: 리포트 종류·섹터 라벨·의견 줄·데이터 박스
+_TITLE_NOISE = re.compile(r"www\.|[\w.\-]+@[\w.\-]+|Company\s*(?:Brief|Analysis|Data|Note|Report|Update|Comment)|기업\s*분석(?:_\w+)?|산업\s*분석"
+                          r"|Preview|Review|Initiation|Update|Flash|Daily|Weekly|NDR\s*후기|탐방\s*노트|Earnings\s*(?:Review|Preview)|Comment|Rating", re.I)
+_TITLE_SKIP = re.compile(r"\d{2,3},\d{3}|투자\s*의견|목표\s*주가|적정\s*주가|현재\s*주가|상승\s*여력|시가\s*총액|액면가|발행\s*주식|외국인\s*지분|거래대금|거래량"
+                         r"|자본금|주요\s*주주|주가\s*추이|상대\s*강도|주가\s*차트|절대\s*수익률|상대\s*수익률|Stock\s*Data|Price\s*Data|Market\s*Data|relative\s*to"
+                         r"|증권(?!사)|Analyst|애널리스트|연구원|\bRA\b|\d+\s*%|KOSPI|KOSDAQ|\(\s*A?\d{6}|\((?:pt|원|%|배|십억원|억원|조원|천주|USD|KRW)\)", re.I)
+_SECTOR_WORD = (r"(?:반도체|인터넷|게임|플랫폼|자동차|부품|은행|증권|보험|금융|화학|정유|철강|조선|건설|건자재|유통|음식료|제약|바이오|헬스케어|통신|미디어|엔터|"
+                r"소프트웨어|IT|디스플레이|2차전지|배터리|에너지|유틸리티|기계|운송|항공|해운|의류|화장품|우주|방산|스몰캡|중소형주|가전|전자|전기전자|지주|소비재|레저|호텔|교육|"
+                r"Internet|Game|Semiconductor|Software|Media|Telecom|Auto|Energy|Utilities|Healthcare|Retail)")
+# '인터넷/게임', '인터넷/게임/우주 정의훈', '반도체 손인준' — 섹터 라벨(+애널리스트 이름)
+_SECTOR_LINE = re.compile(r"^\s*" + _SECTOR_WORD + r"(?:\s*[/·,]\s*" + _SECTOR_WORD + r")*(?:\s+[가-힣]{2,4})?\s*$", re.I)
+_OPINION_LINE = re.compile(r"^\s*(?:" + _OPINION + r")\s*(?:\(?\s*(?:" + _CHANGE + r")\s*\)?)?\s*$", re.I)
+
+
+def _title_clean(s: str) -> str:
+    s = re.sub(r"[-■▶▪●◆◇□☐▣▷►○•]+", " ", s)   # 글머리 기호·PUA
+    s = RE_DATE_EN.sub(" ", s)
+    s = RE_DATE4.sub(" ", s)
+    s = RE_DATE2.sub(" ", s)
+    s = _TITLE_NOISE.sub(" ", s)
+    s = re.sub(r"\s+\|\s*|\s+I\s+", " ", s)
+    s = re.sub(r"\s+:\s*", ": ", s)
+    return re.sub(r"\s+", " ", s).strip(" -–—:·|")
+
+
+def _title_score(s: str) -> int:
+    return (1 if re.search(r"[ ,:·?!…]", s) else 0) + (1 if 10 <= len(s) <= 40 else 0)
+
+
+def find_title(text: str, name: str | None = None) -> str | None:
+    """표지(본문 시작 전, 최대 45줄)에서 제목을 고른다 — 날짜·증권사·코드·수치·문장·섹터 라벨·의견 줄·리포트 종류를 뺀 한국어 줄.
+    이메일·영문 날짜·'Company Brief' 같은 꼬리는 떼고 본다 ('…@meritz.co.kr 국내 추론 시대의 개막' → '국내 추론 시대의 개막').
+    여러 후보면 띄어쓰기가 있고 10~40자인 (제목다운) 줄을, 같으면 위쪽을 고른다."""
+    best: tuple[int, int, str] | None = None
+    lines = [ln for ln in text.split("\n") if ln.strip()][:45]
+    for i, ln in enumerate(lines):
+        raw = ln.strip()
+        if i >= 12 and len(raw) >= 50 and len(re.findall(r"[가-힣]", raw)) >= 15:
+            break  # 본문이 시작됐다 — 제목은 그 앞에 있다 (표지 데이터 박스가 길어도 거기까지만 본다)
+        s = _title_clean(raw)
+        if len(s) < 6 or len(s) > 48:
             continue
         if re.search(r"[다음함됨임요]\s*\.\s*$|\.\s*$", s):
             continue  # 문장은 제목이 아니다
-        if re.search(r"\d{2,3},\d{3}|투자의견|목표주가|현재주가|상승여력|시가총액|증권|Analyst|RA\s|@|Report|Brief|Comment|Company|Rating|\d+\s*%", s, re.I):
+        if _TITLE_SKIP.search(s) or _SECTOR_LINE.match(s) or _OPINION_LINE.match(s):
             continue
+        if name and re.sub(r"\s+", "", s).lower() == re.sub(r"\s+", "", name).lower():
+            continue  # 회사 이름만 적힌 줄
         if len(re.findall(r"[가-힣]", s)) < 4:
             continue
-        return s
-    return None
+        sc = _title_score(s)
+        if best is None or sc > best[0]:
+            best = (sc, i, s)
+        if sc == 2:
+            break
+    return best[2] if best else None
 
 
 # ---------------------------------------------------------------------------- 추정치 표
@@ -525,28 +603,101 @@ def _row_numbers(rest: str, n: int) -> list[float | None] | None:
     return vals
 
 
+CORE_METRICS = ("revenue", "op", "np", "eps")
+
+
+def _amount_like(tbl: dict[str, dict[str, float]], big_elsewhere: bool) -> int:
+    """매출액 행이 금액으로 보이는가 (성장률 표는 음수·작은 수가 섞인다). 매출액이 없으면 중립(1)."""
+    rev = [v for v in tbl.get("revenue", {}).values() if v is not None]
+    if not rev:
+        return 1
+    if any(v <= 0 for v in rev):
+        return 0
+    if big_elsewhere and max(rev) < 100:
+        return 0
+    return 1
+
+
+def _table_score(tbl: dict[str, dict[str, float]], big_elsewhere: bool = False) -> tuple[int, int, int, int]:
+    """표의 믿음직함: 매출액이 금액다운가, 맞춘 지표 수, 핵심 지표(매출·영업이익·순이익·EPS) 수, 실적(A) 열이 있는가."""
+    core = sum(1 for m in CORE_METRICS if m in tbl)
+    has_actual = int(any(c.endswith("A") for cols in tbl.values() for c in cols))
+    return (_amount_like(tbl, big_elsewhere), len(tbl), core, has_actual)
+
+
+def _merge_tables(tables: list[dict[str, dict[str, float]]]) -> dict[str, dict[str, float]]:
+    """여러 표 → 하나. 가장 믿음직한 표가 기준이고, 다른 표의 값은 (지표, 열) 이 비어 있고 **열이 기준 표에 있는 연도·분기이고**
+    **크기가 기준 표와 맞을 때만** 보탠다 (같은 지표의 중앙값 대비 1/5~5배). 차트 축·사업부 전망·장기 목표(2030E·2035E)·
+    성장률 표·밸류 표가 연도 머리를 달고 있다가 본표를 더럽히거나 열을 늘리는 것을 막는다."""
+    if not tables:
+        return {}
+    big = any(v >= 100 for t in tables for v in t.get("revenue", {}).values() if v)
+    ordered = sorted(range(len(tables)), key=lambda k: (_table_score(tables[k], big), -k), reverse=True)
+    base = {m: dict(c) for m, c in tables[ordered[0]].items()}
+    base_cols = {c for cols in base.values() for c in cols}
+    base_years = sorted({int(c[:4]) for c in base_cols if c[:4].isdigit()})
+    for k in ordered[1:]:
+        # 같은 표 계열인가: 겹치는 (지표, 열) 가운데 2개 이상·60% 이상이 1% 안에서 같으면 — 그 표의 인접 연도 열(앞뒤 1년) 은 믿고 더한다
+        overlap = [(abs(v - base[m][c]) <= 0.01 * max(abs(base[m][c]), 1e-9))
+                   for m, cols in tables[k].items() if m in base for c, v in cols.items() if c in base[m] and v is not None]
+        consistent = sum(overlap) >= 2 and sum(overlap) >= 0.6 * len(overlap)   # 순이익(지배/전체) 처럼 한두 지표는 달라도 된다
+        allowed = set(base_cols)
+        if consistent and base_years:
+            allowed |= {c for cols in tables[k].values() for c in cols
+                        if c[:4].isdigit() and base_years[0] - 1 <= int(c[:4]) <= base_years[-1] + 1}
+        for metric, cols in tables[k].items():
+            cols = {c: v for c, v in cols.items() if c in allowed}
+            if not cols:
+                continue
+            if metric in base:
+                ref = sorted(abs(v) for v in base[metric].values() if v)
+                med = ref[len(ref) // 2] if ref else None
+                for col, v in cols.items():
+                    if col in base[metric]:
+                        continue
+                    if med and v and not (med / 5 <= abs(v) <= med * 5):
+                        continue
+                    base[metric][col] = v
+            elif sum(1 for m in CORE_METRICS if m in tables[k]) >= 2:
+                base[metric] = dict(cols)
+    return base
+
+
+YEAR_WINDOW = (-5, 4)   # 기준 연도 대비 이 범위 밖의 연도 열(2035E 같은 장기 목표)은 추정치 표로 안 본다
+
+
+def _year_in_window(col: str, ref_year: int) -> bool:
+    try:
+        y = int(col[:4])
+    except ValueError:
+        return True
+    return ref_year + YEAR_WINDOW[0] <= y <= ref_year + YEAR_WINDOW[1]
+
+
 def parse_estimate_tables(text: str, *, ref_date: date) -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]], str | None]:
-    """연도별 표 → estimates[metric][yearlabel], 분기 표 → quarterly, 금액 단위."""
+    """연도별 표 → estimates[metric][yearlabel], 분기 표 → quarterly, 금액 단위. 표마다 따로 읽고 `_merge_tables` 로 합친다."""
     ref_year = ref_date.year
     lines = text.split("\n")
-    estimates: dict[str, dict[str, float]] = {}
-    quarterly: dict[str, dict[str, float]] = {}
+    annual: list[dict[str, dict[str, float]]] = []
+    quarter: list[dict[str, dict[str, float]]] = []
     units: Counter[str] = Counter()
+    basis: dict[str, str] = {}
+    _LAST_BASIS.clear()
     i = 0
     while i < len(lines):
         line = lines[i]
         cols = _header_years(line, ref_year)
-        target = estimates
+        is_annual = True
         if cols is None:
             cols = _header_quarters(line, ref_date)
-            target = quarterly
+            is_annual = False
         if cols is None:
             i += 1
             continue
         ctx = " ".join(lines[max(0, i - 3):i + 1])
         um = UNIT_TOKEN.search(ctx)
         unit = um[1] if um else None
-        got = 0
+        tbl: dict[str, dict[str, float]] = {}
         j = i + 1
         while j < len(lines) and j < i + 70:
             ln = lines[j]
@@ -563,18 +714,43 @@ def parse_estimate_tables(text: str, *, ref_date: date) -> tuple[dict[str, dict[
                 vals = _row_numbers(m["rest"], len(cols))
                 if vals is None:
                     break
-                dst = target.setdefault(metric, {})
+                b = _basis_of(label_part)
+                if b and metric not in basis:
+                    basis[metric] = b
+                dst = tbl.setdefault(metric, {})
                 for col, v in zip(cols, vals, strict=False):
-                    if v is not None and col not in dst:
+                    if v is not None and col not in dst and (not is_annual or _year_in_window(col, ref_year)):
                         dst[col] = v
-                        got += 1
-                if unit and target is estimates and metric in ("revenue", "op", "np", "ebitda"):
-                    units[unit] += 1
+                if not dst:
+                    tbl.pop(metric, None)
                 break
             j += 1
-        i = j if got else i + 1
+        if tbl:
+            (annual if is_annual else quarter).append(tbl)
+            if unit and is_annual and any(m in tbl for m in ("revenue", "op", "np", "ebitda")):
+                units[unit] += len(tbl)
+            i = j
+        else:
+            i += 1
     unit = units.most_common(1)[0][0] if units else None
-    return estimates, quarterly, unit
+    _LAST_BASIS.update(basis)
+    return _merge_tables(annual), _merge_tables(quarter), unit
+
+
+_LAST_BASIS: dict[str, str] = {}   # parse_estimate_tables 가 마지막으로 읽은 행 라벨의 기준 (extract_facts 가 가져간다)
+
+
+def _basis_of(label: str) -> str | None:
+    """행 라벨의 회계 기준: '(지배)'·'지배주주' → 지배, '(연결)'·'연결기준' → 연결, '별도' → 별도, '당기순이익' 만이면 전체."""
+    if re.search(r"지배", label):
+        return "지배"
+    if re.search(r"별도", label):
+        return "별도"
+    if re.search(r"연결", label):
+        return "연결"
+    if re.search(r"당기\s*순이익|순이익", label):
+        return "전체"
+    return None
 
 
 # ---------------------------------------------------------------------------- 문장
@@ -598,12 +774,27 @@ def paragraphs(text: str) -> list[str]:
     return out
 
 
-def _score(sent: str, kind: str, name: str | None) -> float:
+POS_WORDS = ("상방", "기대", "호조", "견조", "수혜", "개선", "성장", "확대", "상회", "상향", "회복", "기회", "우위", "긍정")
+
+
+def _score(sent: str, kind: str, name: str | None, *, in_risk_section: bool = False) -> float:
     words = KIND_WORDS[kind]
     hits = sum(1 for w in words if w in sent)
-    if hits == 0:
+    if hits == 0 and not (kind == "risk" and in_risk_section):
         return 0.0
     score = float(hits)
+    if kind == "risk":
+        # '경쟁 우위를 확보할 것으로 기대' 처럼 리스크 단어가 하나 스쳤을 뿐 결은 긍정인 문장은 리스크가 아니다
+        pos = sum(1 for w in POS_WORDS if w in sent)
+        if pos >= hits and not in_risk_section:
+            return 0.0
+        score -= 0.5 * pos
+    if kind == "thesis" and sum(1 for w in KIND_WORDS["risk"] if w in sent) > hits:
+        return 0.0                        # 결이 부정인 문장은 논거(상승 논리)가 아니다
+    if kind == "risk" and in_risk_section:
+        score += 2.0                      # '리스크 요인' 소제목 아래 문장은 그 자체로 리스크다
+    if kind == "business" and len(sent) < 40:
+        return 0.0                        # 캡션·소제목 ('○○ 사업부문 실적') 은 사업 설명이 아니다
     if re.search(r"\d", sent):
         score += 1.0
     if name and name in sent:
@@ -619,10 +810,31 @@ def _score(sent: str, kind: str, name: str | None) -> float:
     return score
 
 
+def _is_prose(s: str) -> bool:
+    """문장답지 않은 것을 거른다: 표지·표·데이터 박스·등급 정의, 숫자가 글자보다 많은 줄, 문장 종결이 없는 조각."""
+    if NOT_PROSE.search(s):
+        return False
+    digits = len(re.findall(r"\d", s))
+    hangul = len(re.findall(r"[가-힣]", s))
+    if digits > hangul * 0.6 or len(re.findall(r"\d[\d,]*\.?\d*", s)) >= 7:
+        return False
+    if not re.search(r"[다음함됨임요됐였]\s*[\.。]?\s*$|[\.。!?]\s*$", s):
+        return False
+    return True
+
+
 def extract_sentences(text: str, *, name: str | None = None, limit_per_kind: int = 8) -> list[Sentence]:
     seen: set[str] = set()
     cands: list[Sentence] = []
+    risk_zone = 0  # '리스크 요인' 소제목 뒤 몇 문단은 리스크로 본다
     for para in paragraphs(text):
+        m = RISK_HEADING.match(para)
+        if m:
+            risk_zone = 4                       # 소제목 뒤 문단 몇 개 (소제목과 붙은 문단 포함)
+            para = para[m.end():]
+        in_risk = risk_zone > 0
+        if risk_zone:
+            risk_zone -= 1
         if DISCLAIMER.search(para):
             continue
         for raw in SENT_SPLIT.split(para):
@@ -630,14 +842,14 @@ def extract_sentences(text: str, *, name: str | None = None, limit_per_kind: int
             s = re.sub(r"\s+", " ", s)
             if len(s) < 15 or len(s) > 260 or len(re.findall(r"[가-힣]", s)) < 6:
                 continue
-            if DISCLAIMER.search(s) or re.search(r"\d{1,3},\d{3}\s+\d{1,3},\d{3}\s+\d", s):
-                continue  # 표의 숫자 줄
+            if DISCLAIMER.search(s) or re.search(r"\d{1,3},\d{3}\s+\d{1,3},\d{3}\s+\d", s) or not _is_prose(s):
+                continue  # 표의 숫자 줄 · 표지 조각
             k = re.sub(r"[\s\d,\.%()]+", "", s)[:60]
             if k in seen:
                 continue
             seen.add(k)
             for kind in KIND_WORDS:
-                sc = _score(s, kind, name)
+                sc = _score(s, kind, name, in_risk_section=in_risk)
                 if sc > 0:
                     cands.append(Sentence(s, kind, sc))
     out: list[Sentence] = []
@@ -662,7 +874,7 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
     f.broker = find_broker(text)
     m = RE_ANALYST.search(text[:4000])
     f.analyst = m[1] if m else None
-    f.title = find_title(text)
+    f.title = find_title(text, f.name)
     f.opinion, f.opinion_raw, f.opinion_change = find_opinion(text)
     f.target_price, f.prev_target_price, f.tp_change = find_target_price(text)
     # 투자의견 변동 내역 표가 있으면 직전 목표주가·변경을 거기서 확정한다 (표지 문구보다 믿을 만하다)
@@ -685,6 +897,7 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
     f.high_52w, f.low_52w = find_52w(text)
     f.market_cap = find_market_cap(text)
     f.estimates, f.quarterly, f.unit = parse_estimate_tables(text, ref_date=f.date or today or date.today())
+    f.basis = dict(_LAST_BASIS)
     f.sentences = extract_sentences(text, name=f.name)
     if f.target_price is None and f.opinion != "NR":
         f.warnings.append(f"{doc.name}: 목표주가를 찾지 못했다")

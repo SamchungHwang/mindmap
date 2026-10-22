@@ -144,4 +144,92 @@ def kpi_candidates(sector: str | None) -> list[Kpi]:
     return list(sec) + [k for k in COMMON_KPIS if k.key not in keys]
 
 
-__all__ = ["Kpi", "COMMON_KPIS", "SECTOR_KPIS", "SECTOR_WORDS", "guess_sector", "sector_name", "kpi_candidates"]
+# --------------------------------------------------------------------------- 드라이버 정규화 사전 (설계 v3 §2.2 / §2.3)
+@dataclass(frozen=True)
+class DriverDef:
+    id: str
+    label: str
+    synonyms: tuple[str, ...]
+    sector: str | None = None          # None = 공통
+    default_target: str | None = None  # 보통 영향을 주는 대상 지표 (metric id)
+
+
+DRIVERS: list[DriverDef] = [
+    # 공통
+    DriverDef("revenue_growth", "매출 성장", ("매출 성장", "매출액 증가", "외형 성장", "top-line"), None, "revenue"),
+    DriverDef("opm", "영업이익률", ("영업이익률", "마진", "OPM", "수익성"), None, "op"),
+    # 실적 그 자체(분기 잠정치·서프라이즈·부문 실적·분기 전망) 와 추정치 변경은 테마가 갈라지지 않게 공통 id 로 모은다 (실측에서 자유 라벨 8종이 따로 섰다)
+    DriverDef("earnings", "실적·영업이익", ("영업이익", "실적", "서프라이즈", "잠정", "컨센서스 상회", "컨센서스 부합", "어닝", "분기 전망"), None, "op"),
+    DriverDef("estimate_revision", "추정치 변경", ("추정치 상향", "추정치 하향", "EPS 상향", "EPS 하향", "EPS(", "전망치 상향", "전망치 하향",
+                                                "상향 조정", "하향 조정", "추정 변경", "추정치 변경"), None, "eps"),
+    DriverDef("cost", "비용", ("비용 증가", "비용 부담", "판관비", "마케팅비", "인건비", "감가상각", "원가"), None, "op"),
+    DriverDef("fx", "환율", ("환율", "원/달러", "달러 약세", "달러 강세", "원화 강세"), None, "op"),
+    DriverDef("shareholder_return", "주주환원", ("주주환원", "배당", "자사주", "소각", "밸류업"), None, "eps"),
+    DriverDef("valuation_multiple", "밸류에이션 배수", ("PER", "PBR", "멀티플", "밸류에이션", "리레이팅", "re-rating", "디스카운트",
+                                                   "목표주가", "시장 우려", "우려 해소", "주가 전망", "주가 상승", "저평가", "재평가"), None, "target_price"),
+    DriverDef("regulation", "규제·정책", ("규제", "정책", "입법", "공정위", "관세"), None, "op"),
+    DriverDef("macro_rates", "금리·매크로", ("금리", "경기", "매크로", "소비 둔화"), None, "op"),
+    DriverDef("capex", "설비투자", ("CAPEX", "설비투자", "투자 확대", "증설"), None, "op"),
+    DriverDef("ma_investment", "투자·인수·지분", ("인수", "합병", "지분 투자", "유상증자", "M&A", "자본 배치"), None, "eps"),
+    # 반도체
+    DriverDef("dram_price", "DRAM 가격", ("DRAM 가격", "DRAM 판가", "메모리 가격", "계약가", "ASP 상승", "판가 인상", "가격 인상"), "KR-SEMI", "op"),
+    DriverDef("nand_price", "NAND 가격", ("NAND", "낸드"), "KR-SEMI", "op"),
+    DriverDef("hbm", "HBM", ("HBM", "HBM3E", "HBM4", "고대역폭"), "KR-SEMI", "op"),
+    DriverDef("hbm_mix", "HBM 비중", ("HBM 비중", "HBM 믹스", "HBM 매출 비중", "믹스 개선"), "KR-SEMI", "op"),
+    DriverDef("foundry", "파운드리", ("파운드리", "LSI", "비메모리", "시스템LSI"), "KR-SEMI", "op"),
+    DriverDef("ai_demand", "AI 수요", ("AI 수요", "AI 서버", "데이터센터 수요", "AI 투자"), "KR-SEMI", "revenue"),
+    DriverDef("mobile_demand", "모바일·세트 수요", ("스마트폰", "MX", "세트 수요", "폴더블"), "KR-SEMI", "op"),
+    DriverDef("china_competition", "중국 경쟁", ("CXMT", "YMTC", "중국 업체", "중국 경쟁"), "KR-SEMI", "op"),
+    # 인터넷·플랫폼
+    DriverDef("ad_growth", "광고 성장", ("광고 매출", "광고 성장", "서치플랫폼", "디스플레이 광고", "AI 브리핑 광고"), "KR-INTERNET", "revenue"),
+    DriverDef("commerce", "커머스", ("커머스", "거래액", "GMV", "N배송", "멤버십", "쇼핑"), "KR-INTERNET", "revenue"),
+    DriverDef("fintech", "핀테크·결제", ("파이낸셜", "결제액", "Npay", "페이", "두나무", "스테이블코인"), "KR-INTERNET", "revenue"),
+    DriverDef("ai_dc", "AI 데이터센터·클라우드", ("AI DC", "AI 데이터센터", "네오클라우드", "AI팩토리", "클라우드", "GPU", "소버린 AI", "엔비디아"), "KR-INTERNET", "revenue"),
+    DriverDef("content", "콘텐츠·웹툰", ("웹툰", "콘텐츠", "웹소설"), "KR-INTERNET", "revenue"),
+    DriverDef("marketing_cost", "마케팅·인프라 비용", ("마케팅비", "인프라비", "파트너비", "중계권", "단말기"), "KR-INTERNET", "op"),
+    # 유틸리티·에너지·원전·기계
+    DriverDef("nuclear_orders", "원전 수주", ("원전 수주", "원자력", "체코 원전", "웨스팅하우스", "해외원전", "주기기"), "KR-UTIL", "revenue"),
+    DriverDef("smr", "SMR", ("SMR", "소형모듈원자로", "NuScale", "TerraPower", "X-energy"), "KR-UTIL", "revenue"),
+    DriverDef("gas_turbine", "가스터빈", ("가스터빈", "LNG 발전", "복합화력", "GE Vernova", "Siemens"), "KR-UTIL", "revenue"),
+    DriverDef("backlog", "수주잔고", ("수주잔고", "신규수주", "수주 모멘텀", "수주 가시화"), "KR-UTIL", "revenue"),
+    DriverDef("subsidiaries", "자회사 실적", ("자회사", "건설기계", "밥캣", "연료전지"), "KR-UTIL", "op"),
+    # 2차전지·자동차·바이오·금융 (씨앗)
+    DriverDef("ev_demand", "전기차 수요", ("전기차", "EV 수요", "캐즘"), "KR-BATT", "revenue"),
+    DriverDef("lithium", "리튬·원재료", ("리튬", "메탈 가격", "양극재 판가"), "KR-BATT", "op"),
+    DriverDef("us_sales", "미국 판매·인센티브", ("미국 판매", "인센티브"), "KR-AUTO", "op"),
+    DriverDef("pipeline", "파이프라인·임상", ("임상", "파이프라인", "기술이전", "FDA"), "KR-BIO", "revenue"),
+    DriverDef("nim", "NIM", ("NIM", "순이자마진"), "KR-BANK", "op"),
+]
+_DRIVER_BY_ID = {d.id: d for d in DRIVERS}
+
+
+def driver_def(driver_id: str | None) -> DriverDef | None:
+    return _DRIVER_BY_ID.get(driver_id or "")
+
+
+def normalize_driver(label: str | None, *, sector: str | None = None) -> str | None:
+    """자유 라벨 → 사전 id. 동의어 부분 일치 (긴 동의어 우선, 섹터 것 우선). 모르면 None."""
+    if not label:
+        return None
+    t = label.strip().lower()
+    if t in _DRIVER_BY_ID:
+        return t
+    best: tuple[int, int, str] | None = None
+    for d in DRIVERS:
+        for syn in d.synonyms:
+            sl = syn.lower()
+            if sl and sl in t:
+                score = (1 if d.sector == sector else 0, len(sl), d.id)
+                if best is None or score > best[:2] + (best[2],):
+                    best = score
+    return best[2] if best else None
+
+
+def driver_catalog_text(sector: str | None) -> str:
+    """프롬프트에 넣는 사전: 'id — 라벨 (동의어…)' 한 줄씩. 공통 + 해당 섹터."""
+    rows = [d for d in DRIVERS if d.sector in (None, sector)]
+    return "\n".join(f"- {d.id} — {d.label} ({', '.join(d.synonyms[:4])})" for d in rows)
+
+
+__all__ = ["Kpi", "COMMON_KPIS", "SECTOR_KPIS", "SECTOR_WORDS", "guess_sector", "sector_name", "kpi_candidates",
+           "DriverDef", "DRIVERS", "driver_def", "normalize_driver", "driver_catalog_text"]

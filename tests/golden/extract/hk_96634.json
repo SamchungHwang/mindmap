@@ -1,0 +1,189 @@
+{
+ "report_id": "hk_96634",
+ "file": "data/reports/삼성전자/삼성전자_96634.pdf",
+ "verified": false,
+ "source": "extractor draft — 사람이 확인하면 verified: true",
+ "facts": {
+  "broker": "DS투자증권",
+  "date": "2026-10-08",
+  "ticker": null,
+  "name": null,
+  "opinion": "BUY",
+  "target_price": 530000.0,
+  "prev_target_price": 530000.0,
+  "current_price": 268500.0,
+  "price_date": "2026-10-07",
+  "high_52w": 374500.0,
+  "low_52w": 90200.0,
+  "title": "사상 최초 DRAM 분기 매출 100조원 상회"
+ },
+ "estimates": {
+  "unit": "십억원",
+  "revenue": {
+   "2023A": 258935.0,
+   "2024A": 300871.0,
+   "2025A": 333606.0,
+   "2026E": 712631.0,
+   "2027E": 967410.0
+  },
+  "op": {
+   "2023A": 6567.0,
+   "2024A": 32726.0,
+   "2025A": 43601.0,
+   "2026E": 376719.0,
+   "2027E": 612083.0
+  },
+  "np": {
+   "2023A": 14473.0,
+   "2024A": 33621.0,
+   "2025A": 43557.0,
+   "2026E": 332941.0,
+   "2027E": 537789.0
+  },
+  "eps": {
+   "2023A": 2225.0,
+   "2024A": 5433.0,
+   "2025A": 7065.0,
+   "2026E": 53991.0,
+   "2027E": 91008.0
+  }
+ },
+ "required_claims": [
+  {
+   "id": "hk_96634:c1",
+   "proposition": "3Q26 잠정 영업이익 107.4조원(OPM 55%)은 당사 추정치 104조원을 상회하고 컨센서스 106.7조원에 부합했다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "영업이익 107.4조원\n(+20% QoQ, OPM 55%)으로 당사 추정치 104조원을 상회하고 최근 낮아진\n컨센서스 106.7조원을 부합하는 실적을 기록하였다"
+  },
+  {
+   "id": "hk_96634:c4",
+   "proposition": "3Q26 DRAM ASP는 19%, NAND ASP는 13% 상승했으며 B/G는 각각 4%다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "DRAM B/G\n는 4%, ASP는 19% 상승했을 것으로 추정하며 NAND B/G는 4%, ASP는 13%\n상승했을 것으로 추정한다"
+  },
+  {
+   "id": "hk_96634:c7",
+   "proposition": "DRAM 매출이 사상 처음으로 분기 100조원을 상회한 것으로 추정한다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "dram_price",
+   "quote": "DRAM 매출이 처음으로 100조원을 상\n회한 것으로 추정한다"
+  },
+  {
+   "id": "hk_96634:c8",
+   "proposition": "3분기에 HBM4 출하 확대에 집중하며 출하 B/G를 크게 높이지 않아 4분기 실적 기대감으로 이어진다",
+   "roles": [
+    "thesis",
+    "catalyst"
+   ],
+   "direction": "positive",
+   "driver_id": "hbm",
+   "quote": "더욱 고무적인 것은 3분기 HBM4 출하 확대에 집중하면\n서 출하 B/G를 크게 높이지 않았다는 점이다. 이는 4분기 실적에 대한 기대감\n으로 자연스레 이어진다"
+  },
+  {
+   "id": "hk_96634:c9",
+   "proposition": "3분기 HBM 매출은 2분기 대비 2배 수준으로 증가했으며 HBM 경쟁력이 빠르게 회복되고 있다",
+   "roles": [
+    "thesis"
+   ],
+   "direction": "positive",
+   "driver_id": "hbm",
+   "quote": "3분기 HBM 매출은 2분기 대비 2배 수준 증가한 것으\n로 추정한다. HBM에 대한 경쟁력이 빠르게 회복되고 있다"
+  }
+ ],
+ "required_risks": [
+  {
+   "id": "hk_96634:c2",
+   "proposition": "원/달러 환율 하락과 DX 사업부 비용·원가 부담 증가가 실적에 부정적으로 작용했다",
+   "roles": [
+    "risk"
+   ],
+   "direction": "negative",
+   "driver_id": "fx",
+   "quote": "원/달러 환율 하락으로 인\n한 영향과 DX 사업부 비용 및 원가 부담 증가가 작용했을 것으로 추정한다"
+  },
+  {
+   "id": "hk_96634:c6",
+   "proposition": "가전은 비수기 진입과 수익성 제고를 위한 사업부 재편으로 2분기 대비 적자폭이 확대되었다",
+   "roles": [
+    "risk",
+    "business"
+   ],
+   "direction": "negative",
+   "driver_id": "cost",
+   "quote": "가전은 기존 전망했던 바와 같이 비수기 진입\n과 동시에 수익성 제고를 위한 사업부 재편이 진행되고 있어 2분기 대비 적자폭\n이 확대되었다는 판단이다"
+  }
+ ],
+ "candidate_review": [
+  {
+   "claim_id": "hk_96634:c1",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3Q26 잠정 영업이익 107.4조원(OPM 55%)은 당사 추정치 104조원을 상회하고 컨센서스 106.7조원에 부합했다"
+  },
+  {
+   "claim_id": "hk_96634:c2",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "원/달러 환율 하락과 DX 사업부 비용·원가 부담 증가가 실적에 부정적으로 작용했다"
+  },
+  {
+   "claim_id": "hk_96634:c3",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3Q26 DS 부문 영업이익 107.6조원은 DRAM 83.8조원(OPM 83%), NAND 25.7조원(OPM 64%), LSI/파운드리 -1.9조원으로 구성된다"
+  },
+  {
+   "claim_id": "hk_96634:c4",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3Q26 DRAM ASP는 19%, NAND ASP는 13% 상승했으며 B/G는 각각 4%다"
+  },
+  {
+   "claim_id": "hk_96634:c5",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "MX 사업부는 원가 부담에도 폴더블 신제품 판매 호조와 중저가 부진에 따른 믹스 개선으로 적자폭이 오히려 축소되었다"
+  },
+  {
+   "claim_id": "hk_96634:c6",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "가전은 비수기 진입과 수익성 제고를 위한 사업부 재편으로 2분기 대비 적자폭이 확대되었다"
+  },
+  {
+   "claim_id": "hk_96634:c7",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "DRAM 매출이 사상 처음으로 분기 100조원을 상회한 것으로 추정한다"
+  },
+  {
+   "claim_id": "hk_96634:c8",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3분기에 HBM4 출하 확대에 집중하며 출하 B/G를 크게 높이지 않아 4분기 실적 기대감으로 이어진다"
+  },
+  {
+   "claim_id": "hk_96634:c9",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "3분기 HBM 매출은 2분기 대비 2배 수준으로 증가했으며 HBM 경쟁력이 빠르게 회복되고 있다"
+  },
+  {
+   "claim_id": "hk_96634:c10",
+   "supported": true,
+   "note": "사람 작성 답안",
+   "proposition": "투자의견 매수, 목표주가 53만원을 유지한다"
+  }
+ ]
+}

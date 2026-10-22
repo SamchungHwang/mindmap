@@ -1,0 +1,47 @@
+{
+  "report_id": "hk_652446",
+  "file": "data/reports/NAVER/hk_652446.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "메리츠증권",
+    "date": "2026-09-21",
+    "ticker": "035420",
+    "name": "NAVER",
+    "opinion": "BUY",
+    "target_price": 330000.0,
+    "prev_target_price": null,
+    "current_price": 197700.0,
+    "price_date": "2026-09-18",
+    "high_52w": null,
+    "low_52w": null,
+    "title": "국내 추론 시대의 개막에 베팅할 시점"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2024A": 10737.7,
+      "2025A": 12035.0,
+      "2026E": 13861.5,
+      "2027E": 16687.4,
+      "2028E": 20732.6
+    },
+    "op": {
+      "2024A": 1979.3,
+      "2025A": 2208.1,
+      "2026E": 2153.6,
+      "2027E": 2756.0,
+      "2028E": 3982.8
+    },
+    "np": {
+      "2024A": 1932.0,
+      "2025A": 1818.8,
+      "2026E": 1923.8,
+      "2027E": 2496.7,
+      "2028E": 3543.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

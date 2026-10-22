@@ -180,7 +180,16 @@ def normalize_text(text: str) -> str:
     """전각 숫자·기호를 반각으로, 줄 안의 연속 공백을 하나로. 줄 구조는 유지한다 (표 파싱에 필요)."""
     t = unicodedata.normalize("NFKC", text)
     t = t.replace("\r\n", "\n").replace("\r", "\n")
-    lines = [_WS_LINE.sub(" ", ln).strip() for ln in t.split("\n")]
+    # PDF 가 '287 ,000' '7 ,003' 처럼 천단위 구분자 앞뒤를 벌려 놓는 일이 있다 → '287,000'
+    t = re.sub(r"(?<=\d) ,(?=\d{3}(?!\d))", ",", t)
+    t = re.sub(r"(?<=\d), (?=\d{3}(?!\d))", ",", t)
+    # 소수점 앞을 벌리는 PDF 도 있다 ('19 .5 15 .7') → '19.5 15.7'
+    t = re.sub(r"(?<=\d) \.(?=\d)", ".", t)
+    # Wingdings/Symbol 글머리 기호는 사용자 영역 문자(U+E000~F8FF)로 나온다 → 공백
+    t = re.sub(r"[-]", " ", t)
+    # 페이지 경계('\f', loader 가 페이지를 이을 때 넣음) 는 제 줄로 남긴다 — claims.page_of 가 오프셋 → 페이지를 되살린다
+    t = t.replace("\f", "\n\f\n")
+    lines = ["\f" if ln.strip(" \t\u00a0") == "\f" else _WS_LINE.sub(" ", ln).strip() for ln in t.split("\n")]
     # 빈 줄 3개 이상은 2개로
     out: list[str] = []
     blank = 0

@@ -344,8 +344,13 @@ class TestGuiReportDraft(unittest.TestCase):
         app.a_vars["thesis"].set("HBM4 판가 2배로 분기 OP 100조 체제 유지 — 12개월 360,000")
         app.a_drivers[0]["my_estimate"].set("110")
         issues = app.a_save()
-        self.assertFalse([i for i in issues if i.startswith("[ERR")], issues)
+        errs = [i for i in issues if i.startswith("[ERR")]
+        # 설계 v3: 초안은 내 추정(A1.2~)·시나리오·Kill 을 비워 두므로 저장 시 그 오류는 남는다 — 그 밖의 오류는 없어야 한다
+        self.assertTrue(all(("my_estimate" in e) or ("시나리오" in e) or ("Kill" in e) for e in errs), errs)
         self.assertEqual(app.a_map["A1.1"].driver.my_estimate.value, 110)
+        # 현재가 갱신 — 오프라인이라 네트워크·DB 모두 없음 → 입력 오류 안내
+        with self.assertRaises(self.console.OpsError):
+            app.a_refresh_price()
         # LLM 체크 + 키 없음 → 입력 오류로 안내 (debug 모드라 _guard 가 다시 던진다)
         self.console.FormDialog = _dialog_returning({"ticker": "005930", "name": "삼성전자", "invest_type": "growth", "use_llm": True, "open_html": False})
         with self.assertRaises(self.console.OpsError) as cm:

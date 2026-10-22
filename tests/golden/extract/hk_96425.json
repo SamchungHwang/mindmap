@@ -1,0 +1,54 @@
+{
+  "report_id": "hk_96425",
+  "file": "data/reports/NAVER/company_96425.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "하나증권",
+    "date": "2026-10-02",
+    "ticker": "035420",
+    "name": "NAVER",
+    "opinion": "BUY",
+    "target_price": 400000.0,
+    "prev_target_price": 400000.0,
+    "current_price": 191200.0,
+    "price_date": "2026-10-01",
+    "high_52w": 287000.0,
+    "low_52w": 183200.0,
+    "title": "모든 우려가 반영된 주가, 기회로 삼자"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2024A": 10737.7,
+      "2025A": 12035.0,
+      "2026E": 13731.3,
+      "2027E": 16587.3,
+      "2028E": 20560.9
+    },
+    "op": {
+      "2024A": 1979.3,
+      "2025A": 2208.1,
+      "2026E": 2041.9,
+      "2027E": 2640.0,
+      "2028E": 3333.6
+    },
+    "np": {
+      "2024A": 1923.2,
+      "2025A": 1953.2,
+      "2026E": 1997.9,
+      "2027E": 2615.0,
+      "2028E": 3035.2
+    },
+    "eps": {
+      "2024A": 11913.0,
+      "2025A": 12376.0,
+      "2026E": 12829.0,
+      "2027E": 16412.0,
+      "2028E": 18896.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

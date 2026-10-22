@@ -26,6 +26,22 @@ class DbTarget:
     title: str | None
 
 
+@dataclass(frozen=True)
+class DbReport:
+    """reports + report_details 의 한 행 (파일명의 리포트 번호로 찾는다). 없는 열은 None."""
+
+    report_id: str
+    stock_code: str | None
+    broker: str | None
+    title: str | None
+    posted_date: date | None
+    opinion: str | None
+    target_price: float | None
+    prev_target_price: float | None
+    pdf_url: str | None
+    earnings_date: date | None = None   # (있으면) 해당 종목의 최신 실적 공시일
+
+
 @dataclass
 class PriceFacts:
     as_of: date
@@ -98,6 +114,81 @@ class ResearchDb:
                 continue
             out.append(DbTarget(dd, broker, float(tp), float(prev) if prev else None, op, title))
         return out
+
+    def _columns(self, conn: sqlite3.Connection, table: str) -> set[str]:
+        try:
+            return {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        except sqlite3.Error:
+            return set()
+
+    def report_by_id(self, report_id: str | int) -> DbReport | None:
+        """파일명의 리포트 번호(hk_96588 → 96588) 로 reports/report_details 를 찾는다. 열 이름은 PRAGMA 로 확인해 없는 것은 None."""
+        rid = str(report_id).replace("hk_", "").strip()
+        if not rid.isdigit():
+            return None
+        conn = self._conn()
+        try:
+            rc = self._columns(conn, "reports")
+            if not rc:
+                return None
+            dc = self._columns(conn, "report_details")
+            want_r = [c for c in ("report_id", "stock_code", "broker", "title", "posted_date", "pdf_url") if c in rc]
+            want_d = [c for c in ("opinion", "target_price", "prev_target_price") if c in dc]
+            sql = "SELECT " + ", ".join(f"r.{c}" for c in want_r) + (", " + ", ".join(f"d.{c}" for c in want_d) if want_d else "")
+            sql += " FROM reports r" + (" LEFT JOIN report_details d ON d.report_id = r.report_id" if dc else "") + " WHERE r.report_id = ?"
+            row = conn.execute(sql, (int(rid),)).fetchone()
+            if row is None:
+                row = conn.execute(sql, (rid,)).fetchone()
+            if row is None:
+                return None
+            vals = dict(zip(want_r + want_d, row, strict=False))
+        finally:
+            conn.close()
+
+        def _d(v):  # noqa: ANN001
+            if not v:
+                return None
+            try:
+                return date.fromisoformat(str(v)[:10])
+            except ValueError:
+                return None
+
+        def _f(v):  # noqa: ANN001
+            try:
+                return float(v) if v not in (None, "") else None
+            except (TypeError, ValueError):
+                return None
+
+        return DbReport(report_id=f"hk_{rid}", stock_code=vals.get("stock_code"), broker=vals.get("broker"), title=vals.get("title"),
+                        posted_date=_d(vals.get("posted_date")), opinion=vals.get("opinion"), target_price=_f(vals.get("target_price")),
+                        prev_target_price=_f(vals.get("prev_target_price")), pdf_url=vals.get("pdf_url"))
+
+    def latest_earnings_date(self, code: str, *, as_of: date | None = None) -> date | None:
+        """disclosures 표에 실적 공시(잠정실적·영업(잠정)실적·분기보고서) 가 있으면 가장 최근 날짜. 표/열이 없으면 None."""
+        conn = self._conn()
+        try:
+            cols = self._columns(conn, "disclosures")
+            if not cols:
+                return None
+            dcol = next((c for c in ("disclosed_at", "rcept_dt", "date", "posted_date", "disclosure_date") if c in cols), None)
+            tcol = next((c for c in ("title", "report_nm", "subject", "name") if c in cols), None)
+            ccol = next((c for c in ("stock_code", "code", "ticker") if c in cols), None)
+            if not (dcol and tcol and ccol):
+                return None
+            rows = conn.execute(f"SELECT {dcol}, {tcol} FROM disclosures WHERE {ccol} = ? ORDER BY {dcol} DESC LIMIT 200", (code,)).fetchall()
+        except sqlite3.Error:
+            return None
+        finally:
+            conn.close()
+        for d, t in rows:
+            if t and any(k in str(t) for k in ("잠정실적", "영업(잠정)실적", "잠정 실적", "분기보고서", "반기보고서", "사업보고서")):
+                try:
+                    dd = date.fromisoformat(str(d)[:10])
+                except ValueError:
+                    continue
+                if as_of is None or dd <= as_of:
+                    return dd
+        return None
 
     def recent_titles(self, code: str, *, days: int = 90, as_of: date | None = None, limit: int = 20) -> list[tuple[date, str | None, str]]:
         as_of = as_of or date.today()

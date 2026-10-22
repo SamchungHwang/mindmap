@@ -27,8 +27,8 @@ def cross_check(m: NewMap, d: ReportDigest | None, *, today: date) -> list[str]:
     p0 = m.current_price
     sc = m.scenarios()
     # 확률 합
-    if len(sc) == 3:
-        s = sum(x.probability for x in sc.values())
+    if len(sc) == 3 and all(x.probability is not None for x in sc.values()):
+        s = sum(x.probability or 0.0 for x in sc.values())
         if abs(s - 1.0) > 0.01:
             if 0.9 <= s <= 1.1:
                 for x in sc.values():
@@ -69,11 +69,11 @@ def cross_check(m: NewMap, d: ReportDigest | None, *, today: date) -> list[str]:
         dist = d.opinion_dist
         rated = sum(v for k, v in dist.items() if k in ("BUY", "HOLD", "SELL"))
         if rated >= 2 and dist.get("BUY", 0) == rated:
-            cur = m.value("A2.1") or ""
-            if "매수 일색" not in str(cur) and "매도·중립 의견 0건" not in str(cur):
-                m["A2.1"].set((str(cur) + " 컨센서스 편향: 매도·중립 의견 0건 (매수 일색).").strip(), as_of=today,
-                              source=m["A2.1"].source or d.source_all())
-                mark_draft(m["A2.1"])
+            # A2.1 값은 사람 몫(내재 가정) — 편향 메모는 질문 쪽에 붙이고 깃발로 알린다 (설계 v3 §2.4)
+            q = m["A2.1"].question or ""
+            if "매수 일색" not in q and "매도·중립 의견 0건" not in q:
+                m["A2.1"].question = (q + " | 컨센서스 편향: 매도·중립 의견 0건 (매수 일색) — 리포트만으로는 반대 논리를 볼 수 없다").strip(" |")
+            flags.append("A2.1: 컨센서스 편향 — 리포트 의견이 매수 일색")
     # 판단은 항상 WATCH
     if m.value("A6.5") != "WATCH":
         m["A6.5"].set("WATCH", as_of=today, status=NodeStatus.unverified)

@@ -1,0 +1,50 @@
+{
+  "report_id": "hk_96469",
+  "file": "data/reports/NAVER/company_96469.pdf",
+  "verified": false,
+  "source": "extractor draft — 사람이 확인하면 verified: true",
+  "facts": {
+    "broker": "유진투자증권",
+    "date": "2026-10-07",
+    "ticker": "035420",
+    "name": "NAVER",
+    "opinion": "BUY",
+    "target_price": 320000.0,
+    "prev_target_price": 320000.0,
+    "current_price": 191100.0,
+    "price_date": "2026-10-07",
+    "high_52w": 304000.0,
+    "low_52w": null,
+    "title": "기대 보단 우려가 더 컸던 3 분기"
+  },
+  "estimates": {
+    "unit": "십억원",
+    "revenue": {
+      "2024A": 10737.7,
+      "2025A": 12035.0,
+      "2026E": 13735.0,
+      "2027E": 15658.0
+    },
+    "op": {
+      "2024A": 1979.3,
+      "2025A": 2208.0,
+      "2026E": 2068.0,
+      "2027E": 2427.0
+    },
+    "np": {
+      "2024A": 1923.2,
+      "2025A": 1819.0,
+      "2026E": 1926.0,
+      "2027E": 1908.0
+    },
+    "eps": {
+      "2024A": 12139.0,
+      "2025A": 12453.0,
+      "2026E": 12138.0,
+      "2027E": 12029.0
+    }
+  },
+  "required_claims": [],
+  "required_risks": [],
+  "candidate_review": []
+}

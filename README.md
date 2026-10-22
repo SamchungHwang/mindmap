@@ -23,14 +23,29 @@ pip install -e ".[dev,reports]"  # pydantic + pytest + ruff + pypdf (리포트 P
 import 이름은 `kstock` 이다. 설치 없이 쓰려면 `python -m kstock.cli …` 에 `PYTHONPATH=src` 를 더한다.
 
 API 키는 프로젝트 루트의 **`.env`** 에 둔다 (`copy .env.example .env` 뒤 채움; `.env` 는 git 에서 제외). `mindmap`, 콘솔,
-`ClaudeFiller` 가 시작할 때 `kstock.env.load_dotenv()` 로 읽는다 — 셸 환경변수가 이미 있으면 그것이 우선이고, 값은 어디에도
+`ClaudeFiller` 가 시작할 때 `kstock.env.load_dotenv()` 로 읽는다 — **셸 환경변수가 이미 있으면 그것이 우선**이고(예전 키가 Windows 사용자 환경변수에 남아 있으면 `.env` 를 고쳐도 반영되지 않는다 — `describe()`·`llm-check` 가 이 충돌을 알려 준다), 값은 어디에도
 찍히지 않는다(로그·화면에는 "ANTHROPIC_API_KEY: .env 에서 읽음 (경로)" 처럼 출처만). 다른 위치의 파일을 쓰려면 환경변수
 `KSTOCK_ENV=경로`.
 
 ```dotenv
-ANTHROPIC_API_KEY=sk-ant-…        # 리포트 초안의 LLM 그룹 채움, kstock.llm.ClaudeFiller
-KSTOCK_LLM_MODEL=claude-sonnet-4-5 # 선택
+ANTHROPIC_API_KEY=sk-ant-usr-…    # 리포트 초안의 LLM 그룹 채움, kstock.llm.ClaudeFiller (platform.claude.com → API 키 에서 발급; 레거시 sk-ant-api03-… 도 됨)
+ANTHROPIC_WORKSPACE_ID=wrkspc_…    # 키 범위가 '조직'(워크스페이스 미지정)일 때만 — Console → 워크스페이스 → ID. Default 범위 키면 불필요
+KSTOCK_LLM_MODEL=claude-sonnet-5-5 # 선택 — 비우면 계정의 모델 목록에서 최신 Sonnet 을 자동으로 고른다 (kstock.llm.models)
+KSTOCK_LLM_THINKING=off            # 선택 — 기본 off: Claude 5 계열은 사고(thinking) 가 기본으로 켜져 사고 토큰이 max_tokens 를 먹고 텍스트가 빈다 → 끈다. adaptive 면 모델 기본
+KSTOCK_PREFER_DOTENV=1             # 선택 — 이 파일의 키가 셸(Windows 사용자/시스템) 환경변수를 덮는다. 예전 키가 환경변수에 남아 .env 를 자꾸 가릴 때
 ```
+
+셸 환경변수가 `.env` 를 가리면 `llm-check`·`describe()` 가 **어디서 온 변수인지**(Windows 사용자 / 시스템 / 이 세션 — 프로필·conda) 와 지우는 명령을 함께 보여 준다.
+`conda activate ksa` 가 매번 넣는 변수라면 `conda env config vars list -n ksa` 로 보고 `conda env config vars unset ANTHROPIC_API_KEY -n ksa`.
+
+Claude 5 계열(Sonnet 5.5 등) 과 anthropic SDK 1.x 에서 달라진 것은 코드가 알아서 맞춘다 — SDK 가 `temperature` 인자를 뺐으면 빼고 다시 부르고,
+사고 끄기 값은 모델이 받는 것(`between_tools` → `disabled` → 없음) 을 차례로 시도해 기억하며, 응답이 `max_tokens` 로 잘리면 예산을 4배로 늘려
+한 번 더 묻는다. 그래도 텍스트가 비면 "모델이 텍스트를 주지 않았다 (stop_reason=…, 블록=…)" 로 원인을 보여 준다.
+
+키가 실제로 동작하는지는 **`mindmap llm-check`** 로 본다 — 키 출처·계열(`sk-ant-usr-` 사용자 연결 키 / `sk-ant-api03-` 레거시)·길이,
+인증(모델 목록), 설정한 모델이 목록에 있는지, 아주 작은 호출 1회(토큰 수십 개). 키 값은 어디에도 찍히지 않는다. 콘솔 「작업 → LLM 연결 확인」,
+텍스트 콘솔 A 메뉴 `L` 도 같다. 패키지 없이 돌리는 독립 스크립트는 **`python tools/check_api_key.py`** (표준 라이브러리만; anthropic 이 설치돼 있으면
+SDK 경로도 함께 확인).
 
 ## 빠른 시작
 
@@ -76,7 +91,7 @@ mindmap console --text                                    # 번호 메뉴 텍스
 │   (🟡 🔴 줄만 색이 칠해진다 — 색은 "주의가 필요한가" 하나만 말한다)                       │
 ├ 자세히 ── [개요] [A 맵 채우기] [B 맵 운영] [마인드맵] [포트폴리오] [실행 로그] ──────────────┤
 │ A 맵 채우기: 논제 · 드라이버 5슬롯 · 컨센서스 vs 뷰 · 시나리오 3행 · 리스크 · 무효화 조건 빌더 · 실행 계획  │
-│             [리포트로 자동 생성…] [A 맵 생성] [저장·검증] [평가] [HTML] [매수 체결 → B 맵…]            │
+│             [현재가 갱신] [리포트로 자동 생성…] [A 맵 생성] [저장·검증] [평가] [HTML] [매수 체결 → B 맵…] │
 │ B 맵 운영:   시장 상태 [갱신] · 드라이버 표 [값 갱신…] [사실 로그…] · 논제 판정 [저장]              │
 │             평가 → 상태등·매트릭스·주가 분해 → 대응·사유·규모 + 편향 체크 6 [결정 기록]  [종료·복기…] │
 └ 고른 줄 요약                                [고른 맵 HTML 열기] [실행 로그 보기] [로그 지우기] [닫기] ┘
@@ -106,46 +121,77 @@ tkinter 가 없는 환경에서도 `ops` 는 통째로 테스트되고, GUI 는 
 | `data/out/*.html` | 렌더링 결과 |
 | `data/ref/symbols.csv` | 종목 목록 스냅숏 (코드·이름·시장·섹터·시총) — 「작업 → 종목 목록 갱신」 |
 
-## 리포트로 A 맵 자동 생성 (초안)
+## 리포트로 A 맵 자동 생성 (초안) — 설계 v3
 
 같은 종목의 증권사 리포트를 여러 건 주면 A 맵 초안을 만든다. 콘솔에서는 「A 맵 채우기」 탭의 **[리포트로 자동 생성…]**
-(또는 작업 메뉴), CLI 에서는 `mindmap draft`, 텍스트 콘솔에서는 「A 맵 → 8」.
+(또는 작업 메뉴), CLI 에서는 `mindmap draft`, 텍스트 콘솔에서는 「A 맵 → 8」. 설계 문서: `docs/report-draft-design-v3.md`.
 
 ```powershell
-mindmap draft --reports 하나_251012.pdf KB_251012.pdf 키움_251007.pdf --db data\db\kstock.sqlite --html
-mindmap draft --reports *.pdf --ticker 005930 --llm            # 본문에서 종목을 못 읽으면 --ticker, LLM 그룹 채움은 --llm
-mindmap draft --reports *.pdf -o maps\A_005930_draft.json      # 저장소 없이 JSON 만
+mindmap draft --reports data\reports\삼성전자\*.pdf --db data\db\kstock.sqlite --html      # 규칙 + (키가 있으면) Claim 추출
+mindmap draft --reports *.pdf --ticker 005930 --llm                                      # Claim 추출·의미 검증에 LLM 사용
+mindmap claims --reports *.pdf --show        # Claim 만 뽑아 data/claims/ 에 (검토 대기함: mindmap claims-review <report_id>; ⚑ 확인 권고 포함)
+mindmap issues --claims data/claims --ticker 005930 --llm   # 쟁점 표 (--llm: 기준 명제 판정, ◐ 부분 동의)
+mindmap eval-issues                           # 쟁점 정답표 대비 이견 누락 (v4)
+mindmap issues --ticker 005930               # 증권사 간 쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결)
+mindmap changes --map A:005930:2026-10-21 --reports new.pdf   # 기존 맵 + 새 리포트 → 변경안 (승인한 것만 적용)
+mindmap golden-draft --reports *.pdf · mindmap eval-extract · mindmap eval-claims        # 정답표와 평가
 ```
 
-파일은 PDF(텍스트가 있는 것) · TXT · MD · HTML · DOCX 를 받는다. PDF 는 `pypdf` → `pdfminer.six` → `pdfplumber` →
-`pdftotext` 가운데 설치된 것을 쓴다. 스캔 이미지 PDF 는 글자가 없어 건너뛴다(경고).
+파일은 PDF(텍스트가 있는 것) · TXT · MD · HTML · DOCX. PDF 는 `pypdf` → `pdfminer.six` → `pdfplumber` → `pdftotext` 가운데 설치된 것을 쓴다.
 
 ```
-리포트 n건 ─▶ 읽기(reports/loader) ─▶ 사실 추출(reports/extract) ─▶ 종목 합산(reports/digest)
-          ─▶ 규칙 채움(generate/rules) ─▶ [LLM 그룹 채움(generate/llm_fill)] ─▶ 교차검증(generate/check) ─▶ 엔진 평가·검증
+리포트 n건 ─▶ 읽기(loader, 페이지 보존) ─▶ 사실 추출(extract) ─▶ 수치 집계(digest: 증권사별 최신 1건·45일·basis·분산)
+          ─▶ Claim 추출(claims: LLM, 명제 1개씩, 인용 필수) ─▶ 3단 검증(validate_claims: 인용·숫자·의미) ─▶ 검토 대기함
+          ─▶ 쟁점 통합(issues: 테마→메커니즘, 증권사별 ↑↓·–) ─▶ 규칙 채움(rules) + 매핑(mapping) ─▶ 교차검증 ─▶ 엔진
 ```
 
-| 리포트에서 읽는 것 | 들어가는 노드 |
-|---|---|
-| 종목(코드)·날짜·증권사·제목·투자의견·목표주가(직전값·상향/하향)·현재주가·상승여력·52주 고저 | A0.4 현재가(출처=리포트), A2.1 (목표가 분포·의견 분포·**매수 일색 편향 메모**), A3.6.3 리비전, A8 출처 목록 |
-| 연도별·분기별 추정치 표 (매출액·영업이익·순이익·EPS·PER·PBR·ROE…) — 리포트 n건 평균, 억원/조원 자동 | A1 드라이버 (분기/연간 영업이익·매출·EPS: current=최근 실적, consensus=차년도 평균, **내 추정=컨센과 같게 둔 초안**), A8.1.4 재무 요약 |
-| 목표가 분포 | A3 시나리오 앵커 — Bear = min(최저 목표가×0.9, 52주 저가), Base = 분포 하위 1/3, Bull = 평균 (확률 30/45/25 기본값) |
-| 논거·리스크·촉매·밸류·주주환원 문장 (키워드 점수, 여러 리포트에 거듭 나오면 가산) | A2.2 (리포트 논거를 옮긴 초안), A4.1~3 리스크, A5.1 촉매(날짜 있는 문장 + 통상 실적 일정), A3.6.2, A8.1.x |
-| 드라이버 1의 컨센서스 | A4.4.1 Kill — 컨센 대비 20% 미달이면 exit (임계값 초안) |
+| 어디서 | 무엇을 | 들어가는 노드 |
+|---|---|---|
+| 리포트 표지·표 (규칙) | 증권사·날짜·제목·의견·목표주가(직전)·현재주가·52주·추정치 표(+회계 기준) | A0.4(작성 시점 현재가), A1.1~3 표 드라이버(current=최근 실적, consensus=증권사별 최신 1건 평균, **내 추정=빈칸**), A3.6.3 리비전, **A3.6.4 목표가 분포**(min/중앙/max/분산·상승여력), A8.1.4 |
+| Claim (LLM, verified 만) | 명제·역할(논거/리스크/촉매/밸류/주주환원/사업/변경 사유)·driver·메커니즘·방향·조건·시점·숫자·인용(페이지) | A0 논제 초안(증권사 종합), A1 빈 슬롯(테마), **A2.1.x 쟁점**(공통 견해·핵심 이견·독립 주장·미해결, 증권사별 ↑↓·–), A4.1~3 리스크(확률·영향은 빈칸), A4.4 Kill(조건부 리스크에 수치가 있을 때만 제안), A5.1 촉매(날짜 있는 것), A3.6.3 리비전 사유, **A8.4.x 리포트별 주장** |
+| 시나리오 | 리포트가 Bull/Base/Bear 를 명시하면 그대로, 산식(PER×EPS 등) 이 읽히면 **그 리포트 안의 값만으로** 재계산한 후보 | A3.1~3 은 기본 **공란**(pending). 콘솔 「시나리오 후보 넣기」 로 증권사 한 곳의 후보를 고른다. 확률은 자동으로 넣지 않는다 — 「예시 확률 입력(30/45/25, 미검증)」 은 사용자 행위로 기록 |
 
-채운 값에는 전부 `draft` 태그(마인드맵에 ✎)가 붙고, 사람이 봐야 할 곳에는 `warn`(⚑) 이 붙는다 — 목표가가 컨센서스
-범위 밖, 컨센/현재 비율이 이상(단위 혼동 의심), Bear 가 현재가 위 등. **판단(A6.5)은 항상 WATCH** 이고 「내 추정」은
-컨센서스와 같은 값의 초안이다. 즉 초안은 "증권사들이 말하는 것" 을 맵 모양으로 정리한 것이지 내 논제가 아니다. A2.2
-「내가 다르게 보는 것」과 A2.3 을 쓰고 추정치를 고쳐 「저장·검증」하면 그때부터 내 맵이 된다.
+지키는 것: 서로 다른 증권사의 가정을 섞지 않는다(min(EPS)×min(PER) 같은 교차 조합 없음), 목표가 분포로 시나리오를 만들지 않는다,
+확률·내 추정·Kill·A2.2 내 뷰·A2.3 은 사람이 쓴다(초안은 비워 두고 **미확정** 으로 센다 — 오류가 아니다), 판단(A6.5)은 항상 WATCH,
+모든 자동 노드는 `claim_id`·페이지로 원문까지 되짚는다(콘솔 「노드 출처 보기」). 증권사 컨센서스는 "현재 주가에 내재된 기대" 가 아니라
+"리포트에서 관측된 것" 으로 표기한다(A2.1 값은 비우고 자식 쟁점에만).
 
-`--llm` (콘솔의 LLM 체크 — `.env` 에 키가 있으면 기본으로 켜진다; `pip install -e ".[llm]"` 필요) 을 켜면 그룹 6개(드라이버 선정·논제/뷰·시나리오
-가정·리스크/Kill·촉매·근거)를 LLM 이 JSON 으로 채운다. 숫자 환각 방어: 규칙이 채운 드라이버 숫자는 LLM 이 바꿀 수 없고,
-LLM 이 새로 고른 드라이버는 `evidence`(리포트 인용) 가 자료 안에 있어야 받으며, 목표가는 앵커 ±25% 로 자르고 확률은
-합 1 로 정규화한다. 키가 없으면 규칙 채움까지만 하고 그렇게 표시한다 (`generate/llm_fill.py`).
+Claim 검증: ① 인용이 원문에 그대로 있는가(코드) ② 숫자가 인용·표에 있는가(코드, 억/십억/조·만원 환산) ③ 인용이 명제를 지지하는가(LLM 배치 판정 →
+supported/contradicted/insufficient). 셋 다 통과해야 `verified`, 아니면 **검토 대기함**(콘솔 「Claim 검토 대기함…」, `mindmap claims-review`) 에서 사람이 승인/반려.
+LLM 이 없으면 키워드 문장 분류로 대체하고 `quality: rules`(저품질) 로 표시한다. 프롬프트 c2(2026-10-21): 인용은 1~3개(`quotes`), 명제의 숫자·사실은 전부 인용 안에,
+한 명제 한 방향, 추정치 변경·분기 전망치는 필수. 명제가 말하지 않는데 quant 에 끼어 온 수치(표의 정밀값, 목표가) 는 불일치가 아니라 **제외**하고 note 에 남긴다 —
+검증 규칙이 바뀐 뒤에는 `mindmap claims-review <report_id> --recheck` 로 LLM 호출 없이 코드 검증(①②) 만 다시 하고 상태를 재확정할 수 있다.
+`eval-claims --misses` 는 못 찾은 필수 주장을 `[미추출]` / `[검토 대기]` 로 나눠 보여 준다 (검토 대기는 뽑혔지만 검증을 못 넘은 것 — 승인하면 재현율에 들어간다).
 
-리서치 DB(`C:\kstock\research\data\db\kstock.sqlite`) 가 있으면 현재가(리포트보다 최신일 때)·52주·추세·거래량 배수와
-최근 90일 DB 목표가 분포를 보탠다. 없어도 리포트만으로 끝까지 간다. 섹터는 관심종목 값 > 본문 단어 추정
-(`generate/kpi_catalog.py` 의 섹터 KPI 사전: 반도체·2차전지·로봇·자동차·바이오·은행·조선·방산·인터넷·엔터·증권·유틸).
+수치 집계 규칙: 증권사별 **최신 1건** 만 집계(이전 건은 리비전 이력), 기준일보다 **45일** 넘게 오래된 리포트는 집계 제외(참고), 순이익은 지배/전체 기준이 섞이면 다수 기준만,
+최신 실적 발표일(리서치 DB `disclosures` 또는 분기 말 +8일 추정) 이전 리포트는 "실적 전" 표시, 파일명의 한경 리포트 번호로 리서치 DB `reports` 와 교차 확인(증권사·날짜·제목·TP 불일치 깃발).
+
+새 리포트가 들어오면 「새 리포트 → 변경안」: 기존 맵은 그대로 두고 변경 후보(추정치 변화·새 쟁점·상태 변화·TP 리비전·새 리스크·새 촉매)만 보여 준다.
+승인한 것만 적용하고 원본은 `data/maps/versions/<map_id>.v<N>.json` 에 보존, `meta.version` 증가, A7.2 업데이트 로그에 기록. 사용자가 손댄 노드는 자동 적용 대상에서 뺀다.
+
+현재가는 리포트에 적힌 날짜의 값이 아니라 **맵을 만드는 시점**의 값을 쓴다: `collect/adapters/naver_quote.py` 가 네이버 금융
+모바일 API 에서 현재가·체결시각을 받고, 실패하면 리서치 DB 종가, 그것도 없으면 리포트의 현재주가로 내려간다. 콘솔 대화상자의 「현재가를 작성 시점 기준으로
+조회」(기본 켬), CLI `--no-fetch`, 환경변수 `KSTOCK_OFFLINE=1`. 작성일보다 3일 넘게 오래되면 ⚑ "갱신 필요"; 기존 맵은 「현재가 갱신」.
+
+정답표(`tests/golden/`): `mindmap golden-draft` 가 추출기 결과로 초안(`verified: false`) 을 만들고 사람이 고친다. `eval-extract` 는 필드별 정확도,
+`eval-claims` 는 필수 주장 재현율과 근거 불일치율. 최소 실험(삼성전자 3건, 사람이 LLM 역할로 쓴 Claim 답안) 은 `examples/claims_experiment/`.
+
+리서치 DB(`C:\kstock\research\data\db\kstock.sqlite`) 가 있으면 현재가(리포트보다 최신일 때)·52주·추세·거래량 배수·최근 90일 DB 목표가·실적 공시일·리포트 교차 확인을 보탠다. 없어도 리포트만으로 끝까지 간다. 섹터는 관심종목 값 > 본문 단어 추정
+
+### 설계 v4 (2026-10-22) — 검토의견 3 반영, `docs/report-draft-design-v4.md`
+
+실측(삼성전자 3건, Claude Sonnet 5.5) 뒤 "잘못된 투자정보가 생기거나 검증·업데이트에 구조적 오류가 날 수 있는 것" 열 가지를 고쳤다. 전부 기본값이 있어 c1/c2 저장본이 그대로 읽힌다.
+
+- **사실·전망·계획 구분 (V1)** — Claim 에 `asserted_by`(analyst/company/market/authority) · `certainty`(realized/announced/planned/expected/conditional) · `as_of`. 프롬프트 c3. 노드·표·인용에 접두어 `[실적]` `[기업 발표]` `[기업 계획]` `[증권사 전망]` `[조건부]`.
+- **기계 검증 vs 사람 승인 (V2)** — `verified_by: machine|human`. 자동 통과해도 판단 지표(op/revenue/eps/목표가) 수치·증권사 간 15% 넘는 수치 충돌·조건부 리스크·"애널리스트가 사실로 단정" 은 `review_required` ⚑ 로 검토 대기함에 함께 뜬다(초안에는 쓴다). '근거 불충분' 판정을 승인할 때는 이유(`--note`) 필수. 사람이 정한 것은 `--recheck` 가 되돌리지 않는다.
+- **쟁점의 기준 명제 (V3)** — 테마마다 `reference_proposition` 하나를 두고, LLM 이 있으면 증권사별로 그 명제에 agree/disagree/**partial**(◐ 부분 동의)/unrelated 를 판정한다(`mindmap issues --llm`, `draft` 는 기본 켬, `--no-issue-check` 로 끔). 판정 근거는 표의 `≡` 줄. 리포트를 끝까지 못 읽은 증권사는 침묵(–) 대신 **안 읽음(?)**.
+- **셀 단위 집계 (V4)** — 증권사별 대표 문서는 최신 1건이지만, 거기 없는 (지표, 기간) 셀은 같은 증권사 이전 리포트(45일 안) 로 **보강**하고 표에 `*`. 열 라벨(…A/…P/…E) 이 다르면 다른 셀. "조정 영업이익" 은 `op_adj` 로 분리. EPS 주식 수·환율 기준은 읽을 수 없어 각주로만.
+- **증권사 목표가 ≠ 시나리오 (V5)** — 후보 `origin`(broker_case/broker_recalc/broker_tp). 리포트가 그 이름으로 제시한 케이스가 아닌 것을 Bear/Base/Bull 에 넣으면 `[사용자 재해석]` 으로 기록(history · `meta.draft.scenario_origin`).
+- **Kill 은 후보까지만 (V6)** — 조건부 리스크 Claim 은 `meta.draft.kill_candidates` 로만. 콘솔 「Kill 후보 확정…」/텍스트 `K` 에서 **관측 지표·갱신 주기·위반 시 행동** 세 칸을 채워야 Rule 이 된다(`origin=user_confirmed`). 키워드 문장으로 뽑은 리스크도 값이 아니라 질문의 후보로만.
+- **변경안 정합성 (V7)** — `input_snapshot_id`(입력 리포트 집합), 변경별 `affects`(함께 바뀌어야 하는 노드 ↔), 적용은 **복사본에 먼저 → 검증 오류면 중단**, 버전·변경안 파일은 임시 파일 → rename, 부분 승인은 A7.2 에 ⚑.
+- **규칙 모드 제한 (V8)** — LLM 없이 만든(키워드 분류) Claim 으로는 A0 논제·A2.1 쟁점·A3.6.3·A4 리스크·A5 촉매를 **만들지 않는다**(숫자 노드만). 요약 머리에 "⚠ 규칙 모드".
+- **평가 분리 (V9)** — `tests/golden/holdout`(최종 검증, 튜닝에 안 씀) / `extract`(개발). `eval-claims` 가 **잘못된 Claim 자동 승인률** 을, 새 `mindmap eval-issues` 가 종목별 쟁점 정답(`tests/golden/issues/<ticker>.json`) 대비 테마 재현·분류 일치·**이견 누락** 을 낸다.
+- **문서 (V10)** — v3 의 P2.5 를 실제 순서로 정정.
 
 ## Python API 로 한 바퀴
 
@@ -177,6 +223,7 @@ c = rollup([b], cash=80_000_000)
 ```
 src/kstock/
   models/      §2 공통 노드 스키마 (Node) · 하위 스키마 (Driver, Scenario, Rule, Event, DecisionLog) · 맵 컨테이너 · §8 프로파일
+               · claims.py 설계 v3 데이터 계약 (EvidenceSpan · Claim · ClaimSet · Issue · IssueSet · Change · ChangeSet)
   templates/   §3.2 · §4.2 노드 정의 테이블 (질문 포함) → 스켈레톤 생성기
   engine/
     calc.py        §3.4 · §4.4 계산식 (기대수익률, 손익비, 비중 제안, 주가 분해, 비중/밸류 상태)
@@ -187,10 +234,14 @@ src/kstock/
     lifecycle.py   §7 A 평가 → 스냅숏 → B 운영 루프 → 결정 로그 → 종료/복기, 논제 복원 위자드
     rollup.py      §5 C 포트폴리오 롤업
   render/      native (기본 — 중심에서 양쪽 균형/방사형/오른쪽, 의존성 없음) · markmap (오른쪽 한 방향, CDN) · mermaid (문서 삽입용)
-  reports/     리포트 파일 → 텍스트(loader: PDF/TXT/MD/HTML/DOCX) → 사실(extract: 의견·목표가·현재가·추정치 표·문장) → 종목 합산(digest)
-  generate/    리포트 → A 맵 초안: kpi_catalog(섹터 KPI 사전) · rules(규칙 채움) · prompts+llm_fill(LLM 그룹 채움) · check(교차검증) · draft(파이프라인)
-  collect/     수집기 인터페이스 · CSV 오프라인 소스 · 규칙 기반 이벤트 분류기 · adapters/ (research_db 읽기 전용, DART·KRX·KIS·컨센서스 골격)
-  llm/         노드 채움 (MockFiller / ClaudeFiller) · LLM 이벤트 분류기 · 프롬프트
+  reports/     리포트 파일 → 텍스트(loader: PDF/TXT/MD/HTML/DOCX, 페이지 경계 유지) → 사실(extract: 의견·목표가·현재가·추정치 표·기준(지배/연결)·문장)
+               → 종목 합산(digest: 증권사별 최신 1건 · 45일 · 실적 전 표시 · spread) · dbcheck(리서치 DB 교차 확인)
+               · claims(리포트 → Claim: 청크 → LLM/규칙 추출 → 인용 위치 확인) · validate_claims(3단계 검증: 인용 존재 · 숫자 일치 · 의미 지지)
+  generate/    리포트 → A 맵 초안(설계 v3): kpi_catalog(섹터 KPI · 드라이버 사전) · rules(규칙 채움, 사람 몫은 pending) · scenarios(리포트 제시 케이스만)
+               · issues(Claim → 테마/메커니즘 쟁점, 공통 견해/핵심 이견) · mapping(쟁점·Claim → A0/A1/A2.1/A3.6/A4/A5/A8.4) · check(교차검증)
+               · changes(새 리포트 → 변경안 → 승인 반영 · 버전) · evals(골든 초안 · 추출/Claim 평가) · prompts+llm_fill(LLM 호출, 로컬 OpenAI 호환 포함) · draft(파이프라인)
+  collect/     수집기 인터페이스 · CSV 오프라인 소스 · 규칙 기반 이벤트 분류기 · adapters/ (naver_quote 작성 시점 현재가, research_db 읽기 전용, DART·KRX·KIS·컨센서스 골격)
+  llm/         노드 채움 (MockFiller / ClaudeFiller — 모델 자동 선택 models.py, 워크스페이스 헤더) · LLM 이벤트 분류기 · 프롬프트
   env.py       프로젝트 루트 .env 읽기 (python-dotenv 없이; 셸 환경변수 우선, 값은 로그에 남기지 않음)
   store.py     SQLite(관심종목·맵 인덱스·설정) + JSON 맵 저장소
   symbols.py   종목 찾기 — 코드↔이름 (symbols.csv · 리서치 DB · 관심종목)
@@ -198,11 +249,13 @@ src/kstock/
   console.py   GUI 콘솔 (tkinter, 리서치 콘솔과 같은 구조)
   console_text.py  번호 메뉴 텍스트 콘솔 (`mindmap console --text`)
   demo.py      §9 예시 인스턴스
-  cli.py       mindmap 명령 (콘솔 스크립트)
-tools/console.py  콘솔 실행기 (src 를 path 에 넣고 kstock.console.main 호출)
-tests/         unittest 84건 (pytest 로도 실행) — GUI 는 가짜 tkinter 로 스모크, 리포트 픽스처는 tests/fixtures/reports
-docs/          템플릿 v1.0 · 아키텍처 메모
-examples/      데모 출력 (JSON · HTML)
+  cli.py       mindmap 명령 (콘솔 스크립트; draft · claims · claims-review · issues · changes · golden-draft · eval-extract · eval-claims · llm-check · render …)
+tools/          console.py 콘솔 실행기 · check_api_key.py ANTHROPIC_API_KEY 독립 확인 스크립트 (표준 라이브러리만)
+tests/         unittest 163건 (pytest 로도 실행) — GUI 는 가짜 tkinter 로 스모크, 리포트 픽스처는 tests/fixtures/reports,
+               골든 초안은 tests/golden/extract (verified:false 는 사람이 확인 전)
+docs/          템플릿 v1.0 · 아키텍처 메모 · 리포트→마인드맵 과정(report-to-mindmap.md) · 자동 생성 계획 · 개선 검토(report-draft-improvements.md) · 설계 v2/v3/v4(report-draft-design-v2.md, -v3.md, -v4.md)
+examples/      데모 출력 (JSON · HTML) · claims_experiment/ 삼성전자 3건 Claim 실험 (사람이 쓴 Claim → 쟁점 → 맵, 요약 HTML)
+data/          reports/ 원본 리포트 · claims/ ClaimSet(리포트별) · issues/ IssueSet(종목별) · changes/ 변경안 · maps/versions/ 맵 버전
 ```
 
 ## 마인드맵 HTML — 중심에서 사방으로
