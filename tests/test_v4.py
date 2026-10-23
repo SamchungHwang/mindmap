@@ -85,15 +85,33 @@ class TestV2Verification(unittest.TestCase):
         b = ClaimSet(report_id="r_B", broker="B", claims=[
             _c("b1", "B", "2027E 영업이익 800조원으로 전망한다", "dram_price", "positive", quant=[{"metric": "op", "col": "2027E", "value": 800, "unit": "조원"}]),
         ])
-        n = mark_review_required([a, b])
+        n = mark_review_required([a, b])                             # 표(facts) 없음 → 사업부 휴리스틱 · 충돌 · 조건부 · 사실 단정
         by = {c.claim_id: c for c in a.claims + b.claims}
-        self.assertIn("판단 지표 수치", by["a1"].review_reason)
-        self.assertIn("증권사 간 수치 차이", by["a1"].review_reason)        # 600 vs 800
+        self.assertIn("증권사 간 수치 차이", by["a1"].review_reason)        # 600 vs 800 (전사·미래 기간)
+        self.assertNotIn("판단 지표 수치", by["a1"].review_reason)         # 표가 없으면 '표에 없음' 판정은 안 한다
         self.assertFalse(by["a2"].review_required)
         self.assertIn("조건부 리스크", by["a3"].review_reason)
         self.assertIn("사실로 단정", by["a4"].review_reason)
         self.assertTrue(by["b1"].review_required)
         self.assertEqual(n, 4)
+        # 표가 있으면: 표에 있는 수치는 확인 권고가 아니고, 표에 없는 전사·미래 수치만 ⚑. 사업부 수치(표에 없음) 는 충돌 비교에서 빠진다
+        from kstock.reports import extract_facts, load_report
+
+        f = extract_facts(load_report(HANA), today=date(2026, 10, 20))
+        op27 = f.estimates["op"]["2027E"]                            # 표 값 (십억원)
+        cs = ClaimSet(report_id="r_H", broker="하나", claims=[
+            _c("h1", "하나", "2027E 영업이익 전망", "dram_price", "positive", quant=[{"metric": "op", "col": "2027E", "value": op27, "unit": "십억원"}]),
+            _c("h2", "하나", "2027E 영업이익을 다르게 본다", "dram_price", "positive", quant=[{"metric": "op", "col": "2027E", "value": 999999.0, "unit": "십억원"}]),
+            _c("h3", "하나", "MX 사업부 영업이익은 2027E 1.0조원", "mobile_demand", "positive", quant=[{"metric": "op", "col": "2027E", "value": 1.0, "unit": "조원"}]),
+        ])
+        other = ClaimSet(report_id="r_O", broker="다른", claims=[
+            _c("o1", "다른", "2027E 영업이익 전망", "dram_price", "positive", quant=[{"metric": "op", "col": "2027E", "value": op27 * 10 / 10000, "unit": "조원"}]),
+        ])
+        mark_review_required([cs, other], facts_by_report={"r_H": f})
+        h = {c.claim_id: c for c in cs.claims}
+        self.assertFalse(h["h1"].review_required, h["h1"].review_reason)   # 표와 같은 값(단위 환산) · 다른 증권사와도 같다
+        self.assertIn("표에 없음", h["h2"].review_reason)
+        self.assertFalse(h["h3"].review_required, h["h3"].review_reason)   # 사업부 수치는 전사 셀과 비교하지 않는다
         # 검토 대기함: needs_review + 확인 권고 (verified 유지)
         q = a.review_queue()
         self.assertEqual({c.claim_id for c in q}, {"a1", "a3", "a4", "a5"})
@@ -158,8 +176,27 @@ class TestV3ReferenceProposition(unittest.TestCase):
         self.assertEqual(hbm.coverage_basis, "llm")
         self.assertEqual(hbm.coverage["B"], Coverage.partial)
         self.assertEqual(hbm.coverage["A"], Coverage.agree)
-        self.assertEqual(hbm.display, IssueDisplay.common)                      # 부분 동의는 반대로 세지 않는다
+        # B 의 Claim 방향이 부정(이익 효과 반대) 이라 방향 통계는 이견이고, LLM 도 전원 동의로 보지 않았다 → 핵심 이견 유지
+        self.assertEqual(hbm.display, IssueDisplay.disagreement)
+        self.assertIn("direction", hbm.disagreement_dimensions)
         self.assertIn("공급 증가엔 동의", hbm.judgement_notes["B"])
+        # B 가 방향은 같은데(긍정) 대상·크기만 달라 partial 이면 — 반대가 없으니 공통 견해 (부분 동의 1곳)
+        sets2 = self._sets()
+        from kstock.models import ClaimDirection
+
+        sets2[1].claims[0].direction = ClaimDirection.positive
+        iss_p = build_issues(sets2, ticker="005930", filler=MockGroupFiller({"issues": {"verdicts": [
+            {"id": "hbm", "broker": "A", "verdict": "agree", "why": ""}, {"id": "hbm", "broker": "B", "verdict": "partial", "why": "대상이 다름"},
+            {"id": "hbm", "broker": "C", "verdict": "agree", "why": ""}]}}))
+        hbm_p = {t.driver_id: t for t in themes(iss_p)}["hbm"]
+        self.assertEqual(hbm_p.display, IssueDisplay.common)
+        self.assertIn("부분 동의 1곳", hbm_p.summary)
+        # 전부 '무관' 이면 기준 명제가 틀린 것 — 방향 통계로 되돌린다
+        iss_u = build_issues(self._sets(), ticker="005930", filler=MockGroupFiller({"issues": {"verdicts": [
+            {"id": "hbm", "broker": b, "verdict": "unrelated", "why": "무관"} for b in "ABC"]}}))
+        hbm_u = {t.driver_id: t for t in themes(iss_u)}["hbm"]
+        self.assertEqual(hbm_u.coverage_basis, "direction")
+        self.assertIn("방향 통계로 표시", hbm_u.judgement_notes["_note"])
         table = issues_table(iss)
         self.assertIn("◐", table)
         self.assertIn("[판정: LLM 기준 명제", table)
@@ -317,4 +354,55 @@ class TestV6KillConfirm(unittest.TestCase):
             self.assertIn("관측: 분기 IR 수율 코멘트", r.note)
             self.assertEqual(m.meta["draft"]["kill_confirmed"][0]["origin"], "user_confirmed")
             self.assertNotIn("pending", m["A4.4.1"].tags)
+            store.close()
+
+
+class TestDraftModes(unittest.TestCase):
+    """콘솔 자동 생성 방식: 새로 만들기(기본) 는 기존 초안·Claim 저장본을 보관 폴더로 옮기고 다시, 기존에 더하기는 그대로 둔다."""
+
+    def test_replace_archives_previous_draft_and_claims(self):
+        import tempfile
+
+        from kstock.ops import Ops
+        from kstock.store import Store
+        from kstock.symbols import Symbol, SymbolBook
+
+        txts = sorted(FIX.glob("*_005930_*.txt"))
+        with tempfile.TemporaryDirectory() as t:
+            store = Store(Path(t) / "db" / "k.sqlite")
+            ops = Ops(store, today=date(2026, 10, 20), symbols=SymbolBook([Symbol("005930", "삼성전자", "KR", None, 1.0)]))
+            r1 = ops.draft_from_reports(txts, {"fetch_price": False})            # 기본 = replace (처음이라 치울 것 없음)
+            self.assertEqual(r1.map.meta["draft"]["generation_mode"], "replace")
+            self.assertEqual(len(store.list_maps("NEW", ticker="005930")), 1)
+            n_claims = len(list(store.claims_dir.glob("*.json")))
+            self.assertGreater(n_claims, 0)
+            # 사용자가 Claim 하나를 승인했다 → 보관본에 남아 있어야 한다
+            from kstock.reports.claims import load_claimset, save_claimset
+            from kstock.reports.validate_claims import review
+
+            p0 = sorted(store.claims_dir.glob("*.json"))[0]
+            cs0 = load_claimset(p0)
+            if cs0.claims:
+                review(cs0, cs0.claims[0].claim_id, "reject", note="테스트")
+                save_claimset(cs0, store.claims_dir)
+            # 다음 날 다시 '새로 만들기' → 어제 초안은 _archive 로, Claim 저장본도 보관 폴더로, 맵은 1개만
+            ops2 = Ops(store, today=date(2026, 10, 21), symbols=SymbolBook([Symbol("005930", "삼성전자", "KR", None, 1.0)]))
+            r2 = ops2.draft_from_reports(txts, {"fetch_price": False, "mode": "replace"})
+            rows = store.list_maps("NEW", ticker="005930")
+            self.assertEqual([x.map_id for x in rows], [r2.map.map_id])
+            self.assertEqual(len(list(store.archive_dir.glob("*.json"))), 1)
+            self.assertTrue(any("maps/_archive" in n for n in r2.notes))
+            arch = list((store.claims_dir / "_archive").rglob("*.json"))
+            self.assertEqual(len(arch), n_claims)
+            self.assertEqual(len(list(store.claims_dir.glob("*.json"))), n_claims)   # 새로 뽑힌 것
+            self.assertTrue(any("사람이 승인/반려" in ln for ln in ops2.drain_log()) if hasattr(ops2, "drain_log") else True)
+            # 기존에 더하기: 기존 맵은 그대로 (두 번째 날짜의 맵이 하나 더 생기지만 archive 는 늘지 않는다)
+            ops3 = Ops(store, today=date(2026, 10, 22), symbols=SymbolBook([Symbol("005930", "삼성전자", "KR", None, 1.0)]))
+            ticker, latest = ops3.draft_target(txts, {"ticker": "005930"})
+            self.assertEqual((ticker, latest.map_id), ("005930", r2.map.map_id))
+            r3 = ops3.draft_from_reports(txts, {"fetch_price": False, "mode": "incremental", "claims": "cached"})
+            self.assertEqual(len(store.list_maps("NEW", ticker="005930")), 2)
+            self.assertEqual(len(list(store.archive_dir.glob("*.json"))), 1)
+            self.assertTrue(any("저장본 사용" in n for n in r3.notes))          # 저장본 재사용 (규칙 품질이라 cached 로 명시)
+            self.assertEqual(len(list((store.claims_dir / "_archive").rglob("*.json"))), n_claims)   # 더 치우지 않았다
             store.close()

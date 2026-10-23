@@ -214,7 +214,8 @@ def cmd_draft(a: argparse.Namespace) -> int:
             try:
                 r = ops.draft_from_reports(paths, {"ticker": a.ticker, "name": a.name, "invest_type": a.type, "use_llm": a.llm,
                                                    "llm_kind": a.llm_kind, "save": not a.no_save, "fetch_price": not a.no_fetch,
-                                                   "claims": a.claims, "issue_check": not a.no_issue_check},
+                                                   "claims": a.claims if a.claims != "auto" else None, "issue_check": not a.no_issue_check,
+                                                   "mode": a.mode},
                                            progress=progress)
             except OpsError as e:
                 print(f"오류: {e}")
@@ -354,9 +355,9 @@ def cmd_claims(a: argparse.Namespace) -> int:
         else:
             cs = extract_claims(d, f, filler, sector=sector, name=name, ticker=ticker,
                                 progress=(lambda lbl, i, n: print(f"  [{i}/{n}] {lbl}", flush=True)))
-        counts = run_all(cs, f, filler, semantic=not a.no_semantic)
+        counts = run_all(cs, f, filler, semantic=not a.no_semantic, fulltext=d.text)
         done.append((cs, f, counts))
-    n_req = mark_review_required([cs for cs, _, _ in done])     # 증권사 간 수치 충돌은 전부 모아서 (v4 V2)
+    n_req = mark_review_required([cs for cs, _, _ in done], facts_by_report={cs.report_id: f for cs, f, _ in done})   # 증권사 간 수치 충돌은 전부 모아서 (v4 V2)
     for cs, f, counts in done:
         p = save_claimset(cs, out_dir)
         for k in total:
@@ -393,14 +394,18 @@ def cmd_claims_review(a: argparse.Namespace) -> int:
         from .reports import extract_facts, load_report
         from .reports.validate_claims import check_numbers, finalize
 
-        facts = None
+        facts, fulltext = None, None
         if cs.path and Path(cs.path).is_file():
-            facts = extract_facts(load_report(Path(cs.path)), hint_ticker=cs.ticker)
+            doc = load_report(Path(cs.path))
+            facts = extract_facts(doc, hint_ticker=cs.ticker)
+            fulltext = doc.text
         changed = 0
         for c in cs.claims:
             before = c.status
             c.validation.quote = "ok" if c.span_ids else "miss"
-            c.validation.numbers = check_numbers(c, cs, facts)
+            if c.verified_by != "human":
+                c.review_required, c.review_reason = False, ""
+            c.validation.numbers = check_numbers(c, cs, facts, fulltext=fulltext)
             if not c.inferred:
                 finalize(c, require_semantic=(cs.quality != "rules"))
             if c.status != before:
@@ -408,8 +413,38 @@ def cmd_claims_review(a: argparse.Namespace) -> int:
                 print(f"재검증 {c.claim_id}: {before.value} → {c.status.value}")
         from .reports.validate_claims import mark_review_required
 
-        mark_review_required([cs])
-        cs.notes.append(f"재검증(코드) · 상태 변경 {changed}")
+        if a.llm:
+            # 검토 대기(사람이 안 본 것) 의 의미 판정만 LLM 에 다시 묻는다 — 판정 프롬프트가 바뀐 뒤 (수치는 코드 몫) 재판정용
+            from .generate import make_filler
+            from .models import SupportVerdict
+            from .reports.validate_claims import semantic_check
+
+            try:
+                filler = make_filler(a.llm_kind)
+            except RuntimeError as e:
+                print(f"LLM 을 쓸 수 없어 의미 재판정은 건너뜀 — {e}")
+                filler = None
+            if filler is not None:
+                targets = [c for c in cs.claims if c.status.value == "needs_review" and c.verified_by != "human" and c.span_ids]
+                prior = {c.claim_id: c.validation.support for c in targets}
+                for c in targets:
+                    c.validation.support = SupportVerdict.unchecked
+                n_notes = len(cs.notes)
+                semantic_check(cs, filler)
+                for n in cs.notes[n_notes:]:
+                    print(f"    ! {n}")                                   # 배치 실패(네트워크 등) 는 여기 보인다
+                for c in targets:
+                    if c.validation.support == SupportVerdict.unchecked:
+                        c.validation.support = prior[c.claim_id]            # 답을 못 받았으면 이전 판정 유지
+                    before = c.status
+                    finalize(c, require_semantic=(cs.quality != "rules"))
+                    if c.status != before:
+                        changed += 1
+                        print(f"의미 재판정 {c.claim_id}: {before.value} → {c.status.value} ({c.validation.support.value})")
+                got = sum(1 for c in targets if c.validation.support != prior[c.claim_id] or c.status.value == "verified")
+                print(f"의미 재판정 {len(targets)}건 (답 받음 {got})")
+        mark_review_required([cs], facts_by_report={cs.report_id: facts} if facts is not None else None)
+        cs.notes.append(f"재검증(코드{' + 의미 재판정' if a.llm else ''}) · 상태 변경 {changed}")
         save_claimset(cs, Path(a.out))
         print(f"재검증: 상태 변경 {changed}건" + ("" if facts else " (리포트 파일을 못 찾아 표 대조는 생략)"))
     for cid in a.approve or []:
@@ -644,6 +679,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--claims-dir", metavar="DIR", help="ClaimSet 저장·재사용 폴더 (예: data/claims_llm; 같은 리포트는 다시 뽑지 않음). --db 를 쓰면 저장소의 data/claims")
     s.add_argument("--no-issue-check", action="store_true", help="쟁점의 기준 명제 판정(LLM) 을 생략하고 방향 통계만 (설계 v4 V3)")
     s.add_argument("--db", help="저장소 SQLite — 주면 관심종목 등록 + 맵 저장 (콘솔과 같은 저장소)")
+    s.add_argument("--mode", default="replace", choices=["replace", "incremental"],
+                   help="--db 와 함께: replace(기본)=그 종목의 기존 A 맵 초안과 이 리포트들의 Claim 저장본을 보관 폴더로 옮기고 전부 다시 / incremental=저장본 재사용, 기존 맵 유지 (기존 맵이 있으면 `changes` 를 쓸 것)")
     s.add_argument("--no-save", action="store_true", help="--db 를 줘도 저장하지 않고 요약만")
     s.add_argument("--no-fetch", action="store_true", help="작성 시점 현재가를 네이버에서 조회하지 않음 (기본은 조회; 실패하면 DB·리포트 값)")
     s.add_argument("-o", "--output", help="--db 없이 쓸 때 JSON 경로 (기본 maps/A_<코드>_draft.json)")
@@ -683,7 +720,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--approve", nargs="*")
     s.add_argument("--reject", nargs="*")
     s.add_argument("--note")
-    s.add_argument("--recheck", action="store_true", help="코드 검증(인용·숫자) 만 다시 하고 상태 재확정 — LLM 호출 없음")
+    s.add_argument("--recheck", action="store_true", help="코드 검증(인용·숫자) 을 다시 하고 상태 재확정 — LLM 호출 없음 (--llm 을 더하면 검토 대기의 의미 판정만 다시 묻는다)")
+    s.add_argument("--llm", action="store_true", help="--recheck 와 함께: 검토 대기 Claim 의 의미 판정을 LLM 에 다시 묻는다 (사람이 정한 것은 제외)")
+    s.add_argument("--llm-kind", default="auto", choices=["auto", "claude", "local"])
     s.set_defaults(fn=cmd_claims_review)
     s = sp.add_parser("issues", help="ClaimSet 들 → 증권사 간 쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결) (설계 v3 P3)")
     s.add_argument("--claims", default="data/claims")

@@ -25,6 +25,8 @@ from .claims import (
     QuantRef,
     SupportVerdict,
     Validation,
+    is_segment_text,
+    normalized_value,
     report_id_for,
 )
 from .common import (
@@ -86,5 +88,5 @@ __all__ = [
     "EpistemicType", "AssertedBy", "Certainty", "CERTAINTY_TAG", "ClaimRole", "ClaimDirection", "SupportVerdict", "ClaimStatus",
     "Coverage", "IssueLevel", "IssueDisplay",
     "ChangeKind", "ChangeDecision", "EvidenceSpan", "QuantRef", "Validation", "Extractor", "Claim", "ClaimSet",
-    "NumericSpread", "Issue", "IssueSet", "Change", "ChangeSet", "report_id_for",
+    "NumericSpread", "Issue", "IssueSet", "Change", "ChangeSet", "report_id_for", "is_segment_text", "normalized_value",
 ]

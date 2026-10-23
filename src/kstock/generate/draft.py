@@ -365,6 +365,7 @@ def build_claimsets(docs, digest: ReportDigest, filler, *, mode: str, sector: st
 
     notes: list[str] = []
     out: list = []
+    facts_by_report: dict = {}
     facts_by_name = {f.path.name: f for f in digest.reports}
     use_llm = filler is not None and mode in ("auto", "llm")
     if mode == "llm" and filler is None:
@@ -384,6 +385,7 @@ def build_claimsets(docs, digest: ReportDigest, filler, *, mode: str, sector: st
                     notes.append(f"Claim: {doc.path.name} 저장본은 실패한 빈 결과 — 다시 추출")
                 elif cs.quality == "llm" or mode == "cached":
                     out.append(cs)
+                    facts_by_report[cs.report_id] = f
                     notes.append(f"Claim: {doc.path.name} 저장본 사용 ({cs.quality}, verified {len(cs.usable())}/{len(cs.claims)})"
                                  + (" ⚠ 비어 있음" if not cs.claims else ""))
                     continue
@@ -398,14 +400,15 @@ def build_claimsets(docs, digest: ReportDigest, filler, *, mode: str, sector: st
                 cs = extract_claims(doc, f, filler, sector=sector, name=name, ticker=ticker)
                 if not cs.claims and any("실패" in n for n in cs.notes):
                     raise RuntimeError(next(n for n in cs.notes if "실패" in n)[:120])
-                run_all(cs, f, filler, semantic=True)
+                run_all(cs, f, filler, semantic=True, fulltext=doc.text)
             except Exception as e:  # noqa: BLE001
                 notes.append(f"Claim: {doc.path.name} LLM 추출 실패 ({type(e).__name__}: {str(e)[:80]}) → 규칙 분류(저품질)")
                 cs = rules_claims(doc, f, sector=sector, ticker=ticker)
-                run_all(cs, f, None, semantic=False)
+                run_all(cs, f, None, semantic=False, fulltext=doc.text)
         else:
             cs = rules_claims(doc, f, sector=sector, ticker=ticker)
-            run_all(cs, f, None, semantic=False)
+            run_all(cs, f, None, semantic=False, fulltext=doc.text)
+        facts_by_report[cs.report_id] = f
         if claims_dir is not None:
             save_claimset(cs, claims_dir)
         out.append(cs)
@@ -413,7 +416,7 @@ def build_claimsets(docs, digest: ReportDigest, filler, *, mode: str, sector: st
     if out:
         from ..reports.validate_claims import mark_review_required
 
-        mark_review_required(out)               # v4 V2: 증권사 간 수치 충돌은 전부 모아야 보인다 (저장본에도 적용)
+        mark_review_required(out, facts_by_report=facts_by_report)   # v4 V2: 증권사 간 수치 충돌은 전부 모아야 보인다 (저장본에도 적용)
         n_req = sum(1 for cs in out for c in cs.usable() if c.review_required)
         if n_req:
             notes.append(f"Claim 확인 권고 ⚑ {n_req}건 — 자동 통과했지만 판단 지표 수치·증권사 간 충돌·조건부 리스크 (검토 대기함에 함께)")

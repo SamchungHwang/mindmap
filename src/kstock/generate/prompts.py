@@ -157,8 +157,10 @@ def claim_prompt(chunk_text: str, *, broker: str, report_date: str, name: str, t
 
 SUPPORT_SYSTEM = (
     "너는 근거 검증자다. 각 항목의 인용(quote; ' … ' 로 이어진 여러 구절일 수 있다) 이 명제(proposition) 를 실제로 지지하는지 판정한다. "
-    "supported = 인용이 명제를 직접 뒷받침; contradicted = 인용이 명제와 반대이거나 명제가 인용을 왜곡(예: '미확인' 을 '확정' 으로); "
-    "insufficient = 인용만으로는 판단 불가. 설명 없이 JSON 객체 하나."
+    "supported = 인용이 명제의 서술(무엇이·어느 방향으로·왜) 을 직접 뒷받침; contradicted = 인용이 명제와 반대이거나 명제가 인용을 왜곡(예: '미확인' 을 '확정' 으로); "
+    "insufficient = 인용만으로는 명제의 서술을 판단할 수 없다. "
+    "숫자의 존재와 일치는 별도 코드가 리포트 표·본문까지 대조하므로, **인용에 숫자가 없다는 이유만으로 insufficient 를 주지 않는다** — "
+    "서술이 맞으면 supported 로 하고 why 에 '수치 ○○는 인용 밖' 이라고만 적는다. 설명 없이 JSON 객체 하나."
 )
 
 

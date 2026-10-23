@@ -423,12 +423,20 @@ class Console:
         from .generate import llm_available, llm_status
 
         self.say(f"  LLM: {llm_status()}")
-        use_llm = self.ask_yes("LLM 그룹 채움을 쓸까요?", llm_available())
+        use_llm = self.ask_yes("LLM(Claim 추출·검증·쟁점 판정) 을 쓸까요?", llm_available())
         fetch = self.ask_yes("현재가를 작성 시점 기준으로 네이버에서 조회할까요?", True)
+        replace = self.ask_yes("새로 만들까요? (y: 기존 A 맵 초안·Claim 저장본을 보관 폴더로 옮기고 전부 다시 / n: 기존에 더하기 — 변경안)", True)
+        f = {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True, "fetch_price": fetch,
+             "mode": "replace" if replace else "incremental"}
+        if not replace:
+            tk_, latest = ops.draft_target(paths, f)
+            if latest is not None:
+                self.say(f"  기존 A 맵 {latest.map_id} 이 있어 변경안으로 갑니다")
+                self._changes_for(latest, paths, ops)
+                return
+            self.say("  기존 A 맵이 없어 새로 만듭니다 (Claim 저장본은 재사용)")
         try:
-            r = ops.draft_from_reports(paths, {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True,
-                                               "fetch_price": fetch},
-                                       progress=lambda label, i, n: self.say(f"  [{i}/{n}] {label}"))
+            r = ops.draft_from_reports(paths, f, progress=lambda label, i, n: self.say(f"  [{i}/{n}] {label}"))
         except OpsError as e:
             self.say(f"  ! {e}")
             return
@@ -583,9 +591,6 @@ class Console:
             self.say(f"  인용: {info['quote'][:300]}")
 
     def new_changes(self) -> None:
-        from .generate.changes import changeset_table
-        from .ops import OpsError
-
         m = self._pick_map(MapKind.NEW)
         if not isinstance(m, NewMap):
             return
@@ -593,7 +598,12 @@ class Console:
         if not raw:
             return
         paths = [p.strip() for p in raw.split(",") if p.strip()]
-        ops = self._ops()
+        self._changes_for(m, paths, self._ops())
+
+    def _changes_for(self, m: NewMap, paths: list[str], ops) -> None:  # noqa: ANN001
+        from .generate.changes import changeset_table
+        from .ops import OpsError
+
         try:
             cs = ops.propose_changes(m, paths, {"fetch_price": False})
         except OpsError as e:

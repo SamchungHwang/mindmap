@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 
 from ..generate.prompts import SUPPORT_SYSTEM, support_prompt
-from ..models import Claim, ClaimSet, ClaimStatus, SupportVerdict
+from ..models import Claim, ClaimSet, ClaimStatus, SupportVerdict, normalized_value
 from .digest import UNIT_TO_EOK
 from .extract import ReportFacts
 
@@ -62,7 +62,7 @@ def _table_values(f: ReportFacts | None) -> list[float]:
     return vals
 
 
-def check_numbers(claim: Claim, cs: ClaimSet, facts: ReportFacts | None) -> str:
+def check_numbers(claim: Claim, cs: ClaimSet, facts: ReportFacts | None, *, fulltext: str | None = None) -> str:
     """quant_refs 의 값이 인용문 안의 숫자이거나 표의 값(단위 환산 허용: 억·십억·조) 이면 ok. 없으면 none, 하나라도 못 찾으면 mismatch.
 
     명제(proposition) 에 적히지 않은 수치가 quant 에 붙어 오는 경우(LLM 이 표의 정밀값 100.7 을 '100조원' 명제에 붙임, 목표가를
@@ -77,7 +77,7 @@ def check_numbers(claim: Claim, cs: ClaimSet, facts: ReportFacts | None) -> str:
             span_nums += _numbers_in(sp.text)
     table = _table_values(facts)
     table_unit = UNIT_TO_EOK.get((facts.unit if facts else "") or "", 10.0)
-    kept, dropped, mismatch = [], [], False
+    kept, dropped, outside, mismatch = [], [], [], False
     for q in claim.quant_refs:
         v = q.value
         in_evidence = any(_close(v, x) for x in span_nums)
@@ -91,14 +91,23 @@ def check_numbers(claim: Claim, cs: ClaimSet, facts: ReportFacts | None) -> str:
         if in_evidence:
             kept.append(q)                                       # 인용이나 표에 있다 — 근거 있는 수치
         elif any(_close(v, x) for x in prop_nums):
-            kept.append(q)
-            mismatch = True                                      # 명제가 말하는 숫자인데 인용·표 어디에도 없다
+            # 명제가 말하는 숫자인데 인용·표에 없다. 리포트 본문(fulltext) 어딘가(사업부 표 등) 에 있으면 받되 ⚑ 를 단다 (v4 V2)
+            if fulltext and any(_close(v, x) for x in _numbers_in(fulltext)):
+                kept.append(q)
+                outside.append(q)
+            else:
+                kept.append(q)
+                mismatch = True                                  # 리포트 어디에도 없는 숫자
         else:
             dropped.append(q)                                    # 명제도 안 말하고 근거도 없는 수치 — LLM 이 끼운 잡음
     if dropped:
         shown = ", ".join(f"{q.value:g}{q.unit or ''}" for q in dropped[:3])
         claim.validation.note = (claim.validation.note + " · " if claim.validation.note else "") + f"명제에 없는 수치 {len(dropped)}개 제외: {shown}"
         claim.quant_refs = kept
+    if outside:
+        shown = ", ".join(f"{q.value:g}{q.unit or ''}" for q in outside[:3])
+        claim.validation.note = (claim.validation.note + " · " if claim.validation.note else "") + f"인용 밖 본문(표) 수치 {len(outside)}개: {shown} — 확인 권고"
+        _add_reason(claim, REASON_OUTSIDE)
     if mismatch:
         return "mismatch"
     return "ok" if kept else "none"
@@ -160,49 +169,110 @@ def finalize(claim: Claim, *, require_semantic: bool = True) -> ClaimStatus:
 # --------------------------------------------------------------------------- v4 V2: 자동 통과해도 사람이 봐야 하는 것
 DECISION_METRICS = ("op", "revenue", "eps", "target_price", "np", "opm")
 CONFLICT_REL = 0.15
+FORWARD_COL = re.compile(r"^(?:\d{4}E|\dQ\d{2}E)$")
+REASON_UNCORROBORATED = "판단 지표 수치(표에 없음)"
+REASON_CONFLICT = "증권사 간 수치 차이"
+REASON_CONDITIONAL = "조건부 리스크"
+REASON_ANALYST_FACT = "애널리스트가 사실로 단정"
+REASON_OUTSIDE = "인용 밖 본문 수치"
+_REASONS_LOCAL = (REASON_UNCORROBORATED, REASON_OUTSIDE)        # 리포트 1건 안에서만 알 수 있는 이유 — 묶음 재계산 때 보존
 
 
-def mark_review_required(claimsets: list[ClaimSet]) -> int:
-    """규칙으로 review_required 를 단다 (상태는 바꾸지 않는다 — 초안에는 쓰되 ⚑ 로 보인다).
-    ① 목표가·A1 지표(op/revenue/eps/target_price/np/opm) 에 직접 쓰이는 수치 Claim
-    ② 같은 (metric, col) 수치가 다른 증권사와 15% 넘게 다른 Claim
+def _add_reason(claim: Claim, reason: str) -> None:
+    reasons = [r for r in (claim.review_reason or "").split(" · ") if r]
+    if not any(r.startswith(reason) for r in reasons):
+        reasons.append(reason)
+    claim.review_reason = " · ".join(reasons)
+    claim.review_required = True
+
+
+def _is_forward(q) -> bool:  # noqa: ANN001
+    return q.metric == "target_price" or bool(q.col and FORWARD_COL.match(q.col))
+
+
+def _corroborated(q, facts: ReportFacts | None) -> bool:  # noqa: ANN001
+    """그 리포트의 표(추정치·분기)·목표가에 같은 숫자가 있나 (단위 환산 포함)."""
+    if facts is None:
+        return False
+    if q.metric == "target_price":
+        return facts.target_price is not None and _close(q.value, facts.target_price)
+    # 같은 지표의 표 값만 — 'MX 1.0조' 가 PBR 1.0 과 맞아떨어지는 식의 우연을 막는다
+    table = [v for tbl in (facts.estimates, facts.quarterly) for v in (tbl.get(q.metric) or {}).values() if v is not None]
+    if not table:
+        return False
+    table_unit = UNIT_TO_EOK.get(facts.unit or "", 10.0)
+    cands = [q.value]
+    qf = UNIT_TO_EOK.get(q.unit or "", None)
+    if qf and table_unit:
+        cands.append(q.value * qf / table_unit)
+    return any(_close(c, x) for c in cands for x in table)
+
+
+def company_level(claim: Claim, q, facts: ReportFacts | None) -> bool:  # noqa: ANN001
+    """이 수치가 전사 수준인가 — 리포트 표(facts) 가 있으면 '표에 있는 값' 으로, 없으면 사업부 문장 휴리스틱으로."""
+    if facts is not None and (_table_values(facts) or facts.target_price is not None):
+        return _corroborated(q, facts)
+    return not claim.is_segment
+
+
+def mark_review_required(claimsets: list[ClaimSet], *, facts_by_report: dict[str, ReportFacts] | None = None) -> int:
+    """규칙으로 review_required 를 단다 (상태는 바꾸지 않는다 — 초안에는 쓰되 ⚑ 로 보인다). 설계 v4 V2.
+    ① 전사 수준·미래 기간(…E) 의 판단 지표 수치가 그 리포트 표에도 없을 때 (facts 가 있을 때만 판정; 없으면 앞선 판정 보존)
+    ② 같은 (metric, col) 의 **전사 수준·미래 기간** 수치가 다른 증권사와 15% 넘게 다를 때 (단위 환산; 사업부 수치·목표가는 제외 —
+       목표가 차이는 A3.6.4 분포가 보여 준다)
     ③ 조건부(conditional) 리스크 Claim
-    ④ 애널리스트가 '사실(fact/realized)' 로 단정한 Claim (기업 발표가 아닌데 fact)"""
+    ④ 애널리스트가 '사실(fact/realized)' 로 단정한 논거 Claim
+    ⑤ (check_numbers 가 단) 인용 밖 본문 수치 — 보존"""
     cells: dict[tuple[str, str | None], dict[str, float]] = {}
     for cs in claimsets:
+        facts = (facts_by_report or {}).get(cs.report_id)
         for c in cs.claims:
             for q in c.quant_refs:
-                cells.setdefault((q.metric, q.col), {})[c.broker or cs.broker or "?"] = q.value
+                if q.metric in DECISION_METRICS and q.metric != "target_price" and _is_forward(q) and company_level(c, q, facts):
+                    v, _ = normalized_value(q.value, q.unit)
+                    cells.setdefault((q.metric, q.col), {})[c.broker or cs.broker or "?"] = v
     n = 0
     for cs in claimsets:
+        facts = (facts_by_report or {}).get(cs.report_id)
         for c in cs.claims:
-            reasons: list[str] = []
-            if any(q.metric in DECISION_METRICS for q in c.quant_refs):
-                reasons.append("판단 지표 수치")
-            for q in c.quant_refs:
-                by = cells.get((q.metric, q.col), {})
-                if len(by) >= 2:
-                    others = [v for b, v in by.items() if b != (c.broker or cs.broker or "?")]
-                    if others and any(abs(q.value - o) > CONFLICT_REL * max(abs(o), 1e-9) for o in others):
-                        reasons.append(f"증권사 간 수치 차이 >{CONFLICT_REL:.0%} ({q.metric} {q.col or ''})".strip())
+            prev = [r for r in (c.review_reason or "").split(" · ") if r]
+            reasons: list[str] = [r for r in prev if any(r.startswith(k) for k in _REASONS_LOCAL)]
+            if facts is not None:
+                reasons = [r for r in reasons if not r.startswith(REASON_UNCORROBORATED)]
+                fwd = [q for q in c.quant_refs if q.metric in DECISION_METRICS and _is_forward(q)]
+                if fwd and not c.is_segment and not any(_corroborated(q, facts) for q in fwd):
+                    reasons.append(REASON_UNCORROBORATED)
+            if True:
+                for q in c.quant_refs:
+                    if q.metric not in DECISION_METRICS or q.metric == "target_price" or not _is_forward(q) or not company_level(c, q, facts):
+                        continue
+                    by = cells.get((q.metric, q.col), {})
+                    me = c.broker or cs.broker or "?"
+                    mine, _ = normalized_value(q.value, q.unit)
+                    others = [v for b, v in by.items() if b != me]
+                    if others and any(abs(mine - o) > CONFLICT_REL * max(abs(o), 1e-9) for o in others):
+                        reasons.append(f"{REASON_CONFLICT} >{CONFLICT_REL:.0%} ({q.metric} {q.col or ''})".replace(" )", ")"))
                         break
             if c.certainty.value == "conditional" and c.has_role("risk"):
-                reasons.append("조건부 리스크")
+                reasons.append(REASON_CONDITIONAL)
             if (c.epistemic_type.value == "fact" or c.certainty.value == "realized") and c.asserted_by.value == "analyst" and c.has_role("thesis"):
-                reasons.append("애널리스트가 사실로 단정")
+                reasons.append(REASON_ANALYST_FACT)
+            if c.verified_by == "human":
+                reasons = []                                      # 사람이 봤다
             c.review_required = bool(reasons)
             c.review_reason = " · ".join(dict.fromkeys(reasons))
             n += int(bool(reasons))
     return n
 
 
-def run_all(cs: ClaimSet, facts: ReportFacts | None, filler=None, *, semantic: bool = True) -> dict[str, int]:  # noqa: ANN001
+def run_all(cs: ClaimSet, facts: ReportFacts | None, filler=None, *, semantic: bool = True, fulltext: str | None = None) -> dict[str, int]:  # noqa: ANN001
     """①②③ 를 차례로 돌리고 상태를 확정한다. filler 가 없거나 semantic=False 면 ③ 은 건너뛰고(unchecked) verified 는 ①② 만으로 — 그러나
     require_semantic=True 가 기본이라 그 경우 needs_review 로 남는다. 규칙 Claim(quality='rules') 은 ③ 없이 verified 를 허용한다."""
     for c in cs.claims:
         if c.validation.quote == "unchecked":
             c.validation.quote = "ok" if c.span_ids else "miss"
-        c.validation.numbers = check_numbers(c, cs, facts)
+        c.review_required, c.review_reason = False, ""           # 검증을 다시 하면 이유도 다시
+        c.validation.numbers = check_numbers(c, cs, facts, fulltext=fulltext)
     if semantic and filler is not None and cs.quality != "rules":
         semantic_check(cs, filler)
     counts = {"verified": 0, "needs_review": 0, "rejected": 0}
@@ -213,7 +283,7 @@ def run_all(cs: ClaimSet, facts: ReportFacts | None, filler=None, *, semantic: b
             continue
         st = finalize(c, require_semantic=(cs.quality != "rules"))
         counts[st.value] += 1
-    n_req = mark_review_required([cs])
+    n_req = mark_review_required([cs], facts_by_report={cs.report_id: facts} if facts is not None else None)
     cs.notes.append(f"검증: verified {counts['verified']} · needs_review {counts['needs_review']} · rejected {counts['rejected']}"
                     + (f" · 확인 권고 {n_req}" if n_req else ""))
     return counts
@@ -243,4 +313,5 @@ def review(cs: ClaimSet, claim_id: str, decision: str, *, who: str = "user", not
     return c
 
 
-__all__ = ["check_numbers", "semantic_check", "finalize", "run_all", "review", "mark_review_required", "BATCH", "DECISION_METRICS"]
+__all__ = ["check_numbers", "semantic_check", "finalize", "run_all", "review", "mark_review_required", "company_level", "BATCH", "DECISION_METRICS",
+           "REASON_UNCORROBORATED", "REASON_CONFLICT", "REASON_CONDITIONAL", "REASON_ANALYST_FACT", "REASON_OUTSIDE"]

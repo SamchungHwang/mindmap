@@ -12,6 +12,7 @@ LLM 은 Claim 후보와 Issue 요약만 만들고, 검증·묶기·맵 매핑은
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -166,6 +167,30 @@ class Extractor(BaseModel):
     chunk_id: str = ""
 
 
+# --------------------------------------------------------------------------- 범위·단위 (v4 V4 보강: 전사 수치와 사업부 수치를 같은 셀에 놓지 않는다)
+SEGMENT_WORDS = ("사업부", "부문", "DRAM", "NAND", "HBM", "메모리", "MX", "VD", "CE", "가전", "FOUNDRY", "파운드리", "LSI", "SDC", "DS ", "DS부문",
+                 "DX", "네트워크", "디스플레이", "비메모리", "자회사", "별도", "SOLUTION", "하만", "HARMAN")
+_AMOUNT_TO_EOK = {"억원": 1.0, "억": 1.0, "십억원": 10.0, "십억": 10.0, "조원": 10000.0, "조": 10000.0, "백만원": 0.01, "천원": 0.00001, "bn": 10.0, "mn": 0.01}
+
+
+_SEGMENT_RE = re.compile("(?:" + "|".join(re.escape(w.strip()) for w in SEGMENT_WORDS) + r")[^.。\n]{0,14}?(?:영업이익|영업적자|적자|매출|실적|OPM|이익률|이익)", re.I)
+
+
+def is_segment_text(text: str) -> bool:
+    """사업부·제품 범위의 **수치** 문장인가 — 사업부·제품 이름 뒤 14자 안에 영업이익·적자·매출·실적이 따라올 때
+    ('메모리 부문 영업이익 110.1조', 'MX/NW 는 2.0조원의 영업적자', 'DRAM 83.8조원'). 'HBM4 출하 확대가 이익을 끌어올린다' 같은
+    전사 인과 문장은 아니다. 전사 표에 있는 숫자인지(corroborated) 가 더 정확하므로 facts 가 있으면 그것을 먼저 쓴다."""
+    return bool(_SEGMENT_RE.search(text or ""))
+
+
+def normalized_value(value: float, unit: str | None) -> tuple[float, str]:
+    """비교용 정규화 — 금액은 억원으로 (조원·십억원 섞임 방지), 그 밖(%·원·배) 은 그대로. 돌려주는 것: (값, 단위 부류)."""
+    u = (unit or "").strip()
+    if u in _AMOUNT_TO_EOK:
+        return value * _AMOUNT_TO_EOK[u], "억원"
+    return value, u
+
+
 # --------------------------------------------------------------------------- Claim
 class Claim(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -217,6 +242,11 @@ class Claim(BaseModel):
     def tag(self) -> str:
         """화면 접두어 — [실적] [기업 발표] [기업 계획] [증권사 전망] [조건부] (v4 V1)."""
         return CERTAINTY_TAG.get(self.certainty, "증권사 전망")
+
+    @property
+    def is_segment(self) -> bool:
+        """사업부·제품 범위의 주장인가 — 수치 비교(증권사 간 분산·충돌) 에서 전사 수치와 섞지 않는다."""
+        return is_segment_text(self.proposition) or is_segment_text(self.driver_label or "")
 
     @property
     def effective_as_of(self) -> date | None:
@@ -383,5 +413,5 @@ __all__ = [
     "EpistemicType", "AssertedBy", "Certainty", "CERTAINTY_TAG", "ClaimRole", "ClaimDirection", "SupportVerdict", "ClaimStatus",
     "Coverage", "IssueLevel", "IssueDisplay",
     "ChangeKind", "ChangeDecision", "EvidenceSpan", "QuantRef", "Validation", "Extractor", "Claim", "ClaimSet",
-    "NumericSpread", "Issue", "IssueSet", "Change", "ChangeSet", "report_id_for",
+    "NumericSpread", "Issue", "IssueSet", "Change", "ChangeSet", "report_id_for", "SEGMENT_WORDS", "is_segment_text", "normalized_value",
 ]

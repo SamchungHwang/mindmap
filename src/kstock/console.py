@@ -1032,12 +1032,15 @@ class Console:
             note += "\n" + "\n".join(pk["rows"][:8]) + ("\n…" if len(pk["rows"]) > 8 else "")
         if pk["warnings"]:
             note += "\n! " + "\n! ".join(pk["warnings"][:4])
+        MODE_REPLACE = "새로 만들기 — 기존 A 맵 초안과 이 리포트들의 Claim 저장본을 보관 폴더로 옮기고 전부 다시 (기본)"
+        MODE_INCR = "기존에 더하기 — 기존 A 맵은 그대로 두고 새 리포트는 변경안으로 (Claim 저장본 재사용)"
         dlg = FormDialog(self.root, "리포트로 A 맵 자동 생성 (초안)", [
             ("ticker", "종목코드", "entry", pk["ticker"], None),
             ("name", "종목명", "entry", pk["name"], None),
             ("invest_type", "투자유형", "combo", pk["invest_type"], INVEST_TYPES),
+            ("mode", "생성 방식", "combo", MODE_REPLACE, [MODE_REPLACE, MODE_INCR]),
             ("fetch_price", "현재가를 작성 시점 기준으로 조회 (네이버 금융) — 끄면 리서치 DB 종가·리포트 현재주가", "check", True, None),
-            ("use_llm", "LLM 그룹 채움 — 논제·뷰·시나리오 가정·리스크·촉매를 LLM 이 쓴다 (.env 의 ANTHROPIC_API_KEY)", "check", llm_ok, None),
+            ("use_llm", "LLM — Claim 추출·3단 검증·쟁점 기준 명제 판정 (.env 의 ANTHROPIC_API_KEY)", "check", llm_ok, None),
             ("open_html", "끝나면 마인드맵 HTML 열기", "check", True, None),
         ], note=note)
         f = dlg.result
@@ -1046,6 +1049,19 @@ class Console:
         if not f.get("ticker") and not f.get("name"):
             raise OpsError("종목코드 또는 종목명을 적어 주세요 — 리포트 본문에서 코드를 찾지 못했습니다")
         f["save"] = True
+        f["mode"] = "incremental" if f.get("mode") == MODE_INCR else "replace"
+        if f["mode"] == "incremental":
+            ticker, latest = self.ops.draft_target(paths, f)
+            if latest is not None:
+                # 기존 맵이 있다 — 덮어쓰지 않고 변경안으로 간다 (설계 v3 §2.7 / v4 V7)
+                self.selected = ticker
+                self._select(ticker)
+                self.a_map = latest
+                self.a_load()
+                self.status(f"기존 A 맵 {latest.map_id} 에 변경안으로 더합니다 …")
+                self.a_changes(list(paths))
+                return
+            self.log("  기존 A 맵이 없어 새로 만듭니다 (Claim 저장본은 재사용)")
 
         def prog(label: str, i: int, n: int) -> None:
             self.progress.configure(maximum=max(1, n), value=i)

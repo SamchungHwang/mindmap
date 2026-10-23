@@ -111,6 +111,7 @@ class Store:
         self.issues_dir = base / "issues"          # IssueSet 저장 (종목별)
         self.changes_dir = base / "changes"        # ChangeSet 저장 (변경안)
         self.versions_dir = self.maps_dir / "versions"   # 승인 전 원본 보존
+        self.archive_dir = self.maps_dir / "_archive"    # 「새로 만들기」 가 치운 기존 초안 보관 (v4 부록)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.maps_dir.mkdir(parents=True, exist_ok=True)
         self.out_dir.mkdir(parents=True, exist_ok=True)
@@ -271,6 +272,23 @@ class Store:
     def latest_map(self, ticker: str, kind: MapKind | str) -> MindMap | None:
         rows = self.list_maps(kind, ticker=ticker)
         return self.load_map(rows[-1].map_id) if rows else None
+
+    def archive_map(self, map_id: str) -> Path | None:
+        """인덱스에서 빼고 파일은 maps/_archive/<map_id>_<시각>.json 으로 옮긴다 (지우지 않는다). 없으면 None."""
+        import shutil
+        from datetime import datetime
+
+        row = self.conn.execute("SELECT path FROM maps WHERE map_id=?", (map_id,)).fetchone()
+        if row is None:
+            return None
+        src = Path(row["path"])
+        self.archive_dir.mkdir(parents=True, exist_ok=True)
+        dst = self.archive_dir / f"{_safe_filename(map_id).removesuffix('.json')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
+        if src.is_file():
+            shutil.move(str(src), str(dst))
+        self.conn.execute("DELETE FROM maps WHERE map_id=?", (map_id,))
+        self.conn.commit()
+        return dst if src.is_file() or dst.is_file() else None
 
     def delete_map(self, map_id: str, *, remove_file: bool = False) -> bool:
         row = self.conn.execute("SELECT path FROM maps WHERE map_id=?", (map_id,)).fetchone()

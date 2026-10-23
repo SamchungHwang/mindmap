@@ -46,6 +46,61 @@ def _md_inline(text: str) -> str:
     return "".join(out)
 
 
+_SUB = re.compile(r"<sub>(.*?)</sub>")
+
+
+def _plain(text: str) -> str:
+    """node_line 의 마크다운 조각(**, `, _) 과 <sub> 를 걷어낸 평문 — 복사용."""
+    t = _SUB.sub(r" (\1)", text)
+    t = _MD_CODE.sub(r"\1", t)
+    t = _MD_BOLD.sub(r"\1", t)
+    t = _MD_ITAL.sub(r"\1", t)
+    return html.unescape(" ".join(t.split()))
+
+
+def _fmt_value(v: Any, indent: str = "  ") -> list[str]:
+    if v is None:
+        return []
+    if isinstance(v, dict):
+        return [f"{indent}{k}: {x}" for k, x in v.items() if x not in (None, "", [], {})]
+    if isinstance(v, list):
+        out: list[str] = []
+        for x in v:
+            out += _fmt_value(x, indent) if isinstance(x, (dict, list)) else [f"{indent}- {x}"]
+        return out
+    return [f"{indent}{v}"]
+
+
+def _detail(n: Node) -> str:
+    """노드 1개의 전체 정보 — 상세 패널·'상세 복사' 용 여러 줄 평문. 값·질문·출처·날짜·태그와 하위 스키마(드라이버·시나리오·규칙·이벤트) 를 다 적는다."""
+    lines = [f"[{n.id}] {n.label}"]
+    sub = None
+    for name, obj in (("드라이버", n.driver), ("시나리오", n.scenario), ("규칙", n.rule), ("이벤트", n.event)):
+        if obj is not None:
+            sub = (name, obj)
+            break
+    if sub is not None:
+        name, obj = sub
+        lines.append(f"{name}:")
+        lines += _fmt_value(obj.model_dump(mode="json", exclude_none=True))
+    elif n.value is not None:
+        lines.append("값:")
+        lines += _fmt_value(n.value)
+    if n.question:
+        lines.append(f"질문: {n.question}")
+    if n.source is not None and (n.source.name or n.source.url):
+        lines.append("출처: " + " ".join(x for x in (n.source.name, n.source.url) if x))
+    if n.as_of:
+        lines.append(f"기준일: {n.as_of.isoformat()}")
+    if n.status:
+        lines.append(f"상태: {n.status.value}")
+    if n.tags:
+        lines.append("태그: " + ", ".join(n.tags))
+    if n.links:
+        lines.append("연결: " + ", ".join(n.links))
+    return "\n".join(lines)
+
+
 def _kind(n: Node) -> str:
     if n.driver is not None:
         return "driver"
@@ -59,8 +114,9 @@ def _kind(n: Node) -> str:
 
 
 def _tree(m: MindMap, parent: Node, fold: set[str], max_depth: int | None, depth: int) -> dict[str, Any]:
-    node: dict[str, Any] = {"id": parent.id, "html": _md_inline(node_line(parent)), "kind": _kind(parent),
-                            "fold": parent.id in fold, "children": []}
+    line = node_line(parent)
+    node: dict[str, Any] = {"id": parent.id, "html": _md_inline(line), "kind": _kind(parent), "text": _plain(line),
+                            "detail": _detail(parent), "fold": parent.id in fold, "children": []}
     if max_depth is None or depth < max_depth:
         node["children"] = [_tree(m, c, fold, max_depth, depth + 1) for c in m.children(parent.id)]
     return node
@@ -72,21 +128,23 @@ def build_tree(m: MindMap, *, summary: bool = False, fold: set[str] | None = Non
     fold = FOLD_BY_DEFAULT if fold is None else fold
     root = m.root()
     title = root_title(m).replace("*", "")
-    tree: dict[str, Any] = {"id": root.id, "html": f"<b>{html.escape(title)}</b>", "kind": "root", "fold": False, "children": []}
+    tree: dict[str, Any] = {"id": root.id, "html": f"<b>{html.escape(title)}</b>", "kind": "root", "fold": False, "children": [],
+                            "text": title, "detail": _detail(root)}
     if summary and isinstance(m, HoldingMap):
         for nid in ("B0", "B0.1", "B2.3", "B6", "B3.4", "B4.1"):
             if nid in m:
                 tree["children"].append({"id": f"s:{nid}", "html": _md_inline(node_line(m[nid])), "kind": _kind(m[nid]),
-                                         "fold": False, "children": []})
+                                         "text": _plain(node_line(m[nid])), "detail": _detail(m[nid]), "fold": False, "children": []})
         nxt = sorted({d.driver.next_check for d in m.drivers() if d.driver and d.driver.next_check})
         if nxt:
-            tree["children"].append({"id": "next", "html": f"다음 확인일: {nxt[0].isoformat()}", "kind": "computed", "fold": False, "children": []})
+            tree["children"].append({"id": "next", "html": f"다음 확인일: {nxt[0].isoformat()}", "kind": "computed", "fold": False, "children": [],
+                                     "text": f"다음 확인일: {nxt[0].isoformat()}", "detail": f"다음 확인일: {nxt[0].isoformat()}"})
         return tree
     first = m.children(root.id)
     aux = [c for c in first if "." in c.id]
     branches = [c for c in first if "." not in c.id]
     if aux:
-        tree["children"].append({"id": f"{root.id}.*", "html": "기본 정보", "kind": "question", "fold": False,
+        tree["children"].append({"id": f"{root.id}.*", "html": "기본 정보", "kind": "question", "fold": False, "text": "기본 정보", "detail": "기본 정보",
                                  "children": [_tree(m, c, fold, max_depth, 2) for c in aux]})
     for b in branches:
         tree["children"].append(_tree(m, b, fold, max_depth, 1))
@@ -111,8 +169,29 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
 #edges path { fill:none; stroke-width:2; opacity:.9; }
 .node { position:absolute; box-sizing:border-box; width:max-content; max-width:380px; padding:5px 10px; border-radius:8px;
   background:var(--box); border:1px solid var(--box-border); border-left-width:4px; box-shadow:var(--shadow);
-  white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:none; }
+  white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:text; }
 .node.has-kids { cursor:pointer; }
+.node.selected { outline:2px solid var(--root-bg); outline-offset:1px; }
+.node .copy { position:absolute; top:-9px; right:-9px; display:none; width:20px; height:20px; line-height:18px; text-align:center;
+  border-radius:50%; background:var(--btn); color:var(--fg); border:1px solid var(--box-border); font-size:12px; cursor:pointer; user-select:none; }
+.node:hover .copy { display:block; }
+.node .copy:hover { background:var(--root-bg); color:#fff; }
+#menu { position:fixed; z-index:30; display:none; min-width:200px; background:var(--box); color:var(--fg); border:1px solid var(--box-border);
+  border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.25); padding:4px; font-size:13px; }
+#menu div { padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+#menu div:hover { background:var(--btn); }
+#menu .sep { height:1px; padding:0; margin:4px 6px; background:var(--box-border); cursor:default; }
+#panel { position:fixed; top:0; right:0; bottom:0; width:min(460px, 90vw); z-index:20; display:none; flex-direction:column; gap:8px;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; }
+#panel.show { display:flex; }
+#panel h3 { margin:0; font-size:14px; padding-right:60px; }
+#panel textarea { flex:1; width:100%; box-sizing:border-box; resize:none; border:1px solid var(--box-border); border-radius:8px; padding:10px;
+  background:var(--bg); color:var(--fg); font:13px/1.5 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; white-space:pre-wrap; }
+#panel .row { display:flex; gap:6px; }
+#panel button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#panel .close { position:absolute; top:10px; right:12px; }
+#toast { position:fixed; left:50%; bottom:40px; transform:translateX(-50%); z-index:40; display:none; padding:8px 14px; border-radius:999px;
+  background:var(--root-bg); color:#fff; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
 /* 절대 배치 박스는 담는 상자 폭이 0 이면 한 글자씩 줄바꿈된다 — width:max-content 가 그것을 막는다 */
 .node.root { background:var(--root-bg); color:var(--root-fg); border-color:var(--root-bg); font-size:16px; padding:10px 16px; max-width:460px; }
 .node.depth1 { font-weight:600; }
@@ -162,12 +241,23 @@ _JS = r"""
       if (n.depth === 1) el.classList.add("depth1");
       if (n.children.length) el.classList.add("has-kids");
       el.style.borderLeftColor = n.color || "var(--root-bg)";
-      el.addEventListener("click", (e) => { e.stopPropagation(); if (n.children.length) { n.open = !n.open; render(); } });
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (e.target.classList.contains("copy")) { copyText(n.d.text, "한 줄 복사"); return; }
+        select(id);
+        // 글자를 긁어 선택한 뒤의 클릭은 접기/펼치기가 아니다 — 복사하려는 것
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.toString().trim() && el.contains(sel.anchorNode)) return;
+        if (n.children.length) { n.open = !n.open; render(); }
+      });
+      el.addEventListener("dblclick", (e) => { e.stopPropagation(); e.preventDefault(); openPanel(id); });
+      el.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); select(id); openMenu(id, e.clientX, e.clientY); });
       layer.appendChild(el);
       n.el = el;
     }
     const more = (!n.open && n.children.length) ? `<span class="more">+${descendants(id)}</span>` : "";
-    n.el.innerHTML = n.d.html + more;
+    n.el.innerHTML = n.d.html + more + `<span class="copy" title="한 줄 복사 (우클릭: 더 보기)">⧉</span>`;
+    n.el.classList.toggle("selected", selectedId === id);
     n.el.style.display = "";
     n.w = n.el.offsetWidth; n.h = n.el.offsetHeight;
     return n;
@@ -306,6 +396,70 @@ _JS = r"""
     applyTransform();
   }
 
+  // ---------- 복사 · 상세 (노드 글자는 그대로 긁어 복사할 수 있고, ⧉ / 우클릭 / 더블클릭 / Ctrl+C 도 된다)
+  let selectedId = null;
+  const menu = document.getElementById("menu"), panel = document.getElementById("panel"), toast = document.getElementById("toast");
+  function select(id) {
+    if (selectedId && nodes.get(selectedId) && nodes.get(selectedId).el) nodes.get(selectedId).el.classList.remove("selected");
+    selectedId = id;
+    const n = nodes.get(id); if (n && n.el) n.el.classList.add("selected");
+  }
+  function showToast(msg) { toast.textContent = msg; toast.style.display = "block"; clearTimeout(showToast.t); showToast.t = setTimeout(() => toast.style.display = "none", 1400); }
+  function copyText(text, what) {
+    const done = () => showToast((what || "복사") + " — " + (text.length > 40 ? text.slice(0, 40) + "…" : text));
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { showToast("복사 실패 — 상세 패널에서 직접 선택해 복사하세요"); }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  function subtreeMarkdown(id, depth) {
+    const n = nodes.get(id);
+    let out = "  ".repeat(depth) + "- " + n.d.text + "\n";
+    n.children.forEach(c => { out += subtreeMarkdown(c, depth + 1); });
+    return out;
+  }
+  function openMenu(id, x, y) {
+    menu.dataset.id = id; menu.style.display = "block";
+    const W = window.innerWidth, H = window.innerHeight;
+    menu.style.left = Math.min(x, W - menu.offsetWidth - 8) + "px"; menu.style.top = Math.min(y, H - menu.offsetHeight - 8) + "px";
+  }
+  function closeMenu() { menu.style.display = "none"; }
+  menu.addEventListener("click", (e) => {
+    const act = e.target.dataset.act, id = menu.dataset.id; if (!act || !id) return;
+    const n = nodes.get(id); closeMenu();
+    if (act === "line") copyText(n.d.text, "한 줄 복사");
+    else if (act === "detail") copyText(n.d.detail, "상세 복사");
+    else if (act === "tree") copyText(subtreeMarkdown(id, 0), "가지 복사 (Markdown)");
+    else if (act === "id") copyText(id, "id 복사");
+    else if (act === "panel") openPanel(id);
+  });
+  function openPanel(id) {
+    const n = nodes.get(id);
+    document.getElementById("panel-title").textContent = n.d.text.length > 80 ? n.d.text.slice(0, 80) + "…" : n.d.text;
+    document.getElementById("panel-text").value = n.d.detail;
+    panel.dataset.id = id; panel.classList.add("show");
+    const ta = document.getElementById("panel-text"); ta.focus(); ta.select();
+  }
+  document.getElementById("panel-close").addEventListener("click", () => panel.classList.remove("show"));
+  document.getElementById("panel-copy").addEventListener("click", () => copyText(document.getElementById("panel-text").value, "상세 복사"));
+  document.getElementById("panel-line").addEventListener("click", () => copyText(nodes.get(panel.dataset.id).d.text, "한 줄 복사"));
+  document.getElementById("panel-tree").addEventListener("click", () => copyText(subtreeMarkdown(panel.dataset.id, 0), "가지 복사 (Markdown)"));
+  document.getElementById("copyall").addEventListener("click", () => copyText(subtreeMarkdown(DATA.id, 0), "전체 복사 (Markdown)"));
+  window.addEventListener("click", closeMenu);
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closeMenu(); panel.classList.remove("show"); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      // 글자를 선택한 상태면 브라우저 기본 복사. 아니면 고른 노드의 한 줄 (Shift 를 누르면 상세)
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.toString().trim()) return;
+      if (document.activeElement && document.activeElement.tagName === "TEXTAREA") return;
+      if (selectedId) { e.preventDefault(); const n = nodes.get(selectedId); copyText(e.shiftKey ? n.d.detail : n.d.text, e.shiftKey ? "상세 복사" : "한 줄 복사"); }
+    }
+  });
+
   // ---------- 상호작용
   let drag = null;
   stage.addEventListener("mousedown", e => { if (e.target.closest(".node")) return; drag = { x: e.clientX - tx, y: e.clientY - ty }; stage.classList.add("dragging"); });
@@ -367,15 +521,35 @@ def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold
   <button id="expand" type="button" title="모두 펼치기">펼치기</button>
   <button id="collapse" type="button" title="1단계만 남기고 접기">접기</button>
   <button id="fit" type="button" title="화면 맞춤 (f)">맞춤</button>
+  <button id="copyall" type="button" title="맵 전체를 Markdown 목록으로 클립보드에">전체 복사</button>
   <button id="theme" type="button" title="밝게/어둡게">☀ / ☾</button>
 </div>
+<div id="menu">
+  <div data-act="line">한 줄 복사</div>
+  <div data-act="detail">상세 복사 (값·질문·출처)</div>
+  <div data-act="tree">이 가지 전체 복사 (Markdown)</div>
+  <div data-act="id">노드 id 복사</div>
+  <div class="sep"></div>
+  <div data-act="panel">상세 보기 (편집·선택 가능)</div>
+</div>
+<div id="panel">
+  <h3 id="panel-title"></h3>
+  <button id="panel-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <textarea id="panel-text" spellcheck="false"></textarea>
+  <div class="row">
+    <button id="panel-copy" type="button">상세 복사</button>
+    <button id="panel-line" type="button">한 줄 복사</button>
+    <button id="panel-tree" type="button">가지 복사 (Markdown)</button>
+  </div>
+</div>
+<div id="toast"></div>
 <div id="stage">
   <div id="viewport">
     <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="nodes"></div>
   </div>
 </div>
-<div id="hint">노드 클릭 = 접기/펼치기 · 드래그 = 이동 · 휠 = 확대/축소 · f = 맞춤</div>
+<div id="hint">노드 클릭 = 접기/펼치기 · 글자 긁기 = 선택·복사 · ⧉/우클릭 = 복사 메뉴 · 더블클릭 = 상세 · Ctrl+C = 고른 노드 복사 (Shift: 상세) · 드래그 = 이동 · 휠 = 확대/축소 · f = 맞춤</div>
 <script>{js}</script>
 </body>
 </html>

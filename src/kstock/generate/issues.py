@@ -21,6 +21,7 @@ from ..models import (
     IssueLevel,
     IssueSet,
     NumericSpread,
+    normalized_value,
 )
 from .kpi_catalog import driver_def, normalize_driver
 
@@ -118,10 +119,17 @@ def _coverage(claims: list[Claim], consensus: str, all_brokers: list[str],
 
 def _numeric_spread(claims: list[Claim], digest=None) -> NumericSpread | None:  # noqa: ANN001
     """같은 (metric, col) 숫자를 증권사 2곳 이상이 댔으면 분산. 목표가 영향 근사: 이익 지표면 rel 을 그대로 (EPS·공정가치에 비례)."""
+    from ..reports.validate_claims import company_level
+
+    facts_by_broker = {f.broker: f for f in getattr(digest, "reports", []) or [] if getattr(f, "broker", None)}
     cells: dict[tuple[str, str | None], dict[str, tuple[float, str | None]]] = defaultdict(dict)
     for c in claims:
+        facts = facts_by_broker.get(c.broker or "")
         for q in c.quant_refs:
-            cells[(q.metric, q.col)][c.broker or "?"] = (q.value, q.unit)
+            if not company_level(c, q, facts):
+                continue                              # 사업부 수치(DRAM 83.8조·MX -2.0조) 는 전사 수치와 같은 셀이 아니다 (v4 V4)
+            v, u = normalized_value(q.value, q.unit)  # 조원·십억원 섞임 방지
+            cells[(q.metric, q.col)][c.broker or "?"] = (v, u or q.unit)
     best = None
     for (metric, col), by in cells.items():
         if len(by) < 2:
@@ -197,6 +205,9 @@ def _display(issue: Issue, claims: list[Claim]) -> IssueDisplay:
         return IssueDisplay.disagreement
     if agree >= 2 or (issue.consensus_direction == "none" and mentioned >= 2):
         return IssueDisplay.common
+    if disagree == 0 and agree + partial >= 2:
+        return IssueDisplay.common                            # 부분 동의(원인엔 동의, 효과·대상은 다름) 는 반대가 아니다 — 요약에 '부분 동의 n곳'
+
     if agree + disagree == 1:
         has_num = any(c.quant_refs for c in claims)
         has_lead = any(any(w in (c.proposition + (c.mechanism or "")) for w in LEADING_WORDS) for c in claims)
@@ -231,12 +242,23 @@ def _reference_proposition(label: str, consensus: str, target_label: str | None,
     """증권사별 동의/반대를 판정할 기준 명제 하나 (v4 V3). 테마 층은 '<드라이버> → <대상 지표> <방향>', 메커니즘 층은 대표 Claim."""
     if level == "mechanism":
         return _rep_claim(claims).proposition
-    tgt = target_label or "실적"
-    if consensus == "positive":
-        return f"{label} 요인이 {tgt} 에 긍정적(개선·증가) 으로 작용한다"
-    if consensus == "negative":
-        return f"{label} 요인이 {tgt} 에 부정적(악화·감소) 으로 작용한다"
-    return f"{label} 요인이 {tgt} 에 미치는 영향 (방향은 증권사마다 다를 수 있다)"
+    # 대상 지표는 테마 Claim 둘 이상이 같은 target 을 가리킬 때만 명시한다 — 아니면 '주주환원 → EPS' 처럼 어색한 대상을 기준 명제에 박아
+    # 판정자가 전부 '부분 동의' 로 돌려보낸다 (실측 2026-10-22)
+    tgt = f"{target_label} 에 " if target_label else ""
+    direction = consensus
+    if consensus not in ("positive", "negative"):
+        # 엇갈리면 '방향은 다를 수 있다' 같은 판정 불가능한 명제가 아니라 **다수 증권사의 방향**을 기준으로 세운다 — 그래야 소수가 disagree/partial 로 드러난다
+        bd = Counter(d for d in _broker_directions(claims).values() if d in ("positive", "negative"))
+        if bd:
+            direction = bd.most_common(1)[0][0]
+        else:
+            cd = Counter(c.direction.value for c in claims if c.direction.value in ("positive", "negative"))
+            direction = cd.most_common(1)[0][0] if cd else "none"
+    if direction == "positive":
+        return f"{label} 요인이 {tgt}긍정적(개선·증가·주가 상승 요인) 으로 작용한다"
+    if direction == "negative":
+        return f"{label} 요인이 {tgt}부정적(악화·감소·주가 하락 요인) 으로 작용한다"
+    return f"{label} 요인이 실적·주가에 유의미하게 작용한다"
 
 
 # --------------------------------------------------------------------------- 진입점
@@ -288,10 +310,12 @@ def build_issues(claimsets: list[ClaimSet], *, ticker: str | None = None, digest
         cov, dirs = _coverage(tcs, consensus, all_brokers, unread)
         tgt_ids = Counter(c.target_metric_id for c in tcs if c.target_metric_id)
         tgt = tgt_ids.most_common(1)[0][0] if tgt_ids else (dd.default_target if dd else None)
+        shared_tgt = tgt_ids.most_common(1)[0][0] if tgt_ids and tgt_ids.most_common(1)[0][1] >= 2 else None
         theme = Issue(issue_id=theme_key, level=IssueLevel.theme, driver_id=theme_key if dd else None, driver_label=label,
                       target_metric_id=tgt,
                       claim_ids=[c.claim_id for c in tcs], coverage=cov, directions=dirs, consensus_direction=consensus, children=children,
-                      reference_proposition=_reference_proposition(label, consensus, _METRIC_LABEL.get(tgt or "", tgt), tcs, level="theme"))
+                      reference_proposition=_reference_proposition(label, consensus, _METRIC_LABEL.get(shared_tgt or "", shared_tgt) if shared_tgt else None,
+                                                                   tcs, level="theme"))
         theme.numeric_spread = _numeric_spread(tcs, digest)
         theme.disagreement_dimensions = _dimensions(tcs, consensus, theme.numeric_spread, level="theme")
         theme.unresolved_questions = _unresolved(tcs, consensus)
@@ -350,19 +374,28 @@ def judge_coverage(issue_set: IssueSet, claims_by_id: dict[str, Claim], filler, 
             got = by_issue.get(t.issue_id)
             if not got:
                 continue
+            new_cov = dict(t.coverage)
             for b, (v, why) in got.items():
-                if b not in t.coverage or t.coverage[b] in (Coverage.silent, Coverage.unanalyzed):
+                if b not in new_cov or new_cov[b] in (Coverage.silent, Coverage.unanalyzed):
                     continue
-                t.coverage[b] = {"agree": Coverage.agree, "disagree": Coverage.disagree, "partial": Coverage.partial, "unrelated": Coverage.mentioned}[v]
+                new_cov[b] = {"agree": Coverage.agree, "disagree": Coverage.disagree, "partial": Coverage.partial, "unrelated": Coverage.mentioned}[v]
                 if why:
                     t.judgement_notes[b] = why
+            spoken = [v for v in new_cov.values() if v not in (Coverage.silent, Coverage.unanalyzed)]
+            if spoken and all(v == Coverage.mentioned for v in spoken):
+                # 전부 '무관' — 기준 명제가 이 테마의 주장들과 안 맞은 것 (예: '밸류에이션 배수' 테마에 목표주가 유지 주장만). 방향 통계로 둔다
+                t.judgement_notes["_note"] = "기준 명제가 주장들과 맞지 않아 방향 통계로 표시"
+                continue
+            t.coverage = new_cov
             t.coverage_basis = "llm"
             tcs = [claims_by_id[c] for c in t.claim_ids if c in claims_by_id]
-            # 방향 이견은 이제 '기준 명제에 대한 판정' 으로 — 방향 통계의 direction 은 버리고 agree vs disagree 로 다시 본다
-            dims = [x for x in _dimensions(tcs, t.consensus_direction, t.numeric_spread, level="theme") if x != "direction"]
+            # 방향 이견: ① 기준 명제에 동의와 반대가 함께 있을 때 ② 방향 통계가 이견(확신 vs 혼재) 이었고 LLM 도 전원 동의로 보지 않았을 때
+            stat_dims = _dimensions(tcs, t.consensus_direction, t.numeric_spread, level="theme")
+            dims = [x for x in stat_dims if x != "direction"]
             agree = sum(1 for v in t.coverage.values() if v == Coverage.agree)
             disagree = sum(1 for v in t.coverage.values() if v == Coverage.disagree)
-            if disagree >= 1 and agree >= 1:
+            all_agree = all(v in (Coverage.agree, Coverage.silent, Coverage.unanalyzed) for v in t.coverage.values())
+            if (disagree >= 1 and agree >= 1) or ("direction" in stat_dims and not all_agree):
                 dims.insert(0, "direction")
             t.disagreement_dimensions = dims
             t.display = _display(t, tcs)
@@ -409,7 +442,9 @@ def issues_table(issue_set: IssueSet, claims_by_id: dict[str, Claim] | None = No
         lines.append(f"[{t.driver_label}]".ljust(34) + "".join(cell(t, b) for b in brokers)
                      + (t.display.value if t.display else "") + ("  ⚑ " + ",".join(t.disagreement_dimensions) if t.disagreement_dimensions else ""))
         if t.reference_proposition and t.coverage_basis == "llm":
-            lines.append("  ≡ " + t.reference_proposition[:90] + "".join(f" · {b[:4]}: {w[:40]}" for b, w in list(t.judgement_notes.items())[:3]))
+            lines.append("  ≡ " + t.reference_proposition[:90] + "".join(f" · {b[:4]}: {w[:40]}" for b, w in list(t.judgement_notes.items())[:3] if not b.startswith("_")))
+        elif t.judgement_notes.get("_note"):
+            lines.append("  ≡ (" + t.judgement_notes["_note"] + ")")
         solo: list[str] = []
         for m in mechanisms_of(issue_set, t):
             m_said = [b for b, v in m.coverage.items() if v != Coverage.silent]

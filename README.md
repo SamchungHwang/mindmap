@@ -183,7 +183,7 @@ LLM 이 없으면 키워드 문장 분류로 대체하고 `quality: rules`(저�
 실측(삼성전자 3건, Claude Sonnet 5.5) 뒤 "잘못된 투자정보가 생기거나 검증·업데이트에 구조적 오류가 날 수 있는 것" 열 가지를 고쳤다. 전부 기본값이 있어 c1/c2 저장본이 그대로 읽힌다.
 
 - **사실·전망·계획 구분 (V1)** — Claim 에 `asserted_by`(analyst/company/market/authority) · `certainty`(realized/announced/planned/expected/conditional) · `as_of`. 프롬프트 c3. 노드·표·인용에 접두어 `[실적]` `[기업 발표]` `[기업 계획]` `[증권사 전망]` `[조건부]`.
-- **기계 검증 vs 사람 승인 (V2)** — `verified_by: machine|human`. 자동 통과해도 판단 지표(op/revenue/eps/목표가) 수치·증권사 간 15% 넘는 수치 충돌·조건부 리스크·"애널리스트가 사실로 단정" 은 `review_required` ⚑ 로 검토 대기함에 함께 뜬다(초안에는 쓴다). '근거 불충분' 판정을 승인할 때는 이유(`--note`) 필수. 사람이 정한 것은 `--recheck` 가 되돌리지 않는다.
+- **기계 검증 vs 사람 승인 (V2)** — `verified_by: machine|human`. 자동 통과해도 **표에 없는** 전사·미래 판단 지표 수치, 증권사 간 15% 넘는 전사 수치 충돌(단위 환산, 사업부·목표가 제외), 조건부 리스크, "애널리스트가 사실로 단정", 인용 밖 본문 수치는 `review_required` ⚑ 로 검토 대기함에 함께 뜬다(초안에는 쓴다). '근거 불충분' 판정을 승인할 때는 이유(`--note`) 필수. 사람이 정한 것은 `--recheck` 가 되돌리지 않는다. `claims-review --recheck --llm` 은 검토 대기 건의 의미 판정만 다시 묻는다(숫자는 코드가 인용 → 표 → 본문 순으로 대조).
 - **쟁점의 기준 명제 (V3)** — 테마마다 `reference_proposition` 하나를 두고, LLM 이 있으면 증권사별로 그 명제에 agree/disagree/**partial**(◐ 부분 동의)/unrelated 를 판정한다(`mindmap issues --llm`, `draft` 는 기본 켬, `--no-issue-check` 로 끔). 판정 근거는 표의 `≡` 줄. 리포트를 끝까지 못 읽은 증권사는 침묵(–) 대신 **안 읽음(?)**.
 - **셀 단위 집계 (V4)** — 증권사별 대표 문서는 최신 1건이지만, 거기 없는 (지표, 기간) 셀은 같은 증권사 이전 리포트(45일 안) 로 **보강**하고 표에 `*`. 열 라벨(…A/…P/…E) 이 다르면 다른 셀. "조정 영업이익" 은 `op_adj` 로 분리. EPS 주식 수·환율 기준은 읽을 수 없어 각주로만.
 - **증권사 목표가 ≠ 시나리오 (V5)** — 후보 `origin`(broker_case/broker_recalc/broker_tp). 리포트가 그 이름으로 제시한 케이스가 아닌 것을 Bear/Base/Bull 에 넣으면 `[사용자 재해석]` 으로 기록(history · `meta.draft.scenario_origin`).
@@ -192,6 +192,7 @@ LLM 이 없으면 키워드 문장 분류로 대체하고 `quality: rules`(저�
 - **규칙 모드 제한 (V8)** — LLM 없이 만든(키워드 분류) Claim 으로는 A0 논제·A2.1 쟁점·A3.6.3·A4 리스크·A5 촉매를 **만들지 않는다**(숫자 노드만). 요약 머리에 "⚠ 규칙 모드".
 - **평가 분리 (V9)** — `tests/golden/holdout`(최종 검증, 튜닝에 안 씀) / `extract`(개발). `eval-claims` 가 **잘못된 Claim 자동 승인률** 을, 새 `mindmap eval-issues` 가 종목별 쟁점 정답(`tests/golden/issues/<ticker>.json`) 대비 테마 재현·분류 일치·**이견 누락** 을 낸다.
 - **문서 (V10)** — v3 의 P2.5 를 실제 순서로 정정.
+- **생성 방식 (부록, 2026-10-22)** — 콘솔 「리포트로 자동 생성…」 의 기본은 **새로 만들기**: 그 종목의 기존 A 맵 **초안**(meta.draft 가 있는 것; B 맵이 참조하거나 사용자가 처음부터 만든 맵은 유지) 을 `data/maps/_archive/` 로, 이 리포트들의 Claim 저장본을 `data/claims/_archive/<시각>/` 로 옮기고(사람이 승인/반려한 Claim 수를 로그에) 전부 다시 뽑는다. **기존에 더하기** 를 고르면 기존 맵은 그대로 두고 새 리포트는 「변경안」으로 간다(저장본 재사용). CLI `draft --db … --mode replace|incremental`, 텍스트 콘솔은 "새로 만들까요?" 질문.
 
 ## Python API 로 한 바퀴
 
@@ -251,7 +252,7 @@ src/kstock/
   demo.py      §9 예시 인스턴스
   cli.py       mindmap 명령 (콘솔 스크립트; draft · claims · claims-review · issues · changes · golden-draft · eval-extract · eval-claims · llm-check · render …)
 tools/          console.py 콘솔 실행기 · check_api_key.py ANTHROPIC_API_KEY 독립 확인 스크립트 (표준 라이브러리만)
-tests/         unittest 163건 (pytest 로도 실행) — GUI 는 가짜 tkinter 로 스모크, 리포트 픽스처는 tests/fixtures/reports,
+tests/         unittest 164건 (pytest 로도 실행) — GUI 는 가짜 tkinter 로 스모크, 리포트 픽스처는 tests/fixtures/reports,
                골든 초안은 tests/golden/extract (verified:false 는 사람이 확인 전)
 docs/          템플릿 v1.0 · 아키텍처 메모 · 리포트→마인드맵 과정(report-to-mindmap.md) · 자동 생성 계획 · 개선 검토(report-draft-improvements.md) · 설계 v2/v3/v4(report-draft-design-v2.md, -v3.md, -v4.md)
 examples/      데모 출력 (JSON · HTML) · claims_experiment/ 삼성전자 3건 Claim 실험 (사람이 쓴 Claim → 쟁점 → 맵, 요약 HTML)
@@ -265,6 +266,12 @@ data/          reports/ 원본 리포트 · claims/ ClaimSet(리포트별) · is
 고르게 퍼진다. HTML 안의 선택 상자로 **방사형**(각도를 박스 크기에 비례해 나누고 겹치지 않을 만큼 반지름을 키움)과
 **오른쪽 한 방향**(markmap 식)으로 바꿀 수 있다. 노드 클릭으로 접고 펼치고(기본 2단계까지 펼침, 접힌 가지는 `+N`),
 드래그·휠로 이동·확대, `f` 로 화면 맞춤, ☀/☾ 테마. markmap 이 필요하면 `--format markmap`.
+
+**노드 복사 (cut & paste)** — 노드 글자는 마우스로 긁어 복사할 수 있고, 노드에 마우스를 올리면 나오는 `⧉` 가 그 줄을
+클립보드로 보낸다. **우클릭 메뉴**: 한 줄 · 상세(값·질문·출처·기준일·상태·태그·연결) · 이 가지 전체(Markdown 목록) ·
+노드 id · 상세 보기. **더블클릭**은 상세 패널(편집·부분 선택 가능한 글상자 + 복사 버튼). 노드를 고른 뒤 `Ctrl+C` 는 한 줄,
+`Ctrl+Shift+C` 는 상세, 툴바 「전체 복사」는 맵 전체를 Markdown 으로. 2026-10-23 이전에 만든 HTML 은 다시 렌더링해야
+(`mindmap render …` 또는 콘솔 「마인드맵 HTML 열기」) 이 기능이 들어간다.
 
 ## 설계 결정 (코드에 박힌 것)
 

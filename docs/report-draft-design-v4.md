@@ -50,7 +50,8 @@ v3 와 달리 v4 는 **이미 돌아가는 코드** 위에서 쓴다. 각 항목
 
 **바꾸는 것**:
 - `Claim.verified_by: "" | "machine" | "human"` — `finalize()` 가 verified 로 만들면 `machine`, `review(approve)` 는 `human`.
-- `Claim.review_required: bool` + `review_reason: str`. **규칙**(코드, `validate_claims.mark_review_required`): ① 수치가 목표가·A1 드라이버 지표(op/revenue/eps/target_price) 에 직접 쓰이는 Claim(quant 의 metric 이 그것) ② 같은 (metric, col) 수치가 다른 증권사와 15% 넘게 다른 Claim ③ `certainty=conditional` 인 리스크 Claim ④ `epistemic_type=fact` 인데 `asserted_by=analyst`(애널리스트가 사실로 단정) — 이들은 자동 통과해도 `review_required=True` 로 **검토 대기함에 같이 뜬다**(상태는 verified 유지 — 초안에는 쓰되 ⚑ 표시).
+- `Claim.review_required: bool` + `review_reason: str`. **규칙**(코드, `validate_claims.mark_review_required`): ① **전사 수준·미래 기간(…E)** 의 판단 지표(op/revenue/eps/np/opm/목표가) 수치가 **그 리포트의 표에도 없을 때**(표에 있으면 기계가 대조한 것이므로 ⚑ 아님) ② 같은 (metric, col) 의 전사·미래 수치가 다른 증권사와 15% 넘게 다를 때 — **단위를 억원으로 환산**해 비교하고 **사업부 수치**(DRAM 83.8조·MX −2.0조 — 표에 없는 수치 = 사업부로 판정, 표가 없으면 '사업부명+이익/매출' 문장 휴리스틱) 와 **목표가**(차이는 A3.6.4 분포가 보여 준다) 는 제외 ③ `certainty=conditional` 인 리스크 Claim ④ `epistemic_type=fact` 인데 `asserted_by=analyst`(애널리스트가 사실로 단정) ⑤ 명제의 숫자가 인용엔 없고 **리포트 본문(사업부 표 등) 에만** 있을 때(`check_numbers` 의 fulltext 폴백 — 불일치 대신 verified+⚑) — 이들은 자동 통과해도 `review_required=True` 로 **검토 대기함에 같이 뜬다**(상태는 verified 유지 — 초안에는 쓰되 ⚑ 표시).
+  *실측 보정(2026-10-22)*: 첫 c3 실측에서 ①② 를 "판단 지표 수치 전부 · 같은 (op, 3Q26) 전부" 로 두었더니 42건 중 23건이 ⚑ 였고 그 대부분이 표에 있는 숫자 또는 사업부 수치끼리의 가짜 충돌(메모리 110.1조 vs Foundry −1.5조) 이었다 → 위 규칙으로 좁혀 삼성전자 3건에서 ⚑ 0 + 검토 대기 4 가 됐다.
 - `review(approve)` 는 `validation.support == insufficient` 였으면 `note` 가 **필수**(빈 note 는 `ValueError`). CLI `--note`, GUI 입력란.
 - `usable` 은 그대로(verified ∧ ¬inferred). 맵 노드 출처 줄에 `자동 검증` / `사람 확인` 을 적고, `DraftResult.summary_text` 에 "Claim 35건 (자동 30 · 사람 5 · 확인 권고 7)".
 
@@ -65,7 +66,9 @@ v3 와 달리 v4 는 **이미 돌아가는 코드** 위에서 쓴다. 각 항목
 - **명제 판정 LLM 배치** (`generate/prompts.py::issue_prompt`, `issues.judge_coverage`): 테마마다 `reference_proposition` + 증권사별 Claim 명제들을 보내 증권사마다 `agree | disagree | partial | unrelated` 와 한 줄 이유를 받는다 (support_prompt 와 같은 배치 25건, 종목당 호출 1~2회). 결과가 있으면 `coverage` 는 이것으로, `directions` 는 방향 통계 그대로. `partial`(공급 증가엔 동의, 이익엔 반대) 은 `Coverage.partial`(새 값) → 화면 `◐`. 판정 근거는 `Issue.judgement_notes[broker]`.
 - 판정이 없으면(LLM 없음, `--no-issue-check`) 방향 기반 판정을 쓰고 `Issue.coverage_basis = "direction"`(있으면 `"llm"`) 을 표에 적는다.
 - **침묵 분리**: `Coverage.unanalyzed`(새 값) — 그 증권사 ClaimSet 의 `analyzed_ratio < 0.95` 이면 silent 대신 unanalyzed(`?`). `ClaimSet.analyzed_chars / total_chars` 를 `reports/claims.extract_claims` 가 기록한다.
-- 테마 `display` 규칙은 coverage 를 그대로 쓰므로 바뀌지 않는다. `partial` 은 disagree 로 세지 않고 "부분 동의 n곳" 으로 요약에만.
+- 테마 `display`: `partial` 은 disagree 로 세지 않는다. 반대가 없고 agree+partial ≥ 2 면 **공통 견해**(요약에 "부분 동의 n곳") — 실측에서 "주주환원 → EPS" 처럼 기준 명제의 대상 지표가 어색하면 판정자가 전부 partial 을 주어 '미해결 쟁점' 이 됐기 때문. 같은 이유로 기준 명제의 대상 지표는 테마 Claim **둘 이상이 같은 target_metric_id 를 가리킬 때만** 붙인다.
+- `numeric_spread`(수치 이견 ⚑magnitude) 는 **전사 수준 수치만**(V2 와 같은 판정) · 단위 환산 뒤 비교 — 첫 실측의 [DRAM 가격]·[실적·영업이익] "핵심 이견 ⚑magnitude" 는 사업부 수치(83.8·110.1·−1.5) 가 (op, 3Q26) 한 셀에 섞인 가짜였다.
+- 의미 판정(`SUPPORT_SYSTEM`) 은 **숫자의 유무로 insufficient 를 주지 않는다** — 숫자는 코드(인용 → 표 → 본문) 몫. `claims-review --recheck --llm` 으로 검토 대기 건의 의미 판정만 다시 묻는다.
 
 ### V4. 수치 집계: 셀 단위 최신 유효 추정치 (review P0-4)
 

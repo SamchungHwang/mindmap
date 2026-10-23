@@ -1020,12 +1020,95 @@ class Ops:
         self.log(f"현재가 갱신 {m.map_id}: {pick.value:,.0f} ({pick.as_of}, {pick.kind})")
         return pick.value, pick.as_of, pick.source.name
 
+    # ------------------------------------------------------------------ 자동 생성 방식 (v4 부록): 새로 만들기(기본) / 기존에 더하기
+    DRAFT_MODES = ("replace", "incremental")
+
+    def archive_existing_drafts(self, ticker: str, *, keep_map_id: str | None = None) -> dict[str, Any]:
+        """「새로 만들기」: 그 종목의 기존 A 맵 **초안**(meta.draft 가 있는 것) 을 maps/_archive 로 옮긴다. 지우지 않는다.
+        B 맵이 스냅숏으로 참조하는 A 맵과 사용자가 처음부터 직접 만든 A 맵(meta.draft 없음) 은 그대로 둔다."""
+        out: dict[str, Any] = {"archived": [], "kept": []}
+        if not ticker:
+            return out
+        referenced = {getattr(b, "source_map_id", None) for b in (self.store.load_map(r.map_id) for r in self.store.list_maps(MapKind.HOLD, ticker=ticker, include_closed=True))}
+        for row in self.store.list_maps(MapKind.NEW, ticker=ticker):
+            if row.map_id == keep_map_id:
+                continue
+            try:
+                m = self.store.load_map(row.map_id)
+            except Exception:  # noqa: BLE001
+                continue
+            if row.map_id in referenced:
+                out["kept"].append((row.map_id, "B 맵이 참조"))
+                continue
+            if not (m.meta.get("draft") or {}):
+                out["kept"].append((row.map_id, "사용자가 직접 만든 맵"))
+                continue
+            dst = self.store.archive_map(row.map_id)
+            out["archived"].append((row.map_id, str(dst) if dst else ""))
+            self.log(f"기존 초안 보관: {row.map_id} → {dst.name if dst else '(파일 없음)'}")
+        for mid, why in out["kept"]:
+            self.log(f"기존 A 맵 유지: {mid} ({why})")
+        return out
+
+    def archive_claim_cache(self, paths: Sequence[str | Path]) -> dict[str, Any]:
+        """「새로 만들기」: 이 리포트들의 저장된 ClaimSet 을 data/claims/_archive/<시각>/ 로 옮긴다 — 다시 뽑는다.
+        사람이 승인/반려한 Claim 이 있으면 개수를 알려 준다 (보관 폴더에 그대로 있다)."""
+        import shutil
+        from datetime import datetime
+
+        from .models import report_id_for
+        from .reports import load_report
+        from .reports.claims import load_claimset
+
+        out: dict[str, Any] = {"archived": [], "human": 0}
+        stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        for p in paths:
+            try:
+                rid = report_id_for(str(p), load_report(Path(p)).text)      # 파일명에 번호가 없으면 본문 해시라 읽어야 한다
+            except Exception:  # noqa: BLE001
+                rid = report_id_for(str(p), "")
+            src = self.store.claims_dir / f"{rid}.json"
+            if not src.is_file():
+                continue
+            try:
+                cs = load_claimset(src)
+                out["human"] += sum(1 for c in cs.claims if c.verified_by == "human")
+            except Exception:  # noqa: BLE001
+                pass
+            dst_dir = self.store.claims_dir / "_archive" / stamp
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dst_dir / src.name))
+            out["archived"].append(str(dst_dir / src.name))
+        if out["archived"]:
+            self.log(f"Claim 저장본 {len(out['archived'])}건 보관 → claims/_archive/{stamp}" + (f" (사람이 승인/반려한 Claim {out['human']}건 포함 — 보관본에 남아 있다)" if out["human"] else ""))
+        return out
+
+    def draft_target(self, paths: Sequence[str | Path], f: dict[str, Any] | None = None) -> tuple[str | None, Any]:
+        """대화상자 뒤, 어떤 방식으로 갈지 정하는 데 필요한 것: (종목코드, 그 종목의 최신 A 맵 또는 None)."""
+        f = f or {}
+        ticker, name = text(f.get("ticker")), text(f.get("name"))
+        if ticker or name:
+            try:
+                ticker, _, _ = self.complete_symbol(ticker, name)
+            except OpsError:
+                ticker = normalize_code(ticker) if ticker else None
+        if not ticker:
+            try:
+                ticker = self.peek_reports(paths).get("ticker")
+            except OpsError:
+                ticker = None
+        latest = self.store.latest_map(ticker, MapKind.NEW) if ticker else None
+        return ticker, latest
+
     def draft_from_reports(self, paths: Sequence[str | Path], f: dict[str, Any] | None = None, *,
                            progress: Callable[[str, int, int], None] | None = None) -> Any:
         """리포트 파일들 → A 맵 초안 → (save 면) 관심종목 등록 + 저장. 돌려주는 것은 generate.DraftResult.
 
-        f: {ticker, name, invest_type, use_llm, save, fetch_price} — 전부 선택. 종목은 지정값 > 리포트 본문 코드.
-        fetch_price (기본 True): 현재가를 작성 시점 기준으로 네이버에서 조회한다 (실패하면 리서치 DB·리포트 값)."""
+        f: {ticker, name, invest_type, use_llm, save, fetch_price, mode} — 전부 선택. 종목은 지정값 > 리포트 본문 코드.
+        fetch_price (기본 True): 현재가를 작성 시점 기준으로 네이버에서 조회한다 (실패하면 리서치 DB·리포트 값).
+        mode (기본 "replace"): **새로 만들기** — 이 리포트들의 Claim 저장본을 보관 폴더로 옮기고 다시 뽑고(LLM 이 있으면 LLM), 저장할 때
+        그 종목의 기존 A 맵 초안을 maps/_archive 로 옮긴다. "incremental": 저장본을 재사용하고 기존 맵은 건드리지 않는다
+        (기존 A 맵이 있으면 화면은 이 함수 대신 「변경안」 으로 간다 — draft_target 으로 판단)."""
         from .generate import ClaudeGroupFiller, DraftError, draft_from_reports, llm_status, make_filler
         from .generate.llm_fill import key_problem
         from .symbols import research_db_path
@@ -1060,11 +1143,19 @@ class Ops:
                 raise OpsError(f"LLM 을 쓸 수 없습니다 — {e}. 체크를 끄면 규칙 채움만으로 초안을 만듭니다") from e
             self.log("LLM 그룹 채움: " + (llm_status() if isinstance(filler, ClaudeGroupFiller) else f"로컬 OpenAI 호환 서버 ({getattr(filler, 'model', '')})"))
         fetch = bool(f.get("fetch_price", True))
+        mode = text(f.get("mode")) or "replace"
+        if mode not in self.DRAFT_MODES:
+            raise OpsError(f"생성 방식 {mode!r} — replace | incremental")
+        claims_mode = text(f.get("claims")) or "auto"
+        if mode == "replace" and f.get("save", True):
+            self.archive_claim_cache(paths)                       # 저장본을 치우고 다시 뽑는다
+            if not text(f.get("claims")):
+                claims_mode = "llm" if filler is not None else "rules"
         try:
             r = draft_from_reports(paths, ticker=ticker, name=name, invest_type=invest_type, sector=sector, today=self.now,
                                    symbols=self.book, filler=filler, research_db=research_db_path(self.store), progress=progress,
                                    fetch_price=fetch, price_fetcher=f.get("price_fetcher"),
-                                   claims=text(f.get("claims")) or "auto", claims_dir=self.store.claims_dir, n_drivers=5,
+                                   claims=claims_mode, claims_dir=self.store.claims_dir, n_drivers=5,
                                    llm_groups=bool(f.get("llm_groups", False)), issue_check=bool(f.get("issue_check", True)))
         except DraftError as e:
             raise OpsError(str(e)) from e
@@ -1076,6 +1167,11 @@ class Ops:
                 pass
         m = r.map
         if f.get("save", True):
+            if mode == "replace":
+                arch = self.archive_existing_drafts(m.ticker or "", keep_map_id=m.map_id)
+                if arch["archived"]:
+                    r.notes.append(f"기존 A 맵 초안 {len(arch['archived'])}건을 maps/_archive 로 옮기고 새로 만들었다 (새로 만들기 모드)")
+                m.meta.setdefault("draft", {})["generation_mode"] = mode
             if self.store.get_watch(m.ticker or "") is None:
                 it = self.store.add_watch(m.ticker or "", m.name or m.ticker or "", sector=r.sector, invest_type=invest_type,
                                           note=f"리포트 {len(r.docs)}건으로 자동 초안 ({self.now})")
