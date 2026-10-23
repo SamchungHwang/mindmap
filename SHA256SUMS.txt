@@ -1,9 +1,9 @@
 4dfe2a3f793ceae5ec32d1e389965207a7a907bdc71530758ef29e124478700e  ./.env.example
 da93e65da1d79efecad69b2a71657fcc62ec9af248ad3bb00de0ac7eff5946e6  ./.github/workflows/ci.yml
 18230d768567dcde3efe081e0777ef1dff932f772c6c86efd0d03589dedea5ea  ./.gitignore
-37352d6afc8fd59a3b40027b0140eeb1d73a361a87590fc51d67eeaca77bcade  ./README.md
+72d32da9f6eb2bc9589161cf14690bc3627dd4fabacd1c45c426853e9228e60e  ./README.md
 c6e6c02ad58bd294349e094f023a4b57bcb44384ec6079357ab4993726c957b4  ./SYNC-v3.md
-f5e580fd8be0585634c1bd06980674974aa16e6fe920c89c973807c7d558c6a8  ./docs/ARCHITECTURE.md
+bc77ee69b32d3b6543037c1ee6299afba6d8ac9ebbbbd449c237fb6bbed7b889  ./docs/ARCHITECTURE.md
 6fe1e3bae2fc23c9e61c98ce4641a971ad96f6543a924a07b7408949fc53f618  ./docs/auto-generation-plan.md
 da93e65da1d79efecad69b2a71657fcc62ec9af248ad3bb00de0ac7eff5946e6  ./docs/github-workflow-ci.yml
 5469549733c75d5d3296fe92182c96f11d9ca1acb14677fa72a3a3ba3a0f490b  ./docs/img/report-to-mindmap-flow.png
@@ -45,7 +45,7 @@ d778b307d3a8d85e1d00f2cf90ab7f7eaba37d4adec99aeb327d6d5db84f5525  ./examples/sam
 b3d1051aa93b74753ca3125b5b30e70569e55748f74649abb75859d983ebe1f7  ./examples/samsung_005930/build.py
 9540fd23140b4fb937f601a9bb5591c8218dd47a90b043893cf39224727b9835  ./pyproject.toml
 e73385468657eaa4ae3b169ff45f3cdfed6056e3e167448462139837b89ce9e5  ./src/kstock/__init__.py
-0807bde82db670a544edff382db70960c7329ed9857d4307c86ed880c75d88be  ./src/kstock/cli.py
+581ab3ba1631e785d06fcde71f3232fb0385df8a0c3f5cabcd53d52eb28a4b9e  ./src/kstock/cli.py
 33363f92b8bee56a81cd4c058be50bb8d029cd42f39998ddda0b06ba9fbb75eb  ./src/kstock/collect/__init__.py
 2901573db1959eba45a85b85dfbe4e3d0c1879381439c1daed75bde5bbfbd0e5  ./src/kstock/collect/adapters/__init__.py
 8812a23216b22d03f76f33e4d4d2f370b1daec90cb75c2fdd3a32d9b51d3645f  ./src/kstock/collect/adapters/consensus.py
@@ -55,8 +55,8 @@ df1de1163359d40d7e79e778f24143cbab422eea7e55d4a766a9c92330c1339c  ./src/kstock/c
 492ec0b28b5d4cb98695d47f990eef0a62aac518795ae10b60b1a0d2fd578d0a  ./src/kstock/collect/adapters/naver_quote.py
 529426033995befd11f5cd4433828c804d25a7eeab82c5c42893d44bff63995f  ./src/kstock/collect/adapters/research_db.py
 c6d3ebc722c22861181de183628835c165b99a432b73625ec61a606e839401b2  ./src/kstock/collect/base.py
-9f144149674edeebd269a99fc3eb4afbd77c6c3d24fde6084cf8a72a1f2545ed  ./src/kstock/console.py
-7aac14021ede06e5361dc89ca791b9da635f65304c84cb0a989104b205da1601  ./src/kstock/console_text.py
+23ef009d8761e236ff7ce564238e3686c72768cf5b69c8bb92e666cb363bf506  ./src/kstock/console.py
+b99608cd929141847c6fc5a94941df004a3f1fa544d3999765546e96a83cfb64  ./src/kstock/console_text.py
 252bc278f395b48eec27888b188ed32db6e5e125a31b1666b13d7c16422bc47a  ./src/kstock/demo.py
 8533f4137632a32c3f14c76ee9eab38fe0f24416ce7ff26e794cddbecfcc36fe  ./src/kstock/engine/__init__.py
 2b1b31ecf01c99543219a3d03dc0472122431802d999e960a961ea137aaa9982  ./src/kstock/engine/calc.py
@@ -71,6 +71,7 @@ d204cee86c19c5edf55ad9ba154a21af226badd0383f44c3d6d6c648dba072a4  ./src/kstock/e
 d2246df3928e9c93ad012b5d56e15c98eab575db9ba0d84cce8a667d71631b86  ./src/kstock/generate/changes.py
 e9528270fb0118a99f08cd57d1625afe135c4579c60450c1c4e9d520da4a31f4  ./src/kstock/generate/check.py
 87d34e30eee2f354a36026235c641e9e19020d446026df209adad0ea6768bc21  ./src/kstock/generate/draft.py
+f8b0b4d1868cfda50dfaf42ca4cd9337248b2786480c9544ad18336a7b2e7504  ./src/kstock/generate/edits.py
 1f46de4b2556c922c92572b921a57245fa5eaf0ad0667dd9af23d7a653296200  ./src/kstock/generate/evals.py
 da676f51340447a75cbe6d3cd2851cb2d91e2500c028e585de1afb7f5b09e2b4  ./src/kstock/generate/issues.py
 38050816366f3be5856a7aa63a03a99415eac8aef672d61c9dccbeed4debcffb  ./src/kstock/generate/kpi_catalog.py
@@ -90,12 +91,13 @@ a8f389a4167e51bc757dd7a26bfa0c4140b970d0b277b7c62ae48e83f620117b  ./src/kstock/m
 456108001ebb5cc3a5ebb09f4f03ba83e2ede7cd634529032a28dff7546332e8  ./src/kstock/models/node.py
 8bde72340aefbb303a585dd4b712ecf99b0b540900226b35b7f6669daab783ea  ./src/kstock/models/profiles.py
 cd2c055ed3a96f8fa4836f3b7f5fce538bd3bf96582e4ee2e28c039a44203020  ./src/kstock/models/sub.py
-de539aaf6087c8378ee078bf6b1115488d753c89e850dcc3f540f111efa289aa  ./src/kstock/ops.py
+10499ab0ecfbc7aa92853b8aba77a8d86ffd6843270b058b2ba7112487e7afbe  ./src/kstock/ops.py
 7d570b753c3fb22dcbbea49ca25f0bea74d469795ae6b073ebd76bd7cfa760d4  ./src/kstock/render/__init__.py
 847c0579351388b3693b3c0e2d97f655bb0a4dcab8b55faec9c9eb97d766fe2f  ./src/kstock/render/format.py
 590544c5723142271210a660b8ebaade824e4db5f71e502fbd1161258d27f91f  ./src/kstock/render/markmap.py
 84c42aa2727e283226e5e50d28b20e57490b57af7fd80c5fc7af78ad584ec8e8  ./src/kstock/render/mermaid.py
-dfe022739735d96da35775c3e09b50499c594d5fcf4a795ad72b99da3664184e  ./src/kstock/render/native.py
+e5bd3c3d06888be8b56b6fe71d4a491aed622d1ca97e43a0630ab68962fa5b3b  ./src/kstock/render/native.py
+9b88b6c75dd5576f1fb696bedb87b2a34baca3b3e9496a36645b71b570d7e11d  ./src/kstock/render/server.py
 021fac55ebc9e4a812728cd283d3be8c3b25f8151f0f41ff3c4dec24ace736a1  ./src/kstock/reports/__init__.py
 c5602bb455f79fb2f3f64cc3a5558cab09110fa8a1a94c7fc4e95b9821084711  ./src/kstock/reports/claims.py
 e46d9daa6b1bdd0f1d8d7c11960fd6b030fe0d512cc38fa7964ddb83629bec16  ./src/kstock/reports/dbcheck.py
@@ -135,9 +137,10 @@ c507d9c6ccaa000434c03cbb353db9d85e283f33261c0480c55e9d531ea17441  ./tests/golden
 f4bee5fc2a0ec25b201660ddefc95ccbb87cbf55ae68422ef0afbabf6537c01c  ./tests/test_calc.py
 66c1ce3c048e1ff17475e48d88c105a5b3b1ebb60ae4c10a406fc89d0ce60045  ./tests/test_changes.py
 e5fec2f2556c2ac69b229e7731b87cdb3f7034335b719001f9e5df0a968d52ee  ./tests/test_claims.py
+0d544b2a2cf8e8d82e60de38c5fe1006716f6a5c5503d67a2da271aa8ea24d86  ./tests/test_edits.py
 addf50e06122af38daa35449a8b52b3d34849ed8cb23dcd2f1d22e03e08990f6  ./tests/test_env.py
 66096ce402659838abc2fc889b9d9d2fda371512d85aff0a5907fe8d44f63d50  ./tests/test_evals.py
-1d759e52c2a06d1380e08c3c14805ec179f5bee0304865f36bce7c7ffdfcd41f  ./tests/test_gui_smoke.py
+dbada5ba18c932545ce4a97b5b3ae9d4977d17ec54254b3617fae5635b53ea4c  ./tests/test_gui_smoke.py
 64ceb1b1b5aa7cb8f0a7a9c3a83386da3075d152a781a02e0623e9895fa5c778  ./tests/test_issues.py
 70583f921e372e9ac02b615bdedae484bf472771236ed12e29c5c450be93acbc  ./tests/test_lifecycle_validate.py
 352066ebbfb90badcaeec8cf231328081b78c04902b987b578809a11197567c2  ./tests/test_llm_check.py

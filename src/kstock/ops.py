@@ -706,6 +706,88 @@ class Ops:
     def render_all(self) -> list[Path]:
         return [self.render(self.store.load_map(r.map_id)) for r in self.store.list_maps()]
 
+    # ------------------------------------------------------------------ HTML 편집 (로컬 편집 서버 · 편집 파일 반영)
+    edit_servers: dict[str, Any] = field(default_factory=dict)   # map_id → EditServer (백그라운드 스레드)
+    edit_saved: list[str] = field(default_factory=list)          # 서버가 저장한 map_id (화면이 비우며 다시 읽는다)
+
+    def edit_server(self, m: MindMap, *, open_browser: bool = True) -> str:
+        """맵 하나의 편집 서버를 띄우고(이미 있으면 재사용) 주소를 돌려준다. 서버는 자기 Store 연결을 쓴다 (SQLite 는 스레드별)."""
+        from .render.server import EditServer, StoreTarget
+
+        srv = self.edit_servers.get(m.map_id)
+        if srv is None:
+            store = self.store
+
+            class _ThreadStore:
+                """서버 스레드용 Store — 연산마다 연결을 새로 연다."""
+
+                def __init__(self) -> None:
+                    self.versions_dir = store.versions_dir
+
+                def _open(self) -> Store:
+                    return Store(store.db_path, maps_dir=store.maps_dir, out_dir=store.out_dir)
+
+                def load_map(self, map_id: str) -> MindMap:
+                    with self._open() as st:
+                        return st.load_map(map_id)
+
+                def save_map(self, mm: MindMap) -> Path:
+                    with self._open() as st:
+                        return st.save_map(mm)
+
+                def out_path(self, name: str) -> Path:
+                    return store.out_path(name)
+
+            ops = self
+
+            def _log(line: str) -> None:
+                if not line.startswith("http "):          # 요청 한 줄 로그는 생략, 저장·오류만
+                    ops.log(f"[편집 {m.map_id}] {line}")
+
+            srv = EditServer(StoreTarget(_ThreadStore(), m.map_id, log=_log, on_saved=ops.edit_saved.append), today=self.now, log=_log)
+            srv.start()
+            self.edit_servers[m.map_id] = srv
+            self.log(f"{m.map_id} 편집 서버 {srv.url.split('?')[0]} (브라우저 「저장」 → 맵에 바로 반영; 콘솔을 닫으면 멈춤)")
+        if open_browser:
+            srv.open_browser()
+        return srv.url
+
+    def stop_edit_servers(self) -> int:
+        n = 0
+        for srv in list(self.edit_servers.values()):
+            try:
+                srv.shutdown()
+                n += 1
+            except Exception:  # noqa: BLE001
+                pass
+        self.edit_servers.clear()
+        return n
+
+    def apply_edit_file(self, path: str | Path, *, map_id: str | None = None, force: bool = False) -> dict[str, Any]:
+        """file:// 로 연 HTML 이 내려준 *.edits.json 을 저장소의 맵에 반영한다."""
+        from .generate.edits import EditError, load_edit_file
+        from .render.server import StoreTarget, save_edits
+
+        try:
+            payload = load_edit_file(path)
+        except (EditError, OSError, ValueError) as e:
+            raise OpsError(str(e)) from e
+        mid = map_id or payload.get("map_id")
+        if not mid:
+            raise OpsError("편집 파일에 map_id 가 없다")
+        try:
+            self.store.load_map(mid)
+        except KeyError:
+            raise OpsError(f"맵 없음: {mid}") from None
+        try:
+            out = save_edits(StoreTarget(self.store, mid, log=self.log), payload, today=self.now, check_hash=not force)
+        except EditError as e:
+            raise OpsError(str(e)) from e
+        self.log(f"{mid} 편집 파일 반영 {len(out['applied'])}건 → v{out['version']}: " + "; ".join(out["applied"])[:200])
+        for w in out["warnings"]:
+            self.log("  ⚑ " + w)
+        return out
+
     def validate_all(self) -> list[str]:
         out = []
         for r in self.store.list_maps(include_closed=True):

@@ -63,6 +63,8 @@ mindmap snapshot maps\A_005930.json --entry-price 58000 --qty 100 -o maps\B_0059
 mindmap market maps\B_005930.json --price 76000 --w-now 0.072 --eps-fwd 3392 --band 82 --total-assets 1e9
 mindmap status maps\B_005930.json                            # 상태등 + 매트릭스 기본 대응 + 주가 분해
 mindmap render maps\B_005930.json -o out\B.html              # 양쪽 균형 HTML (--layout radial|right, --format markmap|md|mermaid)
+mindmap edit maps\A_005930.json                              # HTML 을 로컬 편집 서버로 열기 — 노드 고치기·추가·삭제가 맵 JSON 에 바로 저장 (맵 id 도 됨)
+mindmap apply-edits A_005930.edits.json --map maps\A_005930.json   # file:// 로 연 HTML 이 내려준 편집 파일 반영
 mindmap rollup maps\B_*.json --cash 80000000 -o maps\C.json  # C 포트폴리오
 mindmap draft --reports r1.pdf r2.pdf r3.pdf --db data\db\kstock.sqlite --html   # 증권사 리포트 여러 건 → A 맵 초안
 ```
@@ -118,6 +120,7 @@ tkinter 가 없는 환경에서도 `ops` 는 통째로 테스트되고, GUI 는 
 |---|---|
 | `data/db/kstock.sqlite` | 관심종목(`watchlist`) · 맵 인덱스(`maps`) · 설정(`settings`: 현금, 총자산) |
 | `data/maps/*.json` | 맵 본문 (진실 원본; 인덱스는 「작업 → 맵 인덱스 재구성」 으로 다시 만들 수 있다) |
+| `data/maps/versions/*.v<N>.json` | 변경안 적용·HTML 편집 저장 직전의 원본 (버전마다 1개) |
 | `data/out/*.html` | 렌더링 결과 |
 | `data/ref/symbols.csv` | 종목 목록 스냅숏 (코드·이름·시장·섹터·시총) — 「작업 → 종목 목록 갱신」 |
 
@@ -269,9 +272,27 @@ data/          reports/ 원본 리포트 · claims/ ClaimSet(리포트별) · is
 
 **노드 복사 (cut & paste)** — 노드 글자는 마우스로 긁어 복사할 수 있고, 노드에 마우스를 올리면 나오는 `⧉` 가 그 줄을
 클립보드로 보낸다. **우클릭 메뉴**: 한 줄 · 상세(값·질문·출처·기준일·상태·태그·연결) · 이 가지 전체(Markdown 목록) ·
-노드 id · 상세 보기. **더블클릭**은 상세 패널(편집·부분 선택 가능한 글상자 + 복사 버튼). 노드를 고른 뒤 `Ctrl+C` 는 한 줄,
-`Ctrl+Shift+C` 는 상세, 툴바 「전체 복사」는 맵 전체를 Markdown 으로. 2026-10-23 이전에 만든 HTML 은 다시 렌더링해야
-(`mindmap render …` 또는 콘솔 「마인드맵 HTML 열기」) 이 기능이 들어간다.
+노드 id · 상세 보기(복사용 글상자). 노드를 고른 뒤 `Ctrl+C` 는 한 줄, `Ctrl+Shift+C` 는 상세, 툴바 「전체 복사」는 맵 전체를
+Markdown 으로.
+
+**노드 편집** — 노드를 **더블클릭**(또는 마우스를 올리면 나오는 `✎`, 우클릭 「편집…」, `F2`) 하면 오른쪽에 편집 폼이 열린다.
+라벨·값·질문·출처·기준일·다음 확인일·상태·확신도·태그·연결을 고칠 수 있고, 드라이버·시나리오·규칙·이벤트 노드는 값 대신
+그 구조의 필드(현재/컨센/내 추정 값, 목표가·확률, 조건식·행동, 날짜·사실…) 가 나온다 (기준일·출처·근거는 「세부 필드」 안).
+우클릭 「자식 노드 추가…」(`Insert`) 로 새 노드를, 「이 노드 삭제」(`Delete`, 두 번 누름) 로 가지째 지운다. 「적용」 은 화면에만
+반영되고(✎/＋ 표시, 왼쪽 위 「고침 n건」 막대 — `Ctrl+Z` 되돌리기), **「저장」** 이 맵에 넣는다.
+
+- `mindmap edit <맵 id|맵.json>` 이나 콘솔 「보기 → 고른 맵 HTML 편집…」 로 연 페이지는 **로컬 편집 서버**(127.0.0.1, 토큰 있는 주소)
+  를 통해 「저장」 이 맵 JSON 에 바로 들어간다 — 적용 전 원본을 `maps/versions/` 에 보존하고 `meta.version` 을 올리며, A7.2
+  업데이트 로그에 한 줄 남기고 HTML 을 다시 쓴다. 콘솔은 저장을 감지해 맵을 다시 읽는다.
+- `file://` 로 연 정적 HTML 에서는 「편집 파일 내려받기」 가 `<맵>.edits.json` 을 주고, `mindmap apply-edits <파일>` 또는 콘솔
+  「편집 파일 반영…」 이 같은 방식으로 맵에 넣는다.
+- 규칙: 편집은 먼저 복사본에 적용해 pydantic 검증과 맵 검증을 통과해야 한다 — **편집 전보다 검증 오류가 늘면 거절**(막대에 ⚠ 로 미리
+  보인다; 초안에 원래 있던 미입력 오류는 저장을 막지 않는다). 값이 바뀐 노드는 이전 값을 history 에 남기고(출처 "사용자 편집 (HTML)"),
+  `user` 태그를 얻고 `draft`·`pending`·⚑ 가 떨어진다 — 변경안(changes) 은 그 노드를 자동 적용하지 않는다. 루트와 「기본 정보」 묶음은
+  지울 수 없고, 새 노드 id 는 부모 아래 다음 번호(`A4.6`, 루트 아래는 `A9`, 기본 정보 아래는 `A0.5`) 다. 페이지를 연 뒤 맵이 달라졌으면
+  (base_hash) 저장을 거절하니 새로고침 뒤 다시 고친다.
+
+2026-10-23 이전에 만든 HTML 은 다시 렌더링해야(`mindmap render …` 또는 콘솔 「마인드맵 HTML 열기」) 복사·편집 기능이 들어간다.
 
 ## 설계 결정 (코드에 박힌 것)
 

@@ -112,6 +112,7 @@ weight_state, driver[<id>].current|at_entry|consensus|my_estimate|direction`, �
 | 변경안 종류 추가 | `models/claims.py::ChangeKind` + `generate/changes.py::propose_changes`/`apply_changes` |
 | 다른 LLM (로컬 OpenAI 호환 서버) | `.env` 의 `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL` → `generate.llm_fill.OpenAICompatFiller` (`make_filler("local")`) |
 | 다른 렌더러 | `render/` 에 `to_xxx(map)` — `render.format.node_line` 을 재사용 |
+| HTML 노드 편집 (고칠 수 있는 필드 · 연산 종류) | `generate/edits.py` (`ALLOWED_FIELDS`, `apply_edit_ops` 의 set/add/delete, `edit_schemas` 가 폼 필드를 만든다) · 화면은 `render/native.py` 의 `_EDIT_KEYS`/편집 JS · 저장 경로는 `render/server.py` (`/preview`, `/save`) |
 
 ## 저장 형식
 

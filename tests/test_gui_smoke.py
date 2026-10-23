@@ -69,6 +69,7 @@ class _Widget:
     def update_idletasks(self): pass
     def update(self): pass
     def after_idle(self, fn, *a): fn(*a)
+    def after(self, ms, fn=None, *a): self._after = (ms, fn, a)   # 편집 저장 감시 — 테스트가 직접 돌린다
     def destroy(self): pass
     def transient(self, *a): pass
     def resizable(self, *a): pass
@@ -281,6 +282,24 @@ class TestGuiSmoke(unittest.TestCase):
         self.assertIn("# ", app.map_text.get())
         app.open_html("B")
         self.assertTrue(list(app.store.out_dir.glob("*.html")))
+        # HTML 편집 서버 (브라우저는 열지 않음) → 저장 감시 → 콘솔이 맵을 다시 읽는다
+        import json
+        import urllib.request
+
+        from kstock.generate.edits import edit_hash
+
+        app.edit_html("B")
+        srv = app.ops.edit_servers[app.b_map.map_id]
+        self.assertIn("편집 서버", app.status_var.get())
+        req = urllib.request.Request(srv.url.split("/?")[0] + "/save", method="POST", headers={"Content-Type": "application/json", "X-Token": srv.token},
+                                     data=json.dumps({"map_id": app.b_map.map_id, "base_hash": edit_hash(app.b_map),
+                                                      "edits": [{"op": "set", "id": "B1", "fields": {"question": "편집 테스트"}}]}).encode("utf-8"))
+        with urllib.request.urlopen(req, timeout=5) as r:
+            self.assertTrue(json.loads(r.read())["ok"])
+        ms, poll, _ = self.root._after
+        poll()                                                   # 감시 한 바퀴
+        self.assertEqual(app.b_map["B1"].question, "편집 테스트")   # 메모리의 맵이 새로 읽혔다
+        self.assertEqual(app.ops.stop_edit_servers(), 1)
         # 종료·복기
         self.console.FormDialog = _dialog_returning({"thesis_correct": "y", "wrong_assumption": "", "biases": "", "lesson": "좋았다"})
         closed_id = app.b_map.map_id

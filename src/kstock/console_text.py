@@ -1141,7 +1141,38 @@ class Console:
             ("4", "C 맵", lambda: self._render_pick(MapKind.PORT)),
             ("5", "모든 맵 한 번에", self.render_all),
             ("6", "맵을 마크다운으로 화면에 출력", self.render_print),
+            ("7", "HTML 편집 서버 (브라우저에서 노드 고치기·추가·삭제 → 「저장」 이 맵에 바로 반영)", self.render_edit),
+            ("8", "편집 파일 반영 (*.edits.json — file:// 로 연 HTML 이 내려준 것)", self.render_apply_edits),
         ])
+
+    def render_edit(self) -> None:
+        kind = self.ask_choice("종류", [("NEW", "A"), ("HOLD", "B")], "NEW")
+        m = self._pick_map(MapKind(kind or "NEW"))
+        if m is None:
+            return
+        ops = getattr(self, "_edit_ops", None) or self._ops()   # 편집 서버는 콘솔이 살아 있는 동안 한 Ops 에 모아 둔다
+        self._edit_ops = ops
+        url = ops.edit_server(m, open_browser=self.open_browser)
+        self._drain(ops)
+        self.say(f"  편집 서버: {url}")
+        self.say("  브라우저에서 더블클릭으로 고치고 「저장」. 이 콘솔이 켜져 있는 동안 유지된다 (Enter 로 돌아가면 서버는 계속 뜬 채).")
+        if (self.ask("Enter 로 돌아가기 (s 를 치면 서버를 모두 멈춘다)") or "").strip().lower() == "s":
+            self.say(f"  편집 서버 {ops.stop_edit_servers()}개 종료")
+
+    def render_apply_edits(self) -> None:
+        path = self.ask("편집 파일 경로 (*.edits.json)")
+        if not path:
+            return
+        from .ops import OpsError
+
+        ops = self._ops()
+        try:
+            out = ops.apply_edit_file(path.strip().strip('"'))
+        except OpsError as e:
+            self.say(f"  ! {e}")
+            return
+        self._drain(ops)
+        self.say(f"  ✓ {len(out['applied'])}건 → {out['map_id']} v{out['version']}")
 
     def _render(self, m: MindMap, *, summary: bool = False, open_it: bool | None = None) -> Path:
         name = m.map_id.replace(":", "_") + ("_summary" if summary else "") + ".html"

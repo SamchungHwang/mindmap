@@ -307,6 +307,8 @@ class Console:
         view = tk.Menu(bar, tearoff=False)
         view.add_command(label="다시 읽기", command=self.read_db)
         view.add_command(label="고른 맵 HTML 열기", command=lambda: self._guard(self.open_html))
+        view.add_command(label="고른 맵 HTML 편집… (브라우저에서 노드 고치기·추가·삭제 → 바로 저장)", command=lambda: self._guard(self.edit_html))
+        view.add_command(label="편집 파일 반영… (*.edits.json — file:// 로 연 HTML 이 내려준 것)", command=lambda: self._guard(self.apply_edit_file))
         view.add_command(label="출력 폴더 열기", command=self.open_out_dir)
         view.add_separator()
         view.add_command(label="실행 로그 보기", command=self.to_log)
@@ -1605,6 +1607,64 @@ class Console:
         self._open_path(p)
         self.status(f"HTML → {p}")
 
+    def edit_html(self, which: str | None = None) -> None:
+        """고른 맵을 로컬 편집 서버로 연다 — 브라우저 「저장」 이 맵 JSON 에 바로 들어가고, 콘솔은 그 맵을 다시 읽는다."""
+        if which is None:
+            which = "B" if self.b_map else "A"
+        m = self._need(which)
+        url = self.ops.edit_server(m, open_browser=self.open_browser)
+        self._drain_ops_log()
+        self._watch_edit_saves()
+        self.status(f"편집 서버 {url.split('?')[0]} — 브라우저에서 더블클릭으로 고치고 「저장」 (콘솔을 닫으면 멈춤)")
+
+    def apply_edit_file(self) -> None:
+        path = filedialog.askopenfilename(parent=self.root, title="편집 파일 (*.edits.json)",
+                                          filetypes=[("편집 파일", "*.edits.json"), ("JSON", "*.json"), ("모든 파일", "*.*")])
+        if not path:
+            return
+        out = self.ops.apply_edit_file(path)
+        self._drain_ops_log()
+        self._reload_selected()
+        self.status(f"편집 {len(out['applied'])}건 반영 → {out['map_id']} v{out['version']}")
+
+    def _watch_edit_saves(self) -> None:
+        """편집 서버가 저장하면(ops.edit_saved) 고른 종목의 맵을 다시 읽는다 — 메모리의 옛 맵으로 덮어쓰지 않도록."""
+        if getattr(self, "_edit_watch", False):
+            return
+        self._edit_watch = True
+
+        def poll() -> None:
+            try:
+                saved = self.ops.edit_saved
+                if saved:
+                    ids = sorted(set(saved))
+                    saved.clear()
+                    self._drain_ops_log()
+                    self._reload_selected()
+                    self.status("브라우저에서 저장한 편집을 읽었습니다 — " + ", ".join(ids))
+            except Exception as error:  # noqa: BLE001
+                self.log(f"편집 저장 감시 오류 — {error}")
+            if self.ops.edit_servers:
+                self.root.after(1500, poll)
+            else:
+                self._edit_watch = False
+
+        self.root.after(1500, poll)
+
+    def _reload_selected(self) -> None:
+        try:
+            self.read_db()
+        except Exception:  # noqa: BLE001
+            pass
+        if self.selected:
+            a = self.store.latest_map(self.selected, MapKind.NEW)
+            b = self.store.latest_map(self.selected, MapKind.HOLD)
+            self.a_map = a if isinstance(a, NewMap) else None
+            self.b_map = b if isinstance(b, HoldingMap) else None
+            self.a_load()
+            self.b_load()
+            self.show_markdown("B" if self.b_map else "A")
+
     def render_all(self) -> None:
         rows = self.store.list_maps()
         self.progress.configure(maximum=max(1, len(rows)), value=0)
@@ -1636,6 +1696,7 @@ class Console:
 
     def close(self) -> None:
         try:
+            self.ops.stop_edit_servers()
             self.store.close()
         finally:
             self.root.destroy()

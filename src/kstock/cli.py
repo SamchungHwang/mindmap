@@ -21,6 +21,7 @@ import json
 import sys
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 from . import __version__
 from .engine import (
@@ -543,6 +544,80 @@ def cmd_changes(a: argparse.Namespace) -> int:
     return 0
 
 
+def _edit_target(a: argparse.Namespace) -> tuple[Any, Any]:
+    """`--map` 이 파일이면 FileTarget, 아니면 저장소(--db) 의 맵 id. (target, store|None)"""
+    from .render.server import FileTarget, StoreTarget
+    from .store import Store
+
+    ref = a.map
+    if Path(ref).is_file():
+        return FileTarget(ref), None
+    store = Store(a.db)
+    try:
+        store.load_map(ref)
+    except KeyError:
+        store.close()
+        raise SystemExit(f"맵 없음: {ref} (파일 경로나 저장소의 맵 id)") from None
+    return StoreTarget(store, ref, log=print), store
+
+
+def cmd_edit(a: argparse.Namespace) -> int:
+    """마인드맵 HTML 을 로컬 편집 서버로 연다 — 「저장」 이 맵 JSON 에 바로 들어간다 (Ctrl+C 로 종료)."""
+    from .render.server import EditServer
+
+    target, store = _edit_target(a)
+    try:
+        srv = EditServer(target, today=_today(a.date), port=a.port, layout=a.layout, log=print if a.verbose else None)
+        print(f"편집 서버: {srv.url}")
+        print("브라우저에서 노드를 더블클릭해 고치고 「저장」 — 이 창을 닫으면(Ctrl+C) 서버가 멈춘다. 저장 전 편집은 사라진다.")
+        if not a.no_browser:
+            srv.open_browser()
+        try:
+            srv.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            srv.shutdown()
+            print(f"편집 서버 종료 (저장 {srv.saves}회)")
+    finally:
+        if store is not None:
+            store.close()
+    return 0
+
+
+def cmd_apply_edits(a: argparse.Namespace) -> int:
+    """file:// 로 연 HTML 이 내려준 `*.edits.json` 을 맵에 반영한다."""
+    from .generate.edits import EditError, load_edit_file
+    from .render.server import save_edits
+
+    try:
+        payload = load_edit_file(a.file)
+    except (EditError, OSError, ValueError) as e:
+        print(f"오류: {e}")
+        return 2
+    if not a.map:
+        a.map = payload.get("map_id") or ""
+        if not a.map:
+            print("오류: 편집 파일에 map_id 가 없다 — --map 으로 지정")
+            return 2
+    target, store = _edit_target(a)
+    try:
+        out = save_edits(target, payload, today=_today(a.date), check_hash=not a.force)
+    except EditError as e:
+        print(f"거절: {e}")
+        return 2
+    finally:
+        if store is not None:
+            store.close()
+    print(f"적용 {len(out['applied'])}건 → {out['map_id']} v{out['version']}  ({out['path']})")
+    for x in out["applied"]:
+        print("  " + x)
+    for w in out["warnings"]:
+        print("  ⚑ " + w)
+    print(f"HTML: {out['html']}")
+    return 0
+
+
 def cmd_eval_claims(a: argparse.Namespace) -> int:
     """정답표(required_claims/required_risks/candidate_review) 대비 ClaimSet 의 필수 주장 재현율·근거 불일치율."""
     from .generate.evals import eval_claims
@@ -654,6 +729,22 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--summary", action="store_true", help="보유 맵 요약 뷰 (🟢 종목용)")
     s.set_defaults(fn=cmd_render)
 
+    s = sp.add_parser("edit", help="마인드맵 HTML 을 로컬 편집 서버로 열기 — 노드 편집·추가·삭제를 맵 JSON 에 바로 저장")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id (예: A:005930:2026-10-21)")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--port", type=int, default=0, help="고정 포트 (기본: 빈 포트)")
+    s.add_argument("--layout", default="balanced", choices=["balanced", "radial", "right"])
+    s.add_argument("--date")
+    s.add_argument("--no-browser", action="store_true", help="브라우저를 자동으로 열지 않음")
+    s.add_argument("-v", "--verbose", action="store_true", help="요청 로그 출력")
+    s.set_defaults(fn=cmd_edit)
+    s = sp.add_parser("apply-edits", help="HTML 「편집 파일 내려받기」 로 받은 *.edits.json 을 맵에 반영 (file:// 로 연 경우)")
+    s.add_argument("file", help="*.edits.json")
+    s.add_argument("--map", help="맵 JSON 경로 또는 맵 id (기본: 편집 파일의 map_id 를 저장소에서)")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--date")
+    s.add_argument("--force", action="store_true", help="페이지를 연 뒤 맵이 바뀌었어도(base_hash 불일치) 적용")
+    s.set_defaults(fn=cmd_apply_edits)
     s = sp.add_parser("rollup", help="B 맵들 → C 포트폴리오")
     s.add_argument("paths", nargs="+")
     s.add_argument("--cash", type=float, required=True)
