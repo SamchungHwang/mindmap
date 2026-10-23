@@ -241,10 +241,12 @@ def draft_from_reports(paths: Sequence[str | Path], *, ticker: str | None = None
                        research_db: Path | None = None, n_drivers: int = 3, progress: Progress | None = None,
                        fetch_price: bool = False, price_fetcher: Callable[[str], object] | None = None,
                        claims: str = "auto", claims_dir: Path | None = None, llm_groups: bool = False,
-                       issue_check: bool = True) -> DraftResult:
+                       issue_check: bool = True, prefill_suggestions: bool = False) -> DraftResult:
     """리포트 파일들로 A 맵 초안을 만든다. 저장은 하지 않는다 (ops/CLI 가 한다).
 
     issue_check: filler 가 있으면 쟁점마다 기준 명제에 대한 증권사별 판정을 LLM 에 묻는다 (설계 v4 V3). False 면 방향 통계만.
+    prefill_suggestions: 리포트 기반 제안값(내 추정=컨센 등) 을 값 칸에 미리 넣는다 — `suggested` 태그·pending 유지 (설계 v4 §6, 기본 꺼짐).
+      제안값 자체(`meta.draft.suggestions`) 는 옵션과 무관하게 항상 만들어 HTML 편집 폼의 「채우기」 로 받아들일 수 있다.
 
     claims: "auto" = filler 가 있으면 LLM Claim 추출(+3단 검증), 없으면 규칙 분류(저품질); "llm" / "rules" / "off" / "cached"(claims_dir 의 저장본만).
     llm_groups: 예전 그룹 채움(노드 직접 채움) 을 보조로 돌릴지 — 기본 끔 (설계 v3: LLM 은 Claim/Issue 만 만든다).
@@ -329,6 +331,18 @@ def draft_from_reports(paths: Sequence[str | Path], *, ticker: str | None = None
         tick("LLM 그룹 채움", 5)
         notes += fill_groups(m, digest, filler, today=today, sector=sector, anchors=rules.anchors,
                              progress=(lambda lbl, i, n: progress(lbl, 5, steps)) if progress else None, groups=("drivers", "thesis", "risks", "catalysts", "evidence"))
+    # 리포트 기반 제안값 (설계 v4 §6) — 빈 사람 몫 노드 옆에 보일 값. 옵션이면 값 칸에 미리 넣는다
+    from .rules import scenario_anchors
+    from .suggest import apply_prefill, build_suggestions
+
+    anchors = rules.anchors or scenario_anchors(digest, m.current_price)[0]   # Bear 앵커 = 진입 가격대 제안의 아래쪽
+    sugg = build_suggestions(m, issue_set=issue_set, claimsets=claimsets, anchors=anchors)
+    n_sugg = sum(len(v) for v in sugg.values())
+    if n_sugg:
+        notes.append(f"제안값 {n_sugg}개 ({', '.join(sorted(sugg))}) — HTML 편집 폼의 「채우기」 로 받아들인다")
+    if prefill_suggestions and n_sugg:
+        filled = apply_prefill(m, today=today)
+        notes.append(f"제안값 미리 채움 {len(filled)}개 (suggested 태그 · pending 유지): {', '.join(filled)}")
     # 교차검증 → 엔진
     tick("교차검증", steps - 2)
     flags = cross_check(m, digest, today=today)

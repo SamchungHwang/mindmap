@@ -133,6 +133,8 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
         cons_val: float | None = None
         cons_note = ""
         label = kpi.label
+        cell = None   # 컨센서스 셀 — 증권사별 값을 meta.draft.drivers 에 남긴다 (제안값 label 용, 설계 v4 §6)
+        col = ""
         # 영업이익은 분기 표가 있으면 분기 단위가 더 날카롭다 (다음 확인 시점이 가까움)
         q = d.latest_actual_quarter(metric) if metric == "op" else None
         nq = d.next_estimate_quarter(metric) if q is not None else None
@@ -141,6 +143,7 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
             cur_val, cur_note = qval / scale, f"{qlab} 실적 (리포트 표)"
             cons_val, cons_note = nq[1].mean / scale, f"{nq[0]} 컨센서스 — 리포트 {nq[1].n}건 평균"
             label = f"분기 영업이익 ({nq[0][:4]})"
+            cell, col = nq[1], nq[0]
         if cur_val is None:
             ya = d.latest_actual_year(metric)
             ye = d.next_estimate_year(metric)
@@ -152,6 +155,7 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
                 continue
             cur_val, cur_note = va / scale, f"{ya} 실적 (리포트 표)"
             cons_val = c.mean / scale
+            cell, col = c, ye
             lo, hi = min(c.values) / scale, max(c.values) / scale
             cons_note = f"{ye} 컨센서스 — 리포트 {c.n}건 평균" + (f" (범위 {lo:,.1f}~{hi:,.1f})" if c.n > 1 else "")
             label = f"{kpi.label} ({ye})"
@@ -168,6 +172,9 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
         n.as_of = today
         mark_draft(n)
         n.tags = sorted(set(n.tags) | {PENDING_TAG})
+        if cell is not None:
+            m.meta.setdefault("draft", {}).setdefault("drivers", {})[nid] = {
+                "metric": metric, "col": col, "by_broker": {b: round(v / scale, 2) for b, v in cell.by_broker.items()}}
         res.filled.append(nid)
         filled.append(nid)
         used_metrics.add(metric)

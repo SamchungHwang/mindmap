@@ -216,7 +216,7 @@ def cmd_draft(a: argparse.Namespace) -> int:
                 r = ops.draft_from_reports(paths, {"ticker": a.ticker, "name": a.name, "invest_type": a.type, "use_llm": a.llm,
                                                    "llm_kind": a.llm_kind, "save": not a.no_save, "fetch_price": not a.no_fetch,
                                                    "claims": a.claims if a.claims != "auto" else None, "issue_check": not a.no_issue_check,
-                                                   "mode": a.mode},
+                                                   "mode": a.mode, "prefill_suggestions": a.prefill_suggestions},
                                            progress=progress)
             except OpsError as e:
                 print(f"오류: {e}")
@@ -239,7 +239,8 @@ def cmd_draft(a: argparse.Namespace) -> int:
     try:
         r = draft_from_reports(paths, ticker=a.ticker, name=a.name, invest_type=a.type or "growth", today=today, symbols=default_book(),
                                filler=filler, research_db=research_db_path(), progress=progress, fetch_price=not a.no_fetch,
-                               claims=a.claims, claims_dir=Path(a.claims_dir) if a.claims_dir else None, issue_check=not a.no_issue_check)
+                               claims=a.claims, claims_dir=Path(a.claims_dir) if a.claims_dir else None, issue_check=not a.no_issue_check,
+                               prefill_suggestions=a.prefill_suggestions)
     except DraftError as e:
         print(f"오류: {e}")
         return 2
@@ -618,6 +619,47 @@ def cmd_apply_edits(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_suggest(a: argparse.Namespace) -> int:
+    """이미 있는 맵에 리포트 기반 제안값을 (다시) 만든다 — 컨센·진입 가격대는 맵의 meta 만으로 되고, 쟁점 소수 의견은 draft 때 만들어진다."""
+    from .generate.suggest import build_suggestions, stats_text
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+        sugg = build_suggestions(m)
+        if not a.dry_run:
+            target.save(m)
+            target.render(m)
+        print(f"{m.map_id}: 제안값 {sum(len(v) for v in sugg.values())}개 — " + ", ".join(f"{k}({len(v)})" for k, v in sugg.items()) + (" (저장 안 함)" if a.dry_run else ""))
+        print("  " + stats_text(m))
+    finally:
+        if store is not None:
+            store.close()
+    return 0
+
+
+def cmd_eval_suggestions(a: argparse.Namespace) -> int:
+    """제안값 수락률 · 수락 뒤 수정률 (설계 v4 §6.3) — 맵 파일 또는 저장소의 맵 id."""
+    from .generate.suggest import stats_text, suggestion_stats
+
+    if Path(a.map).is_file():
+        m = load_map_file(a.map)
+    else:
+        from .store import Store
+
+        with Store(a.db) as store:
+            try:
+                m = store.load_map(a.map)
+            except KeyError:
+                print(f"맵 없음: {a.map}")
+                return 2
+    print(f"{m.map_id}: {stats_text(m)}")
+    st = suggestion_stats(m)
+    for row in st["log"][-20:]:
+        print(f"  {row['date']} {row['node']} {row['field']} ← {row['kind']}: {str(row['value'])[:60]}")
+    return 0
+
+
 def cmd_eval_claims(a: argparse.Namespace) -> int:
     """정답표(required_claims/required_risks/candidate_review) 대비 ClaimSet 의 필수 주장 재현율·근거 불일치율."""
     from .generate.evals import eval_claims
@@ -769,6 +811,8 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Claim 추출 방식 — auto: --llm 이면 LLM, 아니면 규칙(저품질) / cached: --claims-dir 의 저장본만 (설계 v3)")
     s.add_argument("--claims-dir", metavar="DIR", help="ClaimSet 저장·재사용 폴더 (예: data/claims_llm; 같은 리포트는 다시 뽑지 않음). --db 를 쓰면 저장소의 data/claims")
     s.add_argument("--no-issue-check", action="store_true", help="쟁점의 기준 명제 판정(LLM) 을 생략하고 방향 통계만 (설계 v4 V3)")
+    s.add_argument("--prefill-suggestions", action="store_true",
+                   help="리포트 기반 제안값(내 추정=컨센 등) 을 값 칸에 미리 넣는다 — suggested 태그·pending 유지 (설계 v4 §6; 기본은 편집 폼의 「채우기」 로만)")
     s.add_argument("--db", help="저장소 SQLite — 주면 관심종목 등록 + 맵 저장 (콘솔과 같은 저장소)")
     s.add_argument("--mode", default="replace", choices=["replace", "incremental"],
                    help="--db 와 함께: replace(기본)=그 종목의 기존 A 맵 초안과 이 리포트들의 Claim 저장본을 보관 폴더로 옮기고 전부 다시 / incremental=저장본 재사용, 기존 맵 유지 (기존 맵이 있으면 `changes` 를 쓸 것)")
@@ -843,6 +887,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--min-recall", type=float, default=0.0)
     s.add_argument("--misses", action="store_true", help="못 찾은 필수 주장을 줄마다 출력 ([미추출] / [검토 대기])")
     s.set_defaults(fn=cmd_eval_claims)
+    s = sp.add_parser("suggest", help="이미 있는 맵에 제안값(내 추정=컨센 · 진입 가격대) 을 다시 만들어 저장 — HTML 편집 폼의 「채우기」 에 쓰인다")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--dry-run", action="store_true", help="만들기만 하고 저장하지 않음")
+    s.set_defaults(fn=cmd_suggest)
+    s = sp.add_parser("eval-suggestions", help="리포트 기반 제안값의 수락률·수락 뒤 수정률 (설계 v4 §6 — 앵커링 신호)")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.set_defaults(fn=cmd_eval_suggestions)
     s = sp.add_parser("eval-issues", help="쟁점 정답표(tests/golden/issues) 대비 테마 재현·분류 일치·이견 누락 (설계 v4 V9)")
     s.add_argument("--golden", default="tests/golden/issues")
     s.add_argument("--issues", default="data/issues", help="IssueSet JSON 폴더 (<ticker>.json)")

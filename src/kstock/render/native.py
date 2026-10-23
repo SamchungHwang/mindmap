@@ -118,19 +118,25 @@ _EDIT_KEYS = ("label", "question", "value", "value_type", "unit", "node_type", "
               "next_check", "weight", "links", "tags", "formula")
 
 
-def _edit_fields(n: Node) -> dict[str, Any]:
-    """편집 폼이 채우는 노드 스냅숏 — generate.edits.ALLOWED_FIELDS 와 같은 이름. 하위 스키마는 sub={kind,data}."""
+def _edit_fields(n: Node, m: MindMap | None = None) -> dict[str, Any]:
+    """편집 폼이 채우는 노드 스냅숏 — generate.edits.ALLOWED_FIELDS 와 같은 이름. 하위 스키마는 sub={kind,data}.
+    `suggest` = 리포트 기반 제안값 (meta.draft.suggestions, 설계 v4 §6) — 폼이 빈 칸 옆에 「채우기」 로 보인다."""
     d = n.model_dump(mode="json")
     out: dict[str, Any] = {k: d.get(k) for k in _EDIT_KEYS}
     kind = _kind(n)
     out["sub"] = {"kind": kind, "data": d[kind]} if kind in ("driver", "scenario", "rule", "event") else None
+    if m is not None:
+        rows = ((m.meta.get("draft") or {}).get("suggestions") or {}).get(n.id) or []
+        out["suggest"] = [{"field": s.get("field"), "value": s.get("value"), "label": s.get("label"), "kind": s.get("kind"),
+                           "report_ids": s.get("report_ids") or [], "accepted": bool(s.get("accepted_at")), "prefilled": bool(s.get("prefilled"))}
+                          for s in rows]
     return out
 
 
 def _tree(m: MindMap, parent: Node, fold: set[str], max_depth: int | None, depth: int) -> dict[str, Any]:
     line = node_line(parent)
     node: dict[str, Any] = {"id": parent.id, "html": _md_inline(line), "kind": _kind(parent), "text": _plain(line),
-                            "detail": _detail(parent), "fold": parent.id in fold, "children": [], "edit": _edit_fields(parent)}
+                            "detail": _detail(parent), "fold": parent.id in fold, "children": [], "edit": _edit_fields(parent, m)}
     if max_depth is None or depth < max_depth:
         node["children"] = [_tree(m, c, fold, max_depth, depth + 1) for c in m.children(parent.id)]
     return node
@@ -145,7 +151,7 @@ def build_tree(m: MindMap, *, summary: bool = False, fold: set[str] | None = Non
     root = m.root()
     title = root_title(m).replace("*", "")
     tree: dict[str, Any] = {"id": root.id, "html": f"<b>{html.escape(title)}</b>", "kind": "root", "fold": False, "children": [],
-                            "text": title, "detail": _detail(root), "edit": _edit_fields(root)}
+                            "text": title, "detail": _detail(root), "edit": _edit_fields(root, m)}
     if summary and isinstance(m, HoldingMap):
         for nid in ("B0", "B0.1", "B2.3", "B6", "B3.4", "B4.1"):
             if nid in m:
@@ -219,6 +225,9 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
 #editor button.primary { background:var(--root-bg); color:#fff; }
 #editor button.danger { background:#c23b3b; color:#fff; }
 #editor .err { color:#c23b3b; font-size:12px; white-space:pre-wrap; }
+#editor .sugg { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:2px; }
+#editor .sugg b { color:var(--fg); font-weight:500; }
+#editor .sugg button { padding:2px 8px; font-size:12px; }
 #editor .note { color:var(--muted); font-size:12px; }
 #editbar { position:fixed; left:12px; top:10px; z-index:10; display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
   background:var(--box); border:1px solid var(--box-border); box-shadow:var(--shadow); font-size:13px; }
@@ -584,10 +593,11 @@ _JS = r"""
   function refreshLocal(d) { d.text = localText(d.edit); d.html = esc(d.text); d.detail = localDetail(d.id, d.edit); d.kind = d.edit.sub ? d.edit.sub.kind : d.edit.node_type; }
   function blankEdit() {
     return { label: "", question: "", value: null, value_type: "text", unit: null, node_type: "estimate", enum_options: null, source: null, as_of: EDIT ? EDIT.today : null,
-             confidence: null, status: "unverified", next_check: null, weight: null, links: [], tags: ["user"], formula: null, sub: null };
+             confidence: null, status: "unverified", next_check: null, weight: null, links: [], tags: ["user"], formula: null, sub: null, suggest: [] };
   }
   function assignFields(ed, fields) {
     for (const [k, v] of Object.entries(fields)) {
+      if (k === "_accepted") continue;
       if (SUBS.includes(k)) ed.sub = v ? { kind: k, data: clone(v) } : null; else ed[k] = clone(v);
     }
   }
@@ -717,6 +727,33 @@ _JS = r"""
     const valueIn = `<label>값${vt === "json" ? " (JSON — 질문에 적힌 키 구조)" : ""}${vt === "text" ? inputHtml("value", "textarea", ed.value) : inputHtml("value", vt, v0, opts)}</label>`;
     return `<fieldset data-kind="value"><legend>값</legend>${valueIn}<div class="row two">${typeSel}${unit}</div></fieldset>`;
   }
+  // ----- 리포트 기반 제안값 (설계 v4 §6): 빈 칸 옆에 근거와 「채우기」. 받아들인 것은 _accepted 로 보내 history 출처가 된다
+  const accepted = new Map();   // 입력 칸 이름 → {field, kind, report_ids, value}
+  function inputNameOf(field) { if (field === "value") return "value"; const m = /^(driver|scenario|rule|event)\.(.+)$/.exec(field || ""); return m ? "sub:" + m[2] : null; }
+  function suggText(v) { return (v != null && typeof v === "object") ? JSON.stringify(v, null, 2) : (v == null ? "" : String(v)); }
+  function renderSuggestions(ed) {
+    accepted.clear();
+    (ed.suggest || []).forEach((s, i) => {
+      const name = inputNameOf(s.field); if (!name) return;
+      const el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (!el || !el.closest("label")) return;
+      const box = document.createElement("div"); box.className = "sugg";
+      box.innerHTML = `<span>제안: <b>${esc(s.label)}</b>${s.accepted ? " · 이미 수락" : ""}${s.prefilled ? " · 미리 채움(suggested)" : ""}</span><button type="button" class="fill" data-i="${i}">채우기</button>`;
+      el.closest("label").appendChild(box);
+    });
+  }
+  function fillSuggestion(i) {
+    const s = (editor._ed.suggest || [])[i]; if (!s) return;
+    const name = inputNameOf(s.field), el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (!el) return;
+    el.value = suggText(s.value);
+    accepted.set(name, { field: s.field, kind: s.kind, report_ids: s.report_ids || [], value: s.value });
+    el.focus();
+    showToast("제안값을 넣었다 — 그대로 두면 '리포트 제안 수락' 으로, 고치면 내 값으로 기록된다");
+  }
+  function acceptedNow() {
+    const out = [];
+    for (const [name, a] of accepted) { const el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (el && el.value === suggText(a.value)) out.push(a); }
+    return out;
+  }
   function buildForm(ctx) {
     const ed = ctx.ed, isNew = ctx.mode === "add", canType = isNew || (ed.tags || []).includes("user");
     const subSel = isNew ? `<label class="inline">하위 스키마 ${inputHtml("subkind", "select", ed.sub ? ed.sub.kind : "", SUBS)} <span class="note">드라이버·시나리오·규칙·이벤트는 값 대신 구조화된 필드를 가진다</span></label>` : "";
@@ -734,6 +771,7 @@ _JS = r"""
       `<div class="err" id="eerr"></div>`;
     editor.dataset.mode = ctx.mode; editor.dataset.id = ctx.id || ""; editor.dataset.parent = ctx.parent || "";
     editor._orig = clone(ed); editor._ed = ed;
+    renderSuggestions(ed);
     document.getElementById("editor-title").textContent = ctx.title;
     document.getElementById("ed-delete").style.display = (ctx.mode === "edit" && nodes.get(ctx.id) && nodes.get(ctx.id).depth > 0) ? "" : "none";
     editor.classList.add("show"); panel.classList.remove("show");
@@ -798,6 +836,8 @@ _JS = r"""
       if (ed.sub) fields[ed.sub.kind] = null;
     }
     if (!String(fields.label || "").trim()) return { error: "라벨이 비어 있다" };
+    const acc = acceptedNow();
+    if (acc.length) fields._accepted = acc;
     return { fields };
   }
   function changedOnly(fields, orig) {
@@ -806,7 +846,11 @@ _JS = r"""
     for (const k of Object.keys(fields)) {
       if (SUBS.includes(k)) before[k] = (o.sub && o.sub.kind === k) ? o.sub.data : null; else before[k] = o[k];
     }
-    for (const [k, v] of Object.entries(fields)) if (JSON.stringify(v == null ? null : v) !== JSON.stringify(before[k] == null ? null : before[k])) out[k] = v;
+    for (const [k, v] of Object.entries(fields)) {
+      if (k === "_accepted") continue;
+      if (JSON.stringify(v == null ? null : v) !== JSON.stringify(before[k] == null ? null : before[k])) out[k] = v;
+    }
+    if (fields._accepted && Object.keys(out).length) out._accepted = fields._accepted;
     return out;
   }
   async function applyForm() {
@@ -824,15 +868,20 @@ _JS = r"""
     closeEditor(); showToast((op.op === "add" ? "추가했다" : "고쳤다") + " (저장 전) — 「저장」 으로 맵에 반영");
   }
   if (EDIT) {
-    eform.addEventListener("click", e => { if (e.target.classList.contains("advtoggle")) e.target.closest("fieldset").classList.toggle("showadv"); });
+    eform.addEventListener("click", e => {
+      if (e.target.classList.contains("advtoggle")) e.target.closest("fieldset").classList.toggle("showadv");
+      else if (e.target.classList.contains("fill")) fillSuggestion(Number(e.target.dataset.i));
+    });
     eform.addEventListener("change", e => {
       const ed = editor._ed;
       if (e.target.name === "subkind") {
         const kind = e.target.value; ed.sub = kind ? { kind, data: ed.sub && ed.sub.kind === kind ? ed.sub.data : {} } : null;
         document.getElementById("subarea").innerHTML = ed.sub ? subFieldset(kind, ed.sub.data) : valueBlock(ed);
+        renderSuggestions(ed);
       } else if (e.target.name === "value_type" && !ed.sub) {
         const { out } = readInputs(); ed.value_type = e.target.value; ed.value = out.value === "" ? null : out.value; ed.unit = out.unit;
         document.getElementById("subarea").innerHTML = valueBlock(ed);
+        renderSuggestions(ed);
       }
     });
     eform.addEventListener("submit", e => { e.preventDefault(); applyForm(); });

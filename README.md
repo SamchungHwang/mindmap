@@ -65,6 +65,8 @@ mindmap status maps\B_005930.json                            # 상태등 + 매�
 mindmap render maps\B_005930.json -o out\B.html              # 양쪽 균형 HTML (--layout radial|right, --format markmap|md|mermaid)
 mindmap edit maps\A_005930.json                              # HTML 을 로컬 편집 서버로 열기 — 노드 고치기·추가·삭제가 맵 JSON 에 바로 저장 (맵 id 도 됨)
 mindmap apply-edits A_005930.edits.json --map maps\A_005930.json   # file:// 로 연 HTML 이 내려준 편집 파일 반영
+mindmap suggest A:005930:2026-10-21                           # 기존 맵에 제안값(내 추정=컨센 · 진입 가격대) 다시 만들기 → 편집 폼 「채우기」
+mindmap eval-suggestions A:005930:2026-10-21                  # 제안 수락률 · 수락 뒤 수정률 (앵커링 신호)
 mindmap rollup maps\B_*.json --cash 80000000 -o maps\C.json  # C 포트폴리오
 mindmap draft --reports r1.pdf r2.pdf r3.pdf --db data\db\kstock.sqlite --html   # 증권사 리포트 여러 건 → A 맵 초안
 ```
@@ -291,6 +293,13 @@ Markdown 으로.
   `user` 태그를 얻고 `draft`·`pending`·⚑ 가 떨어진다 — 변경안(changes) 은 그 노드를 자동 적용하지 않는다. 루트와 「기본 정보」 묶음은
   지울 수 없고, 새 노드 id 는 부모 아래 다음 번호(`A4.6`, 루트 아래는 `A9`, 기본 정보 아래는 `A0.5`) 다. 페이지를 연 뒤 맵이 달라졌으면
   (base_hash) 저장을 거절하니 새로고침 뒤 다시 고친다.
+
+**리포트 기반 제안값** — 초안이 비워 두는 사람 몫 칸 가운데 리포트가 근거를 줄 수 있는 것(A1 내 추정 = 컨센서스, A2.2 핵심 이견의 소수 의견,
+A4 조건부 리스크 문장, A6.2 진입 가격대) 은 `meta.draft.suggestions` 에 **제안값**으로 들어가고, 편집 폼의 빈 칸 아래 "제안: 컨센 13.0% (IBK · 유진 · DS)
+[채우기]" 로 보인다. 값 칸에 자동으로 넣지 않는 이유는 설계 v4 §6 — 「채우기」 로 받아들이면 history 에 "리포트 제안 수락 — 컨센서스 (리포트 id)" 가
+남고, 받아들인 뒤 고치면 보통 편집이다. `draft --prefill-suggestions`(콘솔 체크박스 「제안값 미리 채우기」) 는 값 칸에 미리 넣되 `suggested` 태그와
+`pending` 을 유지하고, 사람이 편집 폼에서 저장하면 `user` 로 바뀐다. `mindmap suggest <맵>` 이 기존 맵에 제안값을 다시 만들고,
+`mindmap eval-suggestions <맵>` 이 수락률·수락 뒤 수정률(0% 면 앵커링 신호) 을 낸다.
 
 2026-10-23 이전에 만든 HTML 은 다시 렌더링해야(`mindmap render …` 또는 콘솔 「마인드맵 HTML 열기」) 복사·편집 기능이 들어간다.
 

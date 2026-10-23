@@ -1238,7 +1238,8 @@ class Ops:
                                    symbols=self.book, filler=filler, research_db=research_db_path(self.store), progress=progress,
                                    fetch_price=fetch, price_fetcher=f.get("price_fetcher"),
                                    claims=claims_mode, claims_dir=self.store.claims_dir, n_drivers=5,
-                                   llm_groups=bool(f.get("llm_groups", False)), issue_check=bool(f.get("issue_check", True)))
+                                   llm_groups=bool(f.get("llm_groups", False)), issue_check=bool(f.get("issue_check", True)),
+                                   prefill_suggestions=bool(f.get("prefill_suggestions", False)))
         except DraftError as e:
             raise OpsError(str(e)) from e
         if r.issue_set is not None:

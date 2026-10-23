@@ -426,8 +426,9 @@ class Console:
         use_llm = self.ask_yes("LLM(Claim 추출·검증·쟁점 판정) 을 쓸까요?", llm_available())
         fetch = self.ask_yes("현재가를 작성 시점 기준으로 네이버에서 조회할까요?", True)
         replace = self.ask_yes("새로 만들까요? (y: 기존 A 맵 초안·Claim 저장본을 보관 폴더로 옮기고 전부 다시 / n: 기존에 더하기 — 변경안)", True)
+        prefill = self.ask_yes("제안값(내 추정=컨센 등) 을 값 칸에 미리 채울까요? (n: HTML 편집 폼의 「채우기」 로만)", False)
         f = {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True, "fetch_price": fetch,
-             "mode": "replace" if replace else "incremental"}
+             "mode": "replace" if replace else "incremental", "prefill_suggestions": prefill}
         if not replace:
             tk_, latest = ops.draft_target(paths, f)
             if latest is not None:

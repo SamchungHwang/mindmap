@@ -34,7 +34,7 @@ from ..models import HistoryPoint, MindMap, Node, Source
 
 EDIT_SOURCE = "사용자 편집 (HTML)"
 USER_TAG = "user"
-DROP_TAGS = {"draft", "pending", "warn"}
+DROP_TAGS = {"draft", "pending", "warn", "suggested"}   # suggested = 옵션으로 미리 채운 제안값 (설계 v4 §6) — 사람이 저장하면 user
 CONTENT_KEYS = ("value", "driver", "scenario", "rule", "event")
 ALLOWED_FIELDS = {"label", "question", "value", "value_type", "unit", "enum_options", "source", "as_of", "confidence", "status",
                   "next_check", "weight", "links", "tags", "formula", "node_type", *CONTENT_KEYS}
@@ -147,6 +147,8 @@ def _clean_fields(fields: dict[str, Any]) -> dict[str, Any]:
 def _apply_set(m: MindMap, nid: str, fields: dict[str, Any], today: date, res: EditResult) -> None:
     if nid not in m.nodes:
         raise EditError(f"{nid}: 노드가 없다")
+    fields = dict(fields)
+    accepted = fields.pop("_accepted", None) or []   # 편집 폼이 「채우기」 로 받아들인 제안값 (설계 v4 §6) — 노드에 저장하지 않고 history 출처로만
     bad = sorted(set(fields) - ALLOWED_FIELDS)
     if bad:
         raise EditError(f"{nid}: 고칠 수 없는 필드 {bad}")
@@ -160,16 +162,21 @@ def _apply_set(m: MindMap, nid: str, fields: dict[str, Any], today: date, res: E
     except ValidationError as e:
         raise EditError(f"{nid}: " + "; ".join(f"{'.'.join(str(x) for x in err['loc'])}: {err['msg']}" for err in e.errors()[:3])) from e
     content = _changed(old_dump, new.model_dump(mode="json"), CONTENT_KEYS)
+    accept_src = None
+    if accepted and isinstance(accepted, list):
+        from .suggest import record_acceptance
+
+        accept_src = record_acceptance(m, nid, [a for a in accepted if isinstance(a, dict)], today=today)
     if content:
         prev = old.value if "value" in content else next((getattr(old, k).model_dump(mode="json") for k in content if getattr(old, k) is not None), None)
         # HistoryPoint.value 는 필수이고 맵 저장은 exclude_none 이라 None 을 넣으면 다시 읽지 못한다
         new.history = [*old.history, HistoryPoint(as_of=old.as_of or today, value="(비어 있음)" if prev is None else prev,
-                                                  source=Source(name=EDIT_SOURCE, retrieved_at=today))]
+                                                  source=accept_src or Source(name=EDIT_SOURCE, retrieved_at=today))]
         if "as_of" not in fields:
             new.as_of = today
     new.tags = sorted((set(new.tags) | {USER_TAG}) - DROP_TAGS)
     m.nodes[nid] = new
-    res.applied.append(f"set {nid}" + (f" ({', '.join(content)})" if content else ""))
+    res.applied.append(f"set {nid}" + (f" ({', '.join(content)})" if content else "") + (" ← 제안 수락" if accept_src else ""))
 
 
 def _apply_add(m: MindMap, parent: str, fields: dict[str, Any], today: date, res: EditResult, temp_id: str | None) -> str:

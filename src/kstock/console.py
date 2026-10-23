@@ -1043,6 +1043,7 @@ class Console:
             ("mode", "생성 방식", "combo", MODE_REPLACE, [MODE_REPLACE, MODE_INCR]),
             ("fetch_price", "현재가를 작성 시점 기준으로 조회 (네이버 금융) — 끄면 리서치 DB 종가·리포트 현재주가", "check", True, None),
             ("use_llm", "LLM — Claim 추출·3단 검증·쟁점 기준 명제 판정 (.env 의 ANTHROPIC_API_KEY)", "check", llm_ok, None),
+            ("prefill_suggestions", "제안값 미리 채우기 — 내 추정=컨센 등을 값 칸에 넣음 (suggested 태그·pending 유지; 기본은 HTML 편집 폼의 「채우기」)", "check", False, None),
             ("open_html", "끝나면 마인드맵 HTML 열기", "check", True, None),
         ], note=note)
         f = dlg.result
