@@ -199,6 +199,20 @@ LLM 이 없으면 키워드 문장 분류로 대체하고 `quality: rules`(저�
 - **문서 (V10)** — v3 의 P2.5 를 실제 순서로 정정.
 - **생성 방식 (부록, 2026-10-22)** — 콘솔 「리포트로 자동 생성…」 의 기본은 **새로 만들기**: 그 종목의 기존 A 맵 **초안**(meta.draft 가 있는 것; B 맵이 참조하거나 사용자가 처음부터 만든 맵은 유지) 을 `data/maps/_archive/` 로, 이 리포트들의 Claim 저장본을 `data/claims/_archive/<시각>/` 로 옮기고(사람이 승인/반려한 Claim 수를 로그에) 전부 다시 뽑는다. **기존에 더하기** 를 고르면 기존 맵은 그대로 두고 새 리포트는 「변경안」으로 간다(저장본 재사용). CLI `draft --db … --mode replace|incremental`, 텍스트 콘솔은 "새로 만들까요?" 질문.
 
+### 설계 v5 (2026-10-24) — 핵심 드라이버 = 원인 변수, `docs/report-draft-design-v5.md`
+
+매출·영업이익·EPS·영업이익률은 주가를 움직이는 **원인이 아니라 결과**다. 이제 A1 은 원인 변수(KR-SEMI: **DRAM ASP · HBM · 메모리 원가 · 파운드리 손익 · FCF·주주환원**, 사용자 결정 순서) 로 채우고, 결과 지표는 **A3.7 「재무 전망 (결과 지표)」** 로 간다(삭제 아님). 전부 기본값이 있어 옛 맵이 그대로 읽힌다.
+
+- **원인 변수의 숫자는 Claim 에서** (`generate/cause.py`) — Claim 의 `quant_refs` 를 **(driver_id, 변수(asp·volume·op·cost…), 측정(QoQ·YoY·수준), 단위, 기간, 확실성)** 셀로 묶는다. 증권사마다 metric 이름이 달라도(`dram_asp_qoq` vs `dram_asp_change`) 같은 셀이 되어 "DRAM ASP QoQ 3Q26: 유진 +21 · DS +19 → 컨센 20" 처럼 증권사별 값이 보인다. `current` 는 실적·발표(realized) Claim 만, `consensus` 는 전망(expected) Claim. 숫자가 없으면 `kind=qualitative` + 대체 관측 지표(`proxies`) — 지어내지 않는다. 섹터 사전이 없는 회사는 쟁점 표의 원인 테마를 점수(증권사 수 × 핵심 이견/공통 가중 + 메커니즘 + 수치) 로 골라 라벨은 리포트 표현 그대로 두고, 질문에 **선택 근거**를 적는다. 최종 선택은 사람(HTML 편집으로 교체).
+- **사업부 표 추출** (`reports/segments.py`) — "사업부별 실적 전망" 표에서 DS/메모리/DRAM/NAND/HBM/파운드리/MX/VD/SDC/Harman × 매출·영업이익·영업이익률 × 기간 을 읽는다(증권사별 이름 차이는 `SEGMENT_ALIASES`: 반도체=DS, 비메모리=Foundry/LSI=LSI/Foundry=SLSI, IM=무선=MX…). `ReportFacts.segments` → `ReportDigest.segments`(증권사별 셀; `3Q26` 처럼 접미 없이 찾으면 …P/…E 를 합쳐 준다). 삼성전자 3건(IBK·유진·DS) 전부 잡히고 Claim 본문 수치(메모리 OP 110.1조·Foundry −1.5조) 와 맞는다. 파운드리 손익 같은 손익 드라이버는 이 표로 채운다.
+- **민감도** (`engine/sensitivity.py`) — 변수 Δ → 영업이익 → 순이익 → EPS → 적정주가, 1차 선형·다른 변수 고정. 템플릿: 가격·물량(`사업부 매출 × Δ% × k`), 원가율(`−매출 × Δ%p`), 손익 직접(`|사업부 영업이익| × Δ%`), 주주환원(`FCF × Δ%p / N`, 주가 환산 없음), 수주. 공통 꼬리: `t = 1 − NP/OP`, `N = NP/EPS`, `PER = 목표가 중앙값/EPS` — 전부 표에서 유도. **입력마다 출처**(사업부 표 · 표 · Claim · 사용자 · 기본값 · 유도) 가 붙고, 빠지면 "민감도 미계산 — 필요: …" 로 드러난다. 전가율 k 는 기본값 1.0 을 쓰되 **"k 기본값"** 으로 표시(사용자 결정). LLM 은 민감도를 만들지 않는다. 삼성전자 실측(c3 Claim + 리포트 PDF 3건): DRAM ASP +10% → 영업이익 +54.1조 → EPS +7,438원 → 적정주가 +47,316원(+18.1%); HBM +10% → +9,372원; 메모리 원가 +1%p → −6,674원; 파운드리 손익 +10% → +50원; FCF·주주환원은 FCF 입력 필요. 드라이버끼리 **더하지 말 것**(중복).
+- **편집·명령** — HTML 편집 폼의 드라이버 필드에 `kind`·`proxies`·`invalidation_condition`(무효화 조건)·`sensitivity_inputs`(JSON: `segment_revenue` 억원 · `pass_through` · `tax_rate` · `shares` · `per_target` · `fcf` …) 가 있고, 적용/저장하면 민감도가 다시 계산된다. `mindmap sensitivity <맵> [--driver A1.1] [--delta 10] [--set pass_through=0.8] [--save]`, `mindmap eval-drivers <맵>`(정답표 `tests/golden/drivers/<ticker>.json` 대비 재현·순서·결과 지표 혼입·수치·민감도). `draft --claims cached --mode replace` 는 Claim 저장본을 그대로 쓰고 맵만 v5 구조로 다시 만든다(LLM 비용 없음).
+- **검증** — `kind=quant` 드라이버는 현재값·내 추정이, `qualitative` 는 관측 지표와 무효화 조건이 있어야 한다. 조기 경보 지표(A4.5) 는 원인 드라이버의 관측 지표로.
+
+### 설계 v6 (2026-10-24, 검토 — 구현 전) — 밸류에이션 & 시나리오, `docs/report-draft-design-v6.md`
+
+A3 를 **A1 드라이버 → 사업부 실적 → 평가 모델(PER 기본 · SOTP 검증) → Bear/Base/Bull = 드라이버 가정 묶음(통합 1차 모델, 합산 아님) → 확률가중 가치 · 기대수익률(배당 별도) · 하방 · 안전마진 → A6** 으로 잇는 제안의 검토. 결론은 타당·구현 가능이고, 기존 id 는 유지하고 A3.8 평가 기준 · A3.9 평가 모델 · A3.10 확률가중 투자 매력도 · A3.11 모델 신뢰도를 신설하는 안. 삼성전자 3건으로 식을 돌려 보면 Base = 컨센 EPS × 목표 PER 중앙값은 목표가 중앙값을 그대로 재현하고(내 추정이 들어가야 의미), 완만한 Bear 는 현재가 위에 뜬다(현재가는 2027E 이익 지속을 믿지 않는다 — 역산으로 드러낸다). 확률·멀티플·내 추정은 사람 몫, LLM 은 숫자를 만들지 않는다. 사용자 결정 7개(§7) 뒤 S1~S5 로 구현.
+
 ## Python API 로 한 바퀴
 
 ```python
@@ -243,7 +257,7 @@ src/kstock/
   reports/     리포트 파일 → 텍스트(loader: PDF/TXT/MD/HTML/DOCX, 페이지 경계 유지) → 사실(extract: 의견·목표가·현재가·추정치 표·기준(지배/연결)·문장)
                → 종목 합산(digest: 증권사별 최신 1건 · 45일 · 실적 전 표시 · spread) · dbcheck(리서치 DB 교차 확인)
                · claims(리포트 → Claim: 청크 → LLM/규칙 추출 → 인용 위치 확인) · validate_claims(3단계 검증: 인용 존재 · 숫자 일치 · 의미 지지)
-  generate/    리포트 → A 맵 초안(설계 v3): kpi_catalog(섹터 KPI · 드라이버 사전) · rules(규칙 채움, 사람 몫은 pending) · scenarios(리포트 제시 케이스만)
+  generate/    리포트 → A 맵 초안(설계 v3): kpi_catalog(섹터 KPI · 드라이버 사전 · v5 원인 KPI) · cause(원인 변수 셀·A1 선택, v5) · rules(규칙 채움 — 결과 지표는 A3.7) · scenarios(리포트 제시 케이스만)
                · issues(Claim → 테마/메커니즘 쟁점, 공통 견해/핵심 이견) · mapping(쟁점·Claim → A0/A1/A2.1/A3.6/A4/A5/A8.4) · check(교차검증)
                · changes(새 리포트 → 변경안 → 승인 반영 · 버전) · evals(골든 초안 · 추출/Claim 평가) · prompts+llm_fill(LLM 호출, 로컬 OpenAI 호환 포함) · draft(파이프라인)
   collect/     수집기 인터페이스 · CSV 오프라인 소스 · 규칙 기반 이벤트 분류기 · adapters/ (naver_quote 작성 시점 현재가, research_db 읽기 전용, DART·KRX·KIS·컨센서스 골격)

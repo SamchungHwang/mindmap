@@ -78,6 +78,13 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
     for n in drivers:
         d = n.driver
         assert d is not None
+        if d.kind == "qualitative":
+            # 설계 v5: 공개 숫자가 없는 원인 변수 — 숫자 대신 관측 지표와 무효화 조건이 있어야 한다
+            if not (d.check_indicator or d.proxies):
+                issues.append(Issue("error", n.id, "정성 드라이버 — 관측 지표(check_indicator/proxies) 가 없다"))
+            if not d.invalidation_condition:
+                issues.append(Issue("error", n.id, "정성 드라이버 — 무효화 조건(invalidation_condition) 이 없다"))
+            continue
         if d.current.value is None:
             issues.append(Issue("error", n.id, "driver.current 가 없다"))
         if d.my_estimate.value is None:

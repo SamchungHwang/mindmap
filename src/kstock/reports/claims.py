@@ -231,6 +231,9 @@ def claims_from_answer(answer: dict[str, Any], *, doc: ReportDoc, report_id: str
         label = str(raw.get("driver_label") or "") or None
         if did is None and label:
             did = normalize_driver(label, sector=sector)
+        if did is None and not label:
+            # LLM 이 드라이버를 안 적은 Claim (두산에너빌리티 실측 1건은 10개 전부) — 명제 키워드로 한 번 더 (설계 v5 §8 ⓒ)
+            did = normalize_driver(str(raw.get("proposition") or ""), sector=sector)
         try:
             c = Claim(
                 claim_id=f"{report_id}:c{seq[0]}", report_id=report_id, broker=broker, report_date=report_date,

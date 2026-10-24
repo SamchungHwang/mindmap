@@ -112,18 +112,32 @@ def fill_price(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult,
     return p
 
 
+RESULT_SLOTS = {"revenue": "A3.7.1", "op": "A3.7.2", "eps": "A3.7.3", "opm": "A3.7.4"}   # 설계 v5: 결과 지표 자리 (A1 → A3.7)
+
+
+def ensure_result_nodes(m: NewMap) -> None:
+    """A3.7 재무 전망 묶음이 없는 옛 스켈레톤에 노드를 만든다."""
+    from ..templates.questions import A_SPEC
+    from ..templates.skeleton import _node_from_spec
+
+    for nid in ("A3.7", *RESULT_SLOTS.values()):
+        if nid not in m.nodes and nid in A_SPEC:
+            m.add(_node_from_spec(MapKind.NEW, nid, A_SPEC[nid]))
+
+
 def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, sector: str | None) -> list[str]:
-    """A1.x — 추정치 표에서 바로 채울 수 있는 KPI 만. current = 최근 실적(A), consensus = 차년도 E 평균, my_estimate = 컨센(초안)."""
+    """**결과 지표** (매출·영업이익·EPS·영업이익률) 를 추정치 표에서 A3.7.x 에 채운다 (설계 v5 — 전에는 A1 이었다).
+    current = 최근 실적(A), consensus = 차년도 E 평균, my_estimate = 비움. Driver 구조를 그대로 쓰되 role=result."""
     src = d.source_all()
-    slots = [n.id for n in m.children("A1")]
-    cands = sorted((k for k in kpi_candidates(sector) if k.metric), key=lambda k: DRIVER_METRIC_ORDER.get(k.metric or "", 9))
+    ensure_result_nodes(m)
+    cands = sorted((k for k in kpi_candidates(sector) if k.metric and k.metric in RESULT_SLOTS), key=lambda k: DRIVER_METRIC_ORDER.get(k.metric or "", 9))
     filled: list[str] = []
     used_metrics: set[str] = set()
     nxt_dates = next_earnings(today)
     next_check = nxt_dates[0][0] if nxt_dates else today + timedelta(days=90)
     amt_unit, amt_scale = d.amount_unit
     for kpi in cands:
-        if len(filled) >= len(slots) or kpi.metric in used_metrics:
+        if kpi.metric in used_metrics:
             continue
         metric = kpi.metric
         scale = amt_scale if metric in AMOUNT_METRICS else 1.0
@@ -161,26 +175,28 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
             label = f"{kpi.label} ({ye})"
         if cur_val is None or cons_val is None:
             continue
-        nid = slots[len(filled)]
+        nid = RESULT_SLOTS[metric]
         n = m[nid]
         n.label, n.unit = label, unit
         n.driver = Driver(
             current=Measurement(value=round(cur_val, 2), as_of=d.as_of, source=src, rationale=cur_note),
             consensus=Measurement(value=round(cons_val, 2), as_of=d.as_of, source=src, rationale=cons_note),
             my_estimate=Measurement(value=None, as_of=None, rationale="내 추정은 논제의 주인이 쓴다 — 비워 두면 계산은 컨센서스 기준(임시)"),
-            check_indicator=kpi.check_indicator, next_check=next_check, higher_is_better=kpi.higher_is_better)
+            check_indicator=kpi.check_indicator, next_check=next_check, higher_is_better=kpi.higher_is_better,
+            metric=metric, period=col or None, role="result", kind="quant")
         n.as_of = today
         mark_draft(n)
         n.tags = sorted(set(n.tags) | {PENDING_TAG})
         if cell is not None:
             m.meta.setdefault("draft", {}).setdefault("drivers", {})[nid] = {
-                "metric": metric, "col": col, "by_broker": {b: round(v / scale, 2) for b, v in cell.by_broker.items()}}
+                "metric": metric, "col": col, "role": "result", "by_broker": {b: round(v / scale, 2) for b, v in cell.by_broker.items()}}
         res.filled.append(nid)
         filled.append(nid)
         used_metrics.add(metric)
-    if len(filled) < 3:
-        want = [k.label for k in kpi_candidates(sector) if not k.metric][:4]
-        res.notes.append(f"드라이버 {len(filled)}개만 표에서 채움 — 3개 이상 필요. 섹터 KPI 후보: {', '.join(want) or '없음'} (수동 입력 또는 LLM)")
+    if filled:
+        res.notes.append(f"결과 지표 {len(filled)}개를 표에서 A3.7 에 채움 ({', '.join(m[x].label for x in filled)}) — 원인 드라이버(A1) 는 Claim 에서")
+    else:
+        res.notes.append("추정치 표에서 결과 지표를 채우지 못했다 (A3.7 비움)")
     return filled
 
 
@@ -310,7 +326,8 @@ def fill_risks(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) 
         n.question = (base_q + f" | 키워드 후보(미검증): {_trim(text, 120)}")[:400]
         n.tags = sorted(set(n.tags) | {PENDING_TAG})
         res.notes.append(f"{nid}: 키워드 문장은 후보로만 (질문) — 리스크 확정은 Claim 또는 사람")
-    drivers = m.drivers()
+    # 원인 드라이버(A1) 는 뒤에 cause 모듈이 채우므로 여기서는 표의 결과 지표(A3.7) 를 예시·경보 지표로 쓴다
+    drivers = m.drivers() or [n for n in (m.children("A3.7") if "A3.7" in m else []) if n.driver is not None]
     # Kill 기준은 자동으로 만들지 않는다 (설계 v3): 원문 근거(조건부 리스크 주장) 가 있으면 mapping 이 제안하고, 없으면 질문으로 남긴다
     m["A4.4.1"].tags = sorted(set(m["A4.4.1"].tags) | {PENDING_TAG})
     if drivers and drivers[0].driver and drivers[0].driver.current.value:
@@ -487,4 +504,4 @@ def fill_from_digest(m: NewMap, d: ReportDigest, *, today: date, sector: str | N
     return res
 
 
-__all__ = ["DRAFT", "DRAFT_TAG", "RuleFillResult", "fill_from_digest", "scenario_anchors", "next_earnings", "mark_draft"]
+__all__ = ["DRAFT", "DRAFT_TAG", "RuleFillResult", "fill_from_digest", "scenario_anchors", "next_earnings", "mark_draft", "RESULT_SLOTS", "ensure_result_nodes"]

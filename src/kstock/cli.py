@@ -638,6 +638,63 @@ def cmd_suggest(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sensitivity(a: argparse.Namespace) -> int:
+    """원인 드라이버 민감도 (설계 v5 §3) — 보기 · 충격 크기 바꾸기 · 입력 넣기(--set segment_revenue=5400000) · 저장."""
+    from .engine.sensitivity import compute_all, compute_sensitivity, sensitivity_table
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+        if a.set:
+            if not a.driver:
+                print("오류: --set 은 --driver 와 함께")
+                return 2
+            d = m[a.driver].driver
+            for kv in a.set:
+                k, _, v = kv.partition("=")
+                d.sensitivity_inputs[k.strip()] = None if v.strip() in ("", "none", "null") else float(v)
+        if a.driver:
+            m[a.driver].driver.sensitivity = compute_sensitivity(m, a.driver, delta_pct=a.delta, today=_today(a.date))
+        else:
+            compute_all(m, today=_today(a.date))
+        print(sensitivity_table(m))
+        if a.save:
+            target.save(m)
+            target.render(m)
+            print(f"저장: {m.map_id}")
+        elif a.set:
+            print("(저장하려면 --save)")
+    finally:
+        if store is not None:
+            store.close()
+    return 0
+
+
+def cmd_eval_drivers(a: argparse.Namespace) -> int:
+    """원인 드라이버 정답표(tests/golden/drivers/<ticker>.json) 대비 맵의 A1 — 재현·순서·결과 지표 금지·수치·민감도 (설계 v5 R5)."""
+    from .generate.evals import eval_drivers
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+    finally:
+        if store is not None:
+            store.close()
+    gp = Path(a.golden) / f"{m.ticker}.json"
+    if not gp.is_file():
+        print(f"정답표 없음: {gp}")
+        return 2
+    g = json.loads(gp.read_text(encoding="utf-8"))
+    ev = eval_drivers(g, m)
+    print(f"{ev.ticker}: 원인 드라이버 {ev.found}/{ev.expected} ({ev.recall:.0%}) · 순서 {'일치' if ev.order_ok else '다름'} · 결과 지표 혼입 {len(ev.forbidden_hits)}"
+          f" · 수치 {ev.quant_ok}/{ev.quant_expected} · 민감도 계산 {ev.sensitivity_ok}/{ev.sensitivity_expected}" + ("" if g.get("verified") else " · (정답표 verified:false)"))
+    for x in ev.forbidden_hits:
+        print(f"      ✗ A1 에 결과 지표: {x}")
+    for mi in ev.misses:
+        print(f"      ✗ {mi}")
+    return 0 if (ev.found == ev.expected and not ev.forbidden_hits) else 1
+
+
 def cmd_eval_suggestions(a: argparse.Namespace) -> int:
     """제안값 수락률 · 수락 뒤 수정률 (설계 v4 §6.3) — 맵 파일 또는 저장소의 맵 id."""
     from .generate.suggest import stats_text, suggestion_stats
@@ -892,6 +949,20 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--db", default="data/db/kstock.sqlite")
     s.add_argument("--dry-run", action="store_true", help="만들기만 하고 저장하지 않음")
     s.set_defaults(fn=cmd_suggest)
+    s = sp.add_parser("sensitivity", help="원인 드라이버 민감도 — 변수 Δ% → 영업이익 → EPS → 적정주가 (설계 v5 §3; 입력 출처와 미계산 사유를 보여 준다)")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--driver", help="A1.x 하나만 (기본: 원인 드라이버 전부)")
+    s.add_argument("--delta", type=float, help="충격 크기 (% 또는 %p; 기본 템플릿별 10 / 원가율 1)")
+    s.add_argument("--set", nargs="*", help="사용자 입력 key=value (segment_revenue 억원 · segment_op · pass_through · tax_rate · shares · per_target · fcf · orders …)")
+    s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_sensitivity)
+    s = sp.add_parser("eval-drivers", help="원인 드라이버 정답표(tests/golden/drivers) 대비 A1 재현·순서·결과 지표 혼입·수치·민감도 (설계 v5)")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--golden", default="tests/golden/drivers")
+    s.set_defaults(fn=cmd_eval_drivers)
     s = sp.add_parser("eval-suggestions", help="리포트 기반 제안값의 수락률·수락 뒤 수정률 (설계 v4 §6 — 앵커링 신호)")
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")

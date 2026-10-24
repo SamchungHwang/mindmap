@@ -105,33 +105,7 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
         body = head + "; ".join(parts) + ". 시장이 아직 반영하지 않은 것(A2.2) 과 판단은 논제의 주인이 쓴다."
         m["A0"].set(body, as_of=today, status=NodeStatus.unverified, source=d.source_all())
         mark_draft(m["A0"])
-    # ---------------------------------------------------------------- A1 빈 슬롯 → 상위 테마
-    slots = [n for n in m.children("A1") if n.driver is None]
-    used_labels = {n.label for n in m.children("A1") if n.driver is not None}
-    for t in ts:
-        if not slots:
-            break
-        if t.driver_id in (None, "valuation_multiple", "shareholder_return", "cost") or t.driver_label in used_labels:
-            continue
-        if t.n_brokers < 2 and t.display != IssueDisplay.disagreement:
-            continue
-        n = slots.pop(0)
-        n.label = t.driver_label
-        n.question = f"[{t.display.value if t.display else ''}] {t.summary[:160]} — 확인지표와 현재값은 사람이 정한다"
-        n.links = [f"issue:{t.issue_id}"]
-        n.source = d.source_all()
-        n.as_of = today
-        from ..models import Driver, Measurement
-
-        sp = t.numeric_spread
-        cur = Measurement(value=None, rationale="리포트에 일관된 수치 없음")
-        cons = Measurement(value=round(sp.median, 2) if sp else None, as_of=d.as_of, source=d.source_all(),
-                           rationale=(f"{sp.metric} {sp.col or ''} 증권사 {len(sp.values)}곳 중앙값 (범위 {sp.min:,.1f}~{sp.max:,.1f})" if sp else "수치 없음"))
-        n.unit = sp.unit if sp else None
-        n.driver = Driver(current=cur, consensus=cons, my_estimate=Measurement(value=None, rationale="논제의 주인이 쓴다"),
-                          check_indicator=", ".join(mm.mechanism or "" for mm in mechanisms_of(issue_set, t)[:3] if mm.mechanism) or "리포트 쟁점 참조")
-        n.tags = sorted(set(n.tags) | {DRAFT_TAG, PENDING_TAG})
-        notes.append(f"{n.id} 드라이버 ← 쟁점 테마 '{t.driver_label}' ({t.display.value if t.display else ''}; 수치는 사람이)")
+    # A1 원인 드라이버는 generate.cause.fill_cause_drivers 가 채운다 (설계 v5 — 결과 지표는 A3.7, 테마 → A1 자동 배정은 거기서)
     # ---------------------------------------------------------------- A2.1.x 쟁점
     for old in [x for x in m.nodes.values() if x.parent == "A2.1"]:
         del m.nodes[old.id]
@@ -151,7 +125,9 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
                + (f" · 부분 동의 {', '.join(partial)}" if partial else "") + (f" · 안 읽음 {', '.join(unread)}" if unread else "")
                + ("\n" + "\n".join(mech_lines) if mech_lines else "")
                + ("\n미해결: " + " / ".join(t.unresolved_questions[:2]) if t.unresolved_questions else ""))
-        driver_link = next((n.id for n in m.children("A1") if n.label == t.driver_label), None)
+        from .cause import driver_node_for
+
+        driver_link = driver_node_for(m, t.driver_id, t.driver_label)
         node = Node(id=nid, map=MapKind.NEW, parent="A2.1", label=f"[{t.display.value if t.display else '?'}] {t.driver_label}", node_type="estimate",
                     value_type="text", value=val, as_of=today, source=Source(name=f"리포트 쟁점 {t.issue_id} · claims {','.join(t.claim_ids[:6])}", retrieved_at=today),
                     links=[driver_link] if driver_link else [], tags=[DRAFT_TAG], question="리포트에서 관측된 컨센서스·이견 — 현재 주가에 내재된 기대와는 다르다")
@@ -195,7 +171,7 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
     # 리포트의 "수율이 60% 미달이면 수익성 개선 지연" 은 논제 붕괴 조건이 아니다. 자동으로는 Risk Trigger 후보만 만들고,
     # 관측 가능 여부·갱신 주기·위반 시 행동 세 칸을 사람이 채워 확정한다 (ops.apply_kill_candidate).
     kill_src = [c for c in risks if c.condition]
-    drivers = {n.label: n for n in m.children("A1") if n.driver is not None}
+    drivers = {n.label: n for n in (m.children("A1") + (m.children("A3.7") if "A3.7" in m else [])) if n.driver is not None}
     cands: list[dict] = []
     for c in kill_src[:6]:
         q = c.quant_refs[0] if c.quant_refs else None

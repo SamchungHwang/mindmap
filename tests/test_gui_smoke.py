@@ -354,7 +354,8 @@ class TestGuiReportDraft(unittest.TestCase):
         self.assertEqual(app.selected, "005930")
         self.assertIn("005930", app.tree.get_children())
         self.assertEqual(app.a_map.decision.value, "WATCH")
-        self.assertEqual(app.a_drivers[0]["label"].get(), "분기 영업이익 (4Q26)")
+        self.assertEqual(app.a_drivers[0]["label"].get(), "DRAM ASP")             # 설계 v5: A1 = 원인 변수 (결과 지표는 A3.7)
+        self.assertEqual(app.a_map["A3.7.2"].label, "분기 영업이익 (4Q26)")
         self.assertEqual(app.a_vars["decision"].get(), "WATCH")
         self.assertIn("A 맵 초안", app.over_text.get())
         self.assertTrue(list(app.store.out_dir.glob("A_005930*.html")))  # open_html 이 마지막에 HTML 을 만든다
@@ -365,7 +366,7 @@ class TestGuiReportDraft(unittest.TestCase):
         issues = app.a_save()
         errs = [i for i in issues if i.startswith("[ERR")]
         # 설계 v3: 초안은 내 추정(A1.2~)·시나리오·Kill 을 비워 두므로 저장 시 그 오류는 남는다 — 그 밖의 오류는 없어야 한다
-        self.assertTrue(all(("my_estimate" in e) or ("시나리오" in e) or ("Kill" in e) for e in errs), errs)
+        self.assertTrue(all(("my_estimate" in e) or ("시나리오" in e) or ("Kill" in e) or ("정성 드라이버" in e) for e in errs), errs)
         self.assertEqual(app.a_map["A1.1"].driver.my_estimate.value, 110)
         # 현재가 갱신 — 오프라인이라 네트워크·DB 모두 없음 → 입력 오류 안내
         with self.assertRaises(self.console.OpsError):

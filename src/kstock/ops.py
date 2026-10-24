@@ -1230,7 +1230,10 @@ class Ops:
             raise OpsError(f"생성 방식 {mode!r} — replace | incremental")
         claims_mode = text(f.get("claims")) or "auto"
         if mode == "replace" and f.get("save", True):
-            self.archive_claim_cache(paths)                       # 저장본을 치우고 다시 뽑는다
+            if claims_mode == "cached":
+                self.log("새로 만들기 — Claim 저장본은 그대로 재사용(--claims cached), 맵만 다시 만든다")   # 구조만 바뀐 경우(설계 v5) LLM 비용 없이
+            else:
+                self.archive_claim_cache(paths)                   # 저장본을 치우고 다시 뽑는다
             if not text(f.get("claims")):
                 claims_mode = "llm" if filler is not None else "rules"
         try:

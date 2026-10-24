@@ -218,12 +218,16 @@ class TestDraft(unittest.TestCase):
         self.assertTrue(r.complete, [str(i) for i in r.errors])
         self.assertEqual(m.decision.value, "WATCH")
         self.assertEqual(m.current_price, 258000)
-        self.assertEqual(len(m.drivers()), 3)
-        a11 = m["A1.1"]
-        self.assertEqual(a11.label, "분기 영업이익 (4Q26)")
-        self.assertEqual((a11.unit, a11.driver.current.value, a11.driver.consensus.value), ("조원", 107.4, 64.0))
-        self.assertIsNone(a11.driver.my_estimate.value)                       # 설계 v3: 내 추정은 빈칸
-        self.assertIn("논제의 주인", a11.driver.my_estimate.rationale)
+        # 설계 v5: A1 은 섹터 원인 KPI 5개 (규칙 모드엔 Claim 수치가 없어 전부 정성), 결과 지표는 A3.7
+        self.assertEqual([n.label for n in m.drivers()], ["DRAM ASP", "HBM", "메모리 원가", "파운드리 손익", "FCF·주주환원"])
+        self.assertTrue(all(n.driver.role == "cause" and n.driver.kind == "qualitative" and n.driver.proxies for n in m.drivers()))
+        self.assertIn("선택 근거", m["A1.1"].question)
+        a372 = m["A3.7.2"]
+        self.assertEqual(a372.label, "분기 영업이익 (4Q26)")
+        self.assertEqual((a372.unit, a372.driver.current.value, a372.driver.consensus.value, a372.driver.role), ("조원", 107.4, 64.0, "result"))
+        self.assertIsNone(a372.driver.my_estimate.value)                      # 설계 v3: 내 추정은 빈칸
+        self.assertIn("논제의 주인", a372.driver.my_estimate.rationale)
+        self.assertIn("DRAMeXchange", m.value("A4.5"))                        # 조기 경보 지표 = 원인 드라이버의 관측 지표
         self.assertIsNone(m["A4.4.1"].rule)                                   # Kill 은 근거 없이 만들지 않는다 — 질문에 예시만
         self.assertIn("예시(미검증)", m["A4.4.1"].question)
         self.assertEqual(m.scenarios(), {})                                   # 리포트 제시 케이스 없음 → 공란
@@ -233,7 +237,7 @@ class TestDraft(unittest.TestCase):
         self.assertIn("목표가", m.value("A3.6.4"))                             # 분포 노드
         self.assertEqual(m.value("A3.6.3"), "up")
         pend = [str(i) for i in r.pending]
-        self.assertTrue(any("시나리오" in x for x in pend) and any("my_estimate" in x for x in pend) and any("Kill" in x for x in pend), pend)
+        self.assertTrue(any("시나리오" in x for x in pend) and any("정성 드라이버" in x for x in pend) and any("Kill" in x for x in pend), pend)
         self.assertTrue(m.catalysts())
         self.assertEqual(m["A8.2"].links, ["S.KR-SEMI"])
         self.assertIn("조원", m.value("A8.1.4"))
@@ -283,8 +287,9 @@ class TestDraft(unittest.TestCase):
         self.assertIn("HBM 점유율", labels)
         self.assertNotIn("지어낸 변수", labels)                      # evidence 가 자료에 없으면 거부
         self.assertTrue(any("환각" in n for n in r.notes))
-        self.assertEqual(m["A1.1"].driver.current.value, 107.4)       # keep_id 드라이버의 숫자는 LLM 이 못 바꾼다
-        self.assertEqual(m["A1.1"].driver.my_estimate.value, 110)
+        self.assertEqual(m["A3.7.2"].driver.current.value, 107.4)     # 결과 지표(A3.7) 의 숫자는 LLM 이 못 바꾼다
+        self.assertEqual(m["A1.1"].driver.my_estimate.value, 110)     # keep_id(A1.1 = DRAM ASP) 의 내 추정만 받는다
+        self.assertEqual(m["A1.1"].driver.role, "cause")
         self.assertEqual(m.scenarios(), {})                           # 시나리오는 LLM 도 만들지 않는다
         self.assertEqual([k.condition for k in m.kill_rules()], ["driver[A1.1].current < 80"])
         self.assertTrue(m.value("A0").startswith("[LLM 초안]"))
@@ -347,7 +352,7 @@ class TestDraft(unittest.TestCase):
         r = draft_from_reports(TXTS, today=TODAY, filler=Broken())
         self.assertTrue(r.complete)
         self.assertTrue(any("실패" in n for n in r.notes))
-        self.assertEqual(r.map["A1.1"].driver.current.value, 107.4)
+        self.assertEqual(r.map["A3.7.2"].driver.current.value, 107.4)
         self.assertEqual(r.map.meta["draft"]["quality"], "rules")        # 저품질로 표기
         self.assertTrue(any("저품질" in f or "규칙 분류" in f for f in r.flags))
 
@@ -375,7 +380,7 @@ class TestOpsCli(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0].status, "WATCH")
         form = self.ops.a_form(r.map)
-        self.assertEqual(form["drivers"][0]["label"], "분기 영업이익 (4Q26)")
+        self.assertEqual(form["drivers"][0]["label"], "DRAM ASP")
         self.assertEqual(form["decision"], "WATCH")
         self.assertIn("초안", self.ops.overview_text("005930"))
         with self.assertRaises(OpsError):

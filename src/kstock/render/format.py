@@ -89,6 +89,12 @@ def node_line(n: Node, *, show_question: bool = True, show_meta: bool = True) ->
             s += f" ⟨{d.direction.value}⟩"
         if d.next_check:
             s += f" · 확인 {d.next_check.isoformat()}"
+        if d.kind == "qualitative" and not seq:
+            s = "정성 — " + (d.check_indicator[:60] if d.check_indicator else "관측 지표 미정")
+        if d.sensitivity is not None and d.role == "cause":
+            from ..engine.sensitivity import sensitivity_short
+
+            s += " · " + sensitivity_short(d.sensitivity)
         parts.append(s)
     elif n.scenario is not None:
         sc = n.scenario

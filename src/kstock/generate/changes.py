@@ -33,7 +33,8 @@ def map_hash(m: NewMap) -> str:
     payload = [m.nodes[nid].model_dump(mode="json", include={"id", "value", "driver", "scenario", "rule", "event", "tags", "links"}) for nid in sorted(m.nodes)]
     return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
-COMPARE_DRIVER = ("A1.1", "A1.2", "A1.3", "A1.4", "A1.5")
+COMPARE_DRIVER = ("A1.1", "A1.2", "A1.3", "A1.4", "A1.5",            # 원인 드라이버 (설계 v5)
+                  "A3.7.1", "A3.7.2", "A3.7.3", "A3.7.4")                  # 결과 지표 (매출·영업이익·EPS·OPM — 전에는 A1 이었다)
 
 
 def _user_touched(n: Node) -> bool:
@@ -56,9 +57,13 @@ def input_snapshot_id(report_ids: list[str], today: date) -> str:
 def _affects(node_id: str, kind: ChangeKind, fresh: NewMap) -> list[str]:
     """이 변경과 함께 바뀌어야 하는 노드 (v4 V7). A1 추정치 → 목표가 분포·그 테마의 A2.1.x 쟁점; TP 리비전 → A3.6.3; 새 리스크 → Kill 후보."""
     out: list[str] = []
-    if kind == ChangeKind.estimate and node_id.startswith("A1."):
+    if kind == ChangeKind.estimate and node_id.startswith(("A1.", "A3.7.")):
         out.append("A3.6.4")
-        label = fresh[node_id].label if node_id in fresh.nodes else ""
+        if node_id.startswith("A1."):
+            # 원인 드라이버가 바뀌면 그 결과 지표(A3.7) 도 같이 봐야 한다 — 그리고 그 테마의 쟁점
+            out += [n.id for n in fresh.children("A3.7") if n.driver is not None] if "A3.7" in fresh.nodes else []
+            out += list(fresh[node_id].links) if node_id in fresh.nodes else []
+        label = fresh[node_id].label.split(" (")[0] if node_id in fresh.nodes else ""
         out += [n.id for n in fresh.children("A2.1") if label and label in (n.label or "")]
     elif kind == ChangeKind.tp_revision and node_id == "A3.6.4":
         out.append("A3.6.3")

@@ -323,3 +323,59 @@ def eval_issues(golden: dict[str, Any], issue_set) -> IssueEval:  # noqa: ANN001
 
 __all__ = ["GOLDEN_DIR", "FACT_FIELDS", "EST_METRICS", "golden_draft_from_facts", "write_golden_drafts", "ExtractEval", "FieldScore",
            "eval_extract", "ClaimEval", "eval_claims", "IssueEval", "eval_issues"]
+
+
+# ---------------------------------------------------------------------------- 설계 v5: 원인 드라이버 평가
+@dataclass
+class DriverEval:
+    ticker: str = ""
+    expected: int = 0
+    found: int = 0
+    order_ok: bool = True
+    forbidden_hits: list[str] = field(default_factory=list)
+    quant_ok: int = 0
+    quant_expected: int = 0
+    sensitivity_ok: int = 0
+    sensitivity_expected: int = 0
+    misses: list[str] = field(default_factory=list)
+
+    @property
+    def recall(self) -> float:
+        return self.found / self.expected if self.expected else 1.0
+
+
+def eval_drivers(golden: dict[str, Any], m) -> DriverEval:  # noqa: ANN001
+    """`tests/golden/drivers/<ticker>.json` 대비 A1 원인 드라이버 — 기대 driver_id 재현·순서·결과 지표 금지·수치/정성·민감도 계산 여부."""
+    ev = DriverEval(ticker=str(golden.get("ticker") or m.ticker or ""))
+    info = (m.meta.get("draft") or {}).get("drivers") or {}
+    a1 = [(n.id, (info.get(n.id) or {}).get("driver_id"), n) for n in m.drivers()]
+    got_ids = [did for _, did, _ in a1]
+    exp = golden.get("expected_drivers") or []
+    ev.expected = len(exp)
+    for did in exp:
+        if did in got_ids:
+            ev.found += 1
+        else:
+            ev.misses.append(f"[드라이버 없음] {did}")
+    ev.order_ok = [d for d in got_ids if d in exp] == [d for d in exp if d in got_ids]
+    if not ev.order_ok:
+        ev.misses.append(f"[순서 다름] 결과 {got_ids} / 기대 {exp}")
+    for nid, did, n in a1:
+        if did in (golden.get("forbidden_in_a1") or []) or (n.driver and n.driver.role == "result"):
+            ev.forbidden_hits.append(f"{nid} {did or n.label}")
+    for did in golden.get("expect_quant") or []:
+        ev.quant_expected += 1
+        n = next((n for _, d, n in a1 if d == did), None)
+        if n is not None and n.driver and n.driver.kind == "quant" and n.driver.consensus.value is not None:
+            ev.quant_ok += 1
+        else:
+            ev.misses.append(f"[수치 없음] {did} — 정성으로 남음")
+    for did in golden.get("sensitivity_computed") or []:
+        ev.sensitivity_expected += 1
+        n = next((n for _, d, n in a1 if d == did), None)
+        if n is not None and n.driver and n.driver.sensitivity and n.driver.sensitivity.status == "계산됨":
+            ev.sensitivity_ok += 1
+        else:
+            miss = (n.driver.sensitivity.missing if n is not None and n.driver and n.driver.sensitivity else ["드라이버 없음"])
+            ev.misses.append(f"[민감도 미계산] {did}: {'; '.join(miss)[:120]}")
+    return ev

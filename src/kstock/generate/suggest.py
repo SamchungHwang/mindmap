@@ -57,7 +57,8 @@ def _consensus(m: NewMap) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     meta_drivers = (m.meta.get("draft") or {}).get("drivers") or {}
     by_broker_rid = _report_ids_by_broker(m)
-    for n in m.drivers():
+    nodes = list(m.drivers()) + ([n for n in m.children("A3.7") if n.driver is not None] if "A3.7" in m else [])   # 원인(A1) + 결과(A3.7)
+    for n in nodes:
         d = n.driver
         if d is None or d.my_estimate.value is not None or d.consensus.value is None:
             continue

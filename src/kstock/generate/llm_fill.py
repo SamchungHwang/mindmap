@@ -540,9 +540,9 @@ def apply_drivers(m: NewMap, data: dict[str, Any], d: ReportDigest, *, today: da
             mark_draft(node)
             m.add(node)
             chosen.append(node)
-    # LLM 이 고르지 않은 규칙 드라이버는 비운다 (3개 미만이 되면 남긴다)
+    # LLM 이 고르지 않은 규칙 드라이버는 비운다 (3개 미만이 되면 남긴다). 설계 v5 의 원인 드라이버(role=cause) 는 남긴다
     for sid in free:
-        if len(chosen) >= 3:
+        if len(chosen) >= 3 and not (m[sid].driver is not None and m[sid].driver.role == "cause"):
             m[sid].driver = None
             m[sid].label = f"드라이버 {sid.split('.')[1]}"
             m[sid].unit = None

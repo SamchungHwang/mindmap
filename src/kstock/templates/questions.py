@@ -65,6 +65,12 @@ A_SPEC: dict[str, NodeSpec] = {
     "A3.6.1": _s("역사 밴드 위치", "fact", "percent", True, "현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?", unit="%ile"),
     "A3.6.2": _s("피어 비교", "fact", "text", False, "피어 대비 프리미엄/디스카운트와 그 정당성은?"),
     "A3.6.3": _s("EPS 리비전 방향", "fact", "enum", True, "최근 3개월 컨센서스 EPS 방향", enum_options=["up", "flat", "down"]),
+    # 설계 v5: 매출·영업이익·EPS·영업이익률은 원인이 아니라 결과 — A1 에서 여기로. 원인 변수(A1) 의 변화가 이 숫자로 이어진다
+    "A3.7": _s("재무 전망 (결과 지표)", "question", "text", False, "원인 변수(A1) 가 만들어 내는 숫자 — 증권사 표 컨센서스와 내 추정"),
+    "A3.7.1": _s("매출액", "estimate", "number", False, "A1 의 가격·물량 가정이 매출로 얼마나 이어지나", unit="억원"),
+    "A3.7.2": _s("영업이익", "estimate", "number", False, "매출 증가분이 얼마나 이익으로 남나 (원가·레버리지)", unit="억원"),
+    "A3.7.3": _s("EPS", "estimate", "number", False, "이익이 주당가치로 얼마나 전환되나 (세금·주식 수)", unit="원"),
+    "A3.7.4": _s("영업이익률", "estimate", "percent", False, "원가 드라이버의 결과", unit="%"),
 
     "A4": _s("리스크 & 무효화 조건", "question", "text", True, "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나"),
     "A4.1": _s("하락 리스크 1", "estimate", "range", True, "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}"),

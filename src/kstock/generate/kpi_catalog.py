@@ -21,20 +21,43 @@ class Kpi:
     cadence_days: int = 90
     # 리포트 추정치 표에서 바로 채울 수 있는 지표면 metric 키 (revenue/op/np/eps/opm…), 아니면 None(수동·LLM)
     metric: str | None = None
+    # ---- 설계 v5: 원인 변수(cause) 는 A1, 결과 지표(result) 는 A3.7 로 간다
+    role: str = "cause"
+    driver_id: str | None = None      # Claim 의 driver_id (DRIVERS) — 이 드라이버의 Claim 수치 셀을 찾는 열쇠
+    variable: str | None = None       # 셀의 변수 축: asp | volume | cost | margin | op | revenue | fcf | orders | backlog | capacity
+    template: str | None = None       # 민감도 템플릿: price_volume | cost_ratio | direct_op | payout | orders
+    segment: str | None = None        # 민감도에 쓰는 사업부 매출 (세그먼트 표의 행 이름)
+    kind: str = "quant"               # quant | qualitative (공개 숫자가 없는 변수는 정성 + proxies)
+    proxies: tuple[str, ...] = ()
 
 
 COMMON_KPIS: list[Kpi] = [
-    Kpi("op_annual", "연간 영업이익", "억원", True, "분기 실적 발표 (잠정 → 확정) · 컨센서스 추이", 90, "op"),
-    Kpi("rev_annual", "연간 매출액", "억원", True, "분기 실적 발표 · 월별 수출 데이터", 90, "revenue"),
-    Kpi("eps_fwd", "EPS", "원", True, "컨센서스 EPS 리비전 (월 1회)", 30, "eps"),
-    Kpi("opm", "영업이익률", "%", True, "분기 실적 발표", 90, "opm"),
+    Kpi("op_annual", "연간 영업이익", "억원", True, "분기 실적 발표 (잠정 → 확정) · 컨센서스 추이", 90, "op", role="result"),
+    Kpi("rev_annual", "연간 매출액", "억원", True, "분기 실적 발표 · 월별 수출 데이터", 90, "revenue", role="result"),
+    Kpi("eps_fwd", "EPS", "원", True, "컨센서스 EPS 리비전 (월 1회)", 30, "eps", role="result"),
+    Kpi("opm", "영업이익률", "%", True, "분기 실적 발표", 90, "opm", role="result"),
 ]
 
+# 설계 v5 §1·§7 ①: KR-SEMI 원인 드라이버 5개 — 라벨·순서는 사용자 결정 그대로. 다른 섹터는 그 종목 맵을 만들 때 정의한다 (§7 ⑤).
 SECTOR_KPIS: dict[str, tuple[str, list[Kpi]]] = {
     "KR-SEMI": ("반도체", [
-        Kpi("dram_price", "DRAM 계약가 변동률", "%", True, "DRAMeXchange 월간 계약가 · 트렌드포스", 30),
-        Kpi("hbm_share", "HBM 점유율", "%", True, "분기 컨콜 HBM 코멘트 · 트렌드포스 분기 점유율", 90),
-        Kpi("capex", "설비투자", "조원", False, "분기 실적 발표 CAPEX 가이던스", 90),
+        Kpi("dram_asp", "DRAM ASP", "%", True, "DRAMeXchange 월간 계약가 · 트렌드포스 · 분기 실적 컨콜 ASP 코멘트 (계약가와 현물가를 구별)", 30,
+            driver_id="dram_price", variable="asp", template="price_volume", segment="DRAM",
+            proxies=("DRAM 계약가 (DRAMeXchange)", "현물가 추이", "bit growth")),
+        Kpi("hbm", "HBM", "%", True, "HBM4 고객 인증·양산 전환 · 수율 · 패키징 CAPA · 트렌드포스 HBM 출하 (B/G 와 ASP·믹스를 따로)", 90,
+            driver_id="hbm", variable="volume", template="price_volume", segment="HBM",
+            proxies=("고객 인증·양산 출하", "HBM4 수율·패키징 CAPA", "세대별 제품 구성", "고객별 점유율")),
+        Kpi("memory_cost", "메모리 원가", "%", False, "웨이퍼 투입량 · 수율 · 감가상각비 · 첨단 패키징 비용 · 재고 변동 (분기보고서)", 90,
+            driver_id="cost", variable="cost", template="cost_ratio", segment="메모리", kind="qualitative",
+            proxies=("웨이퍼 투입량", "수율", "감가상각비", "패키징 비용", "재고 변동")),
+        Kpi("foundry", "파운드리 손익", "조원", True, "선단공정 가동률 · 대형 고객 양산 전환 · 수율 · 테일러 공장 비용 (분기 실적 사업부 손익)", 90,
+            driver_id="foundry", variable="op", template="direct_op", segment="파운드리",
+            proxies=("선단공정 가동률", "대형 고객 양산 전환", "수율", "테일러 공장 비용")),
+        Kpi("fcf_payout", "FCF·주주환원", "조원", True, "영업현금흐름 − CAPEX · 배당금 · 자사주 매입·소각 (분기보고서 · IR · 밸류업 공시)", 90,
+            driver_id="shareholder_return", variable="fcf", template="payout",
+            proxies=("영업활동현금흐름", "CAPEX", "운전자본", "배당·자사주 소각")),
+        # 보조 원인 후보 (5개 뒤)
+        Kpi("capex", "설비투자", "조원", False, "분기 실적 발표 CAPEX 가이던스", 90, driver_id="capex", variable="capex"),
         Kpi("inventory_days", "재고일수", "일", False, "분기보고서", 90),
     ]),
     "KR-BATT": ("2차전지", [
@@ -144,6 +167,17 @@ def kpi_candidates(sector: str | None) -> list[Kpi]:
     return list(sec) + [k for k in COMMON_KPIS if k.key not in keys]
 
 
+def cause_kpis(sector: str | None) -> list[Kpi]:
+    """섹터의 원인 KPI (role=cause, 정의된 순서) — A1 을 채우는 순서다 (설계 v5). `driver_id` 가 있는(v5 로 정의된) 것만 —
+    옛 보조 KPI(MAU·테이크레이트 …) 는 A1 후보가 아니고, 그런 섹터는 쟁점 표의 테마로 채운다 (사용자 결정 ⑤)."""
+    return [k for k in SECTOR_KPIS.get(sector or "", ("", []))[1] if k.role == "cause" and k.metric is None and k.driver_id]
+
+
+def result_kpis() -> list[Kpi]:
+    """결과 지표 (role=result, 표에서 채움) — A3.7 로 간다."""
+    return [k for k in COMMON_KPIS if k.role == "result" and k.metric]
+
+
 # --------------------------------------------------------------------------- 드라이버 정규화 사전 (설계 v3 §2.2 / §2.3)
 @dataclass(frozen=True)
 class DriverDef:
@@ -152,21 +186,25 @@ class DriverDef:
     synonyms: tuple[str, ...]
     sector: str | None = None          # None = 공통
     default_target: str | None = None  # 보통 영향을 주는 대상 지표 (metric id)
+    role: str = "cause"                # 설계 v5: 결과 지표(실적·추정치 변경·마진·매출 성장·배수) 는 A1 원인 후보에서 뺀다
+
+
+RESULT_DRIVER_IDS = frozenset({"revenue_growth", "opm", "earnings", "estimate_revision", "valuation_multiple"})
 
 
 DRIVERS: list[DriverDef] = [
     # 공통
-    DriverDef("revenue_growth", "매출 성장", ("매출 성장", "매출액 증가", "외형 성장", "top-line"), None, "revenue"),
-    DriverDef("opm", "영업이익률", ("영업이익률", "마진", "OPM", "수익성"), None, "op"),
+    DriverDef("revenue_growth", "매출 성장", ("매출 성장", "매출액 증가", "외형 성장", "top-line"), None, "revenue", role="result"),
+    DriverDef("opm", "영업이익률", ("영업이익률", "마진", "OPM", "수익성"), None, "op", role="result"),
     # 실적 그 자체(분기 잠정치·서프라이즈·부문 실적·분기 전망) 와 추정치 변경은 테마가 갈라지지 않게 공통 id 로 모은다 (실측에서 자유 라벨 8종이 따로 섰다)
-    DriverDef("earnings", "실적·영업이익", ("영업이익", "실적", "서프라이즈", "잠정", "컨센서스 상회", "컨센서스 부합", "어닝", "분기 전망"), None, "op"),
+    DriverDef("earnings", "실적·영업이익", ("영업이익", "실적", "서프라이즈", "잠정", "컨센서스 상회", "컨센서스 부합", "어닝", "분기 전망"), None, "op", role="result"),
     DriverDef("estimate_revision", "추정치 변경", ("추정치 상향", "추정치 하향", "EPS 상향", "EPS 하향", "EPS(", "전망치 상향", "전망치 하향",
-                                                "상향 조정", "하향 조정", "추정 변경", "추정치 변경"), None, "eps"),
+                                                "상향 조정", "하향 조정", "추정 변경", "추정치 변경"), None, "eps", role="result"),
     DriverDef("cost", "비용", ("비용 증가", "비용 부담", "판관비", "마케팅비", "인건비", "감가상각", "원가"), None, "op"),
     DriverDef("fx", "환율", ("환율", "원/달러", "달러 약세", "달러 강세", "원화 강세"), None, "op"),
     DriverDef("shareholder_return", "주주환원", ("주주환원", "배당", "자사주", "소각", "밸류업"), None, "eps"),
     DriverDef("valuation_multiple", "밸류에이션 배수", ("PER", "PBR", "멀티플", "밸류에이션", "리레이팅", "re-rating", "디스카운트",
-                                                   "목표주가", "시장 우려", "우려 해소", "주가 전망", "주가 상승", "저평가", "재평가"), None, "target_price"),
+                                                   "목표주가", "시장 우려", "우려 해소", "주가 전망", "주가 상승", "저평가", "재평가"), None, "target_price", role="result"),
     DriverDef("regulation", "규제·정책", ("규제", "정책", "입법", "공정위", "관세"), None, "op"),
     DriverDef("macro_rates", "금리·매크로", ("금리", "경기", "매크로", "소비 둔화"), None, "op"),
     DriverDef("capex", "설비투자", ("CAPEX", "설비투자", "투자 확대", "증설"), None, "op"),
@@ -231,5 +269,5 @@ def driver_catalog_text(sector: str | None) -> str:
     return "\n".join(f"- {d.id} — {d.label} ({', '.join(d.synonyms[:4])})" for d in rows)
 
 
-__all__ = ["Kpi", "COMMON_KPIS", "SECTOR_KPIS", "SECTOR_WORDS", "guess_sector", "sector_name", "kpi_candidates",
+__all__ = ["Kpi", "COMMON_KPIS", "SECTOR_KPIS", "SECTOR_WORDS", "guess_sector", "sector_name", "kpi_candidates", "cause_kpis", "result_kpis", "RESULT_DRIVER_IDS",
            "DriverDef", "DRIVERS", "driver_def", "normalize_driver", "driver_catalog_text"]

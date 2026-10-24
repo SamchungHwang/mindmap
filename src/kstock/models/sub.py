@@ -32,8 +32,44 @@ class Measurement(BaseModel):
     rationale: str | None = None
 
 
+class SensitivityInput(BaseModel):
+    """민감도 계산에 들어간 입력 하나 — 값과 **출처**(표·Claim·세그먼트 표·사용자·기본값·유도·없음) 를 함께 적는다 (설계 v5 §3)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    value: float | None = None
+    unit: str | None = None
+    source: str = Field(default="missing", pattern="^(table|claim|segment|user|default|derived|missing)$")
+    period: str | None = None
+    note: str | None = None
+
+
+class Sensitivity(BaseModel):
+    """드라이버 변화 → 영업이익 → EPS → 적정주가 (1차 선형, ceteris paribus). 계산되지 않으면 status=미계산 + missing (설계 v5 §3).
+    금액은 억원, EPS·주가는 원. 코드만 계산한다 — LLM 은 민감도를 만들지 않는다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    template: str = Field(default="price_volume", pattern="^(price_volume|cost_ratio|direct_op|payout|orders)$")
+    input_delta_pct: float = 10.0
+    op_delta: float | None = None
+    np_delta: float | None = None
+    eps_delta: float | None = None
+    price_delta: float | None = None
+    price_delta_pct: float | None = None
+    inputs: list[SensitivityInput] = Field(default_factory=list)
+    status: str = Field(default="미계산", pattern="^(계산됨|미계산)$")
+    missing: list[str] = Field(default_factory=list)
+    method: str = ""
+    computed_at: date | None = None
+
+    def n_by_source(self, source: str) -> int:
+        return sum(1 for i in self.inputs if i.source == source)
+
+
 class Driver(BaseModel):
-    """핵심 드라이버 (A1.x / B2.1.x)."""
+    """핵심 드라이버 (A1.x / B2.1.x). 설계 v5: 원인 변수(role=cause) 와 결과 지표(role=result, A3.7.x) 가 같은 구조를 쓴다."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,6 +83,16 @@ class Driver(BaseModel):
     direction: Direction | None = None
     # 큰 값이 좋은 변수인가 (마진↑ 좋음=True, 부채비율↑ 좋음=False). 방향 판정에 사용.
     higher_is_better: bool = True
+    # ---- 설계 v5 (전부 기본값 — 옛 저장본 호환)
+    metric: str | None = None                         # 관측하는 변수 id (원인: dram_asp·hbm_bg… / 결과: revenue·op·eps·opm)
+    period: str | None = None                         # 관측·예측 기간 ("3Q26" · "2027E") — 현재값과 전망값은 같은 기간이어야 비교된다
+    kind: str = Field(default="quant", pattern="^(quant|qualitative)$")   # 정성 드라이버는 숫자 대신 관측 지표·무효화 조건이 필수
+    role: str | None = Field(default=None, pattern="^(cause|result)$")     # None = 옛 맵 (판정 전)
+    proxies: list[str] = Field(default_factory=list)  # 공개 정보가 제한된 변수의 대체 관측 지표
+    invalidation_condition: str | None = None         # 이 가설이 약화되는 조건 (문장)
+    invalidation_rule: str | None = None              # 그 조건을 Kill 규칙으로 올렸으면 그 노드 id (A4.4.x)
+    sensitivity: Sensitivity | None = None
+    sensitivity_inputs: dict[str, float | None] = Field(default_factory=dict)   # 사용자가 준 입력 (segment_revenue 억원 · pass_through …)
 
     def compute_direction(self, tol_rel: float = 0.05) -> Direction | None:
         """at_entry → current 가 my_estimate 쪽으로 움직였으면 강화, 멀어졌으면 약화."""

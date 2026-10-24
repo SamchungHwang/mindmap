@@ -69,7 +69,17 @@ from .maps import (
 )
 from .node import Node, map_prefix, parent_id_of
 from .profiles import PROFILES, Profile, Settings, get_profile
-from .sub import BiasCheck, DecisionLog, Driver, Event, Measurement, Rule, Scenario
+from .sub import (
+    BiasCheck,
+    DecisionLog,
+    Driver,
+    Event,
+    Measurement,
+    Rule,
+    Scenario,
+    Sensitivity,
+    SensitivityInput,
+)
 
 __all__ = [
     # enums
@@ -78,7 +88,7 @@ __all__ = [
     "ReconstructionQuality", "ThesisState", "ValuationState", "ValueType", "WeightState", "WhyMarketWrong",
     # node / sub
     "Node", "Source", "HistoryPoint", "map_prefix", "parent_id_of",
-    "BiasCheck", "DecisionLog", "Driver", "Event", "Measurement", "Rule", "Scenario",
+    "BiasCheck", "DecisionLog", "Driver", "Event", "Measurement", "Rule", "Scenario", "Sensitivity", "SensitivityInput",
     # maps
     "KIND_PREFIX", "MindMap", "NewMap", "HoldingMap", "Portfolio", "MacroMap", "SectorMap",
     "Position", "MarketState", "load_map", "load_map_file", "new_node",

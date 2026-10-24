@@ -174,6 +174,9 @@ class ReportFacts:
     sentences: list[Sentence] = field(default_factory=list)
     chars: int = 0
     warnings: list[str] = field(default_factory=list)
+    # 설계 v5 R4: 사업부 표 — segment → metric(revenue|op|opm|share) → col → 값 (금액 억원, 비율 %). 전사 추정치 표와 섞지 않는다
+    segments: dict[str, dict[str, dict[str, float]]] = field(default_factory=dict)
+    segments_unit: str | None = None
 
     @property
     def label(self) -> str:
@@ -898,6 +901,14 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
     f.market_cap = find_market_cap(text)
     f.estimates, f.quarterly, f.unit = parse_estimate_tables(text, ref_date=f.date or today or date.today())
     f.basis = dict(_LAST_BASIS)
+    try:
+        from .segments import extract_segment_tables, merge_segment_tables
+
+        seg = merge_segment_tables(extract_segment_tables(text))
+        f.segments, f.segments_unit = seg.data, seg.unit
+        f.warnings += [f"{doc.name}: {w}" for w in seg.warnings]
+    except Exception as e:  # noqa: BLE001 — 사업부 표는 보조 정보: 실패해도 리포트는 쓴다
+        f.warnings.append(f"{doc.name}: 사업부 표 추출 실패 — {type(e).__name__}: {e}")
     f.sentences = extract_sentences(text, name=f.name)
     if f.target_price is None and f.opinion != "NR":
         f.warnings.append(f"{doc.name}: 목표주가를 찾지 못했다")

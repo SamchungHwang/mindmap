@@ -109,11 +109,21 @@ class DraftResult:
         def fmt(v):  # noqa: ANN001
             return "-" if v is None else f"{v:,}"
 
+        from ..engine.sensitivity import sensitivity_short
+
         for n in m.drivers():
             d = n.driver
             assert d is not None
+            if d.kind == "qualitative":
+                lines.append(f"드라이버 {n.id} {n.label}: 정성 — 관측 {d.check_indicator[:50] or '-'} · 무효화 조건 {'있음' if d.invalidation_condition else '사람이 쓴다'}"
+                             + (f" · {sensitivity_short(d.sensitivity)}" if d.sensitivity else ""))
+                continue
             lines.append(f"드라이버 {n.id} {n.label}: 현재 {fmt(d.current.value)} / 컨센 {fmt(d.consensus.value)} / 내 추정 {fmt(d.my_estimate.value)}"
-                         + (" (사람이 쓴다)" if d.my_estimate.value is None else "") + f" · 확인 {d.next_check or '-'}")
+                         + (" (사람이 쓴다)" if d.my_estimate.value is None else "") + f" · 확인 {d.next_check or '-'}"
+                         + (f" · {sensitivity_short(d.sensitivity)}" if d.sensitivity else ""))
+        res_nodes = [n for n in m.children("A3.7") if n.driver is not None] if "A3.7" in m else []
+        if res_nodes:
+            lines.append("결과 지표(A3.7): " + " · ".join(f"{n.label} 컨센 {fmt(n.driver.consensus.value)}{n.unit or ''}" for n in res_nodes))
         scs = m.scenarios()
         if scs:
             for nm, sc in scs.items():
@@ -326,6 +336,30 @@ def draft_from_reports(paths: Sequence[str | Path], *, ticker: str | None = None
             issue_set = build_issues(claimsets, ticker=code, digest=digest, filler=filler if claims != "off" else None, issue_check=issue_check)
             notes += [f"쟁점: {n}" for n in issue_set.notes]
             notes += apply_claims_to_map(m, claimsets, issue_set, digest, today=today, name=nm)
+    # A1 원인 드라이버 (설계 v5 R2) — 섹터 원인 KPI 순서로, Claim 수치·사업부 표로 채운다. Claim 이 없어도 정성 뼈대는 만든다
+    from .cause import fill_cause_drivers
+
+    notes += fill_cause_drivers(m, sector=sector, claimsets=claimsets, issue_set=issue_set, today=today, digest=digest)
+    # 민감도 (설계 v5 R3): 표·사업부 표 숫자를 맵에 남기고(편집 뒤 재계산용) 원인 드라이버마다 계산 — 빠진 입력은 "미계산" 으로 드러난다
+    from ..engine.sensitivity import compute_all, financial_snapshot, segment_snapshot
+    from ..generate.kpi_catalog import cause_kpis
+
+    fin = financial_snapshot(m, digest)
+    seg_names = [k.segment for k in cause_kpis(sector) if k.segment] + [v.get("segment") for v in (m.meta["draft"].get("drivers") or {}).values() if v.get("segment")]
+    cols = [c for c in {fin.get("year"), *(v.get("col") for v in (m.meta["draft"].get("drivers") or {}).values())} if c]
+    segment_snapshot(m, digest, sorted(set(seg_names)), cols)
+    notes += [f"민감도: {x}" for x in compute_all(m, today=today)]
+    # A2.1.x 쟁점 노드 ↔ A1 드라이버 링크 (쟁점이 먼저 만들어졌으므로 여기서 잇는다)
+    from .cause import driver_node_for
+
+    for iss in m.children("A2.1"):
+        if iss.source and iss.source.name.startswith("리포트 쟁점 ") and not iss.links and issue_set is not None:
+            iid = iss.source.name.split("리포트 쟁점 ", 1)[1].split(" ")[0]
+            t = next((x for x in issue_set.issues if x.issue_id == iid), None)
+            link = driver_node_for(m, t.driver_id if t else None, t.driver_label if t else None)
+            if link:
+                iss.links = [link]
+                m[link].links = sorted(set(m[link].links) | {iss.id})
     # (보조) 예전 LLM 그룹 채움 — 노드를 직접 채우는 방식, 기본 끔
     if filler is not None and llm_groups:
         tick("LLM 그룹 채움", 5)

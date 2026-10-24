@@ -1,0 +1,11 @@
+{
+  "ticker": "005930",
+  "name": "삼성전자",
+  "sector": "KR-SEMI",
+  "verified": false,
+  "note": "설계 v5 — A1 은 원인 변수여야 한다. 순서는 사용자 결정(2026-10-24). 결과 지표(revenue/op/eps/opm) 가 A1 에 있으면 실패.",
+  "expected_drivers": ["dram_price", "hbm", "cost", "foundry", "shareholder_return"],
+  "forbidden_in_a1": ["revenue_growth", "opm", "earnings", "estimate_revision", "valuation_multiple"],
+  "expect_quant": ["dram_price", "hbm", "foundry"],
+  "sensitivity_computed": ["dram_price", "hbm", "foundry"]
+}

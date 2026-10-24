@@ -112,6 +112,10 @@ weight_state, driver[<id>].current|at_entry|consensus|my_estimate|direction`, �
 | 변경안 종류 추가 | `models/claims.py::ChangeKind` + `generate/changes.py::propose_changes`/`apply_changes` |
 | 다른 LLM (로컬 OpenAI 호환 서버) | `.env` 의 `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL` → `generate.llm_fill.OpenAICompatFiller` (`make_filler("local")`) |
 | 다른 렌더러 | `render/` 에 `to_xxx(map)` — `render.format.node_line` 을 재사용 |
+| 섹터의 원인 드라이버 5개 정의 (설계 v5) | `generate/kpi_catalog.py` 의 `SECTOR_KPIS[<섹터>]` 에 `Kpi(..., driver_id=, variable=, template=, segment=, kind=, proxies=)` — `driver_id` 가 있어야 A1 후보가 된다; 없으면 쟁점 테마로 |
+| 사업부 표의 행 이름 (증권사별 표기) | `reports/segments.py::SEGMENT_ALIASES` · 블록 라벨 `BLOCK_LABELS` |
+| 민감도 템플릿 추가 | `engine/sensitivity.py::compute_sensitivity` 의 템플릿 분기 + `TEMPLATE_BY_VARIABLE` · `DEFAULT_DELTA` |
+| 원인 변수 셀의 변수·측정 판정 | `generate/cause.py::VARIABLE_WORDS` · `MEASURE_WORDS` (Claim metric 이름·명제 단어) |
 | 리포트 기반 제안값 종류 추가 | `generate/suggest.py` (`build_suggestions` 의 `_consensus/_issue_minority/_conditional/_price_band`, `KIND_LABEL`) — `field` 는 노드 필드 경로, 폼은 `render/native.py` 의 `renderSuggestions` |
 | HTML 노드 편집 (고칠 수 있는 필드 · 연산 종류) | `generate/edits.py` (`ALLOWED_FIELDS`, `apply_edit_ops` 의 set/add/delete, `edit_schemas` 가 폼 필드를 만든다) · 화면은 `render/native.py` 의 `_EDIT_KEYS`/편집 JS · 저장 경로는 `render/server.py` (`/preview`, `/save`) |
 

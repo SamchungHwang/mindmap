@@ -254,6 +254,7 @@ def preview_edits(m: MindMap, edits: list[dict[str, Any]], *, today: date) -> tu
     before = _errors(m, today)
     trial = m.model_copy(deep=True)
     res = apply_edit_ops(trial, edits, today=today)
+    res.warnings += finalize_after_edit(trial, today=today)   # 미리보기도 계산 노드·민감도를 다시 계산해 보여 준다
     res.new_errors = [f"{nid or '-'}: {msg}" for nid, msg in sorted(_errors(trial, today) - before, key=str)]
     return trial, res
 
@@ -297,7 +298,10 @@ def apply_edits(m: MindMap, payload: dict[str, Any], *, today: date, versions_di
 # ---------------------------------------------------------------------------- 편집 폼 스키마 (HTML 이 필드를 그리는 데 쓴다)
 _PATTERN_OPTIONS = {"^(fact|price|weight|time|event)$": ["fact", "price", "weight", "time", "event"],
                     "^(armed|fired|disabled)$": ["armed", "fired", "disabled"]}
+_SCHEMA_SKIP = {"sensitivity"}   # 코드가 계산하는 필드 — 폼에서 고치지 않는다
 _KO = {"current": "현재", "consensus": "컨센서스", "my_estimate": "내 추정", "value": "값", "as_of": "기준일", "source": "출처", "name": "이름",
+       "metric": "변수 id", "period": "기간", "kind": "종류 (quant·qualitative)", "role": "역할 (cause·result)", "proxies": "대체 관측 지표",
+       "invalidation_condition": "무효화 조건", "invalidation_rule": "Kill 규칙 노드", "sensitivity_inputs": "민감도 입력 (segment_revenue 억원 · pass_through · tax_rate · shares · per_target · fcf …)",
        "url": "URL", "retrieved_at": "확인일", "rationale": "근거", "check_indicator": "확인 지표", "next_check": "다음 확인일", "at_entry": "매수 시점 값",
        "direction": "방향", "higher_is_better": "높을수록 좋음", "assumptions": "가정", "probability": "확률 (0~1)", "target_price": "목표가",
        "horizon_months": "기간 (개월)", "valuation_method": "밸류 방식", "trigger_type": "트리거 종류", "condition": "조건식", "action": "행동",
@@ -314,7 +318,8 @@ def _field_schema(name: str, ann: Any, meta: list[Any], prefix: str) -> list[dic
 
     key = f"{prefix}{name}"
     label = " · ".join(_KO.get(p, p) for p in (*prefix.rstrip(".").split("."), name) if p)
-    adv = ".source." in key or key.endswith((".as_of", ".rationale", ".retrieved_at")) or key.startswith("source.")
+    adv = (".source." in key or key.endswith((".as_of", ".rationale", ".retrieved_at")) or key.startswith("source.")
+           or key in ("metric", "period", "role", "invalidation_rule", "at_entry", "direction", "higher_is_better", "sensitivity_inputs"))
     origin = typing.get_origin(ann)
     args = [a for a in typing.get_args(ann) if a is not type(None)] if origin in (typing.Union, types.UnionType) else []
     if args:
@@ -352,6 +357,8 @@ def edit_schemas() -> dict[str, Any]:
     for kind, cls in (("driver", Driver), ("scenario", Scenario), ("rule", Rule), ("event", Event)):
         rows: list[dict[str, Any]] = []
         for k, f in cls.model_fields.items():
+            if k in _SCHEMA_SKIP:
+                continue
             rows += _field_schema(k, f.annotation, list(f.metadata), "")
         subs[kind] = rows
     return {"subs": subs, "enums": {"status": [e.value for e in NodeStatus], "confidence": [e.value for e in Confidence],
@@ -369,6 +376,9 @@ def finalize_after_edit(m: MindMap, *, today: date) -> list[str]:
         if isinstance(m, NewMap):
             res = evaluate_new_map(m, today=today, enforce_gate=True)
             notes += [f"계산: {x}" for x in getattr(res, "notes", [])]
+            from ..engine.sensitivity import compute_all
+
+            compute_all(m, today=today)   # 드라이버·민감도 입력이 바뀌었을 수 있다 (설계 v5 R3)
         elif isinstance(m, HoldingMap):
             evaluate_holding(m, today=today)
     except Exception as e:  # noqa: BLE001 — 편집 저장을 막지 않는다

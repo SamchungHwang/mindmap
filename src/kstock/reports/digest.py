@@ -96,6 +96,8 @@ class ReportDigest:
     earnings_date: date | None = None                             # 집계에 쓴 최신 실적 발표일 (실제 또는 추정)
     earnings_date_source: str = ""
     db_check: object | None = None                                # reports.dbcheck.DbCheck (DB 교차 확인 결과)
+    # 설계 v5 R4: 사업부 셀 — (segment, metric, col) → 증권사별 값 (금액 억원). 열 라벨(…P/…E) 은 그대로 둔다
+    segments: dict[tuple[str, str, str], EstimateCell] = field(default_factory=dict)
 
     # ------------------------------------------------------------------ 만들기
     @classmethod
@@ -202,6 +204,17 @@ class ReportDigest:
                         n_backfill += 1
         if n_backfill:
             warnings.append(f"추정치 셀 {n_backfill}개는 최신 리포트에 없어 같은 증권사 이전 리포트에서 보강 (표의 * 표시)")
+        # 사업부 셀 (설계 v5 R4) — 대표 문서만. 값은 extract 가 이미 억원으로 맞췄다
+        segments: dict[tuple[str, str, str], EstimateCell] = defaultdict(EstimateCell)
+        for f in agg:
+            for seg, mets in (f.segments or {}).items():
+                for metric, cols in mets.items():
+                    for col, v in cols.items():
+                        cell = segments[(seg, metric, col)]
+                        cell.values.append(v)
+                        if f.broker:
+                            cell.by_broker[f.broker] = v
+                            cell.sources[f.broker] = (f.path.name, str(f.date or ""), "대표")
         # 실적 전/후 — 최신 실적 분기의 발표일(실제 또는 분기 말 +8일 추정) 보다 앞선 리포트
         pre: dict[str, str] = {}
         ed_src = ""
@@ -236,7 +249,7 @@ class ReportDigest:
         return cls(ticker=ticker, name=name, as_of=as_of, reports=facts, targets=targets,
                    estimates={m: dict(c) for m, c in estimates.items()}, quarterly={m: dict(c) for m, c in quarterly.items()},
                    unit_note=unit_note, sentences=sentences, warnings=warnings, excluded=excluded, pre_earnings=pre,
-                   earnings_date=earnings_date, earnings_date_source=ed_src)
+                   earnings_date=earnings_date, earnings_date_source=ed_src, segments=dict(segments))
 
     @staticmethod
     def _latest_actual_quarter_label(facts: list[ReportFacts]) -> str | None:
@@ -350,6 +363,32 @@ class ReportDigest:
 
     def cell(self, metric: str, year: str) -> EstimateCell | None:
         return self.estimates.get(metric, {}).get(year)
+
+    # ------------------------------------------------------------------ 사업부 (설계 v5 R4)
+    def segment_cell(self, segment: str, metric: str, col: str) -> EstimateCell | None:
+        """사업부 셀. col 이 '2027E' 처럼 접미가 있으면 그 셀만, '3Q26' 처럼 접미가 없으면 같은 기간의 …P/…E/…A 셀을 **합쳐서**
+        돌려준다 (증권사마다 잠정(P)/추정(E) 표기가 달라도 같은 분기다 — sources 에 접미를 남긴다)."""
+        c = self.segments.get((segment, metric, col))
+        if c is not None or col[-1:] in ("E", "P", "A", "F"):
+            return c
+        merged = EstimateCell()
+        for (seg, met, k), cell in self.segments.items():
+            if seg == segment and met == metric and k.rstrip("EPAF") == col:
+                for b, v in cell.by_broker.items():
+                    if b in merged.by_broker:
+                        continue
+                    merged.by_broker[b] = v
+                    merged.values.append(v)
+                    src = cell.sources.get(b)
+                    merged.sources[b] = (src[0], src[1], f"{src[2]} {k}") if src else ("", "", k)
+        return merged if merged.values else None
+
+    def segment_value(self, segment: str, metric: str, col: str) -> float | None:
+        c = self.segment_cell(segment, metric, col)
+        return c.mean if c else None
+
+    def segment_names(self) -> list[str]:
+        return sorted({k[0] for k in self.segments})
 
     def value(self, metric: str, year: str) -> float | None:
         c = self.cell(metric, year)
