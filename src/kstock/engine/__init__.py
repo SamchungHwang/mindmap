@@ -1,6 +1,7 @@
 """엔진: 계산식 · 규칙 DSL · 상태등 · 결정 매트릭스 · 검증 · 라이프사이클 · 포트폴리오 롤업."""
 
 from . import calc
+from .attractiveness import compute_attractiveness, compute_confidence, compute_valuation_all
 from .lifecycle import (
     HoldingEval,
     NewMapEval,
@@ -37,7 +38,7 @@ from .validate import (
 )
 
 __all__ = [
-    "calc",
+    "calc", "compute_attractiveness", "compute_confidence", "compute_valuation_all",
     "HoldingEval", "NewMapEval", "apply_event", "close_holding", "evaluate_holding", "evaluate_new_map",
     "reconstruct_holding", "record_decision", "set_thesis_state", "snapshot_to_holding", "update_driver", "update_market",
     "MatrixResult", "decide",

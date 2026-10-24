@@ -18,7 +18,7 @@ from ..models import Source
 from .extract import KIND_WORDS, METRIC_LABEL, RATIO_METRICS, ReportFacts, Sentence
 
 UNIT_TO_EOK = {"억원": 1.0, "십억원": 10.0, "조원": 10000.0, "백만원": 0.01, "천원": 0.00001, "bn": 10.0, "mn": 0.01}
-AMOUNT_METRICS = {"revenue", "op", "op_adj", "np", "ebitda"}
+AMOUNT_METRICS = {"revenue", "op", "op_adj", "np", "ebitda", "net_debt", "net_cash", "fcf", "capex", "ocf"}   # 설계 v6 S1: 현금흐름·순차입금 행도 금액(억원)
 
 
 @dataclass
@@ -269,6 +269,18 @@ class ReportDigest:
         return c.spread if c and c.n else None
 
     # ------------------------------------------------------------------ 컨센서스
+    # ---- 설계 v6 S1: 발행주식수 (리포트 머리) — 증권사별 값과 중앙값. 우선주 포함 여부가 다를 수 있어 중앙값을 기본으로 쓴다
+    @property
+    def shares_by_broker(self) -> dict[str, float]:
+        return {f.broker or f.path.name: f.shares_out for f in self.aggregated if f.shares_out}
+
+    @property
+    def shares_out(self) -> float | None:
+        xs = sorted(self.shares_by_broker.values())
+        if not xs:
+            return None
+        return xs[len(xs) // 2] if len(xs) % 2 else (xs[len(xs) // 2 - 1] + xs[len(xs) // 2]) / 2
+
     @property
     def tp_values(self) -> list[float]:
         return [t.tp for t in self.targets]

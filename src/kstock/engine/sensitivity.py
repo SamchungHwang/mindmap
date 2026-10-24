@@ -49,6 +49,27 @@ def financial_snapshot(m: NewMap, digest: Any, *, year: str | None = None) -> di
     if digest.n_tp:
         out["tp_median"] = digest.tp_median
         out["tp_n"] = digest.n_tp
+    # 설계 v6: 연도별 표 (EPS 정상화 · DPS · 순차입금 · FCF …) · 발행주식수 · 순이익 기준 · 리포트 날짜 — 평가 모델·신뢰도가 digest 없이 쓴다
+    from .valuation import SNAP_METRICS
+
+    years: dict[str, dict[str, Any]] = {}
+    for met in SNAP_METRICS:
+        for yr in digest.years(met):
+            c = digest.cell(met, yr)
+            if c is not None and c.n:
+                years.setdefault(yr, {})[met] = {"mean": c.mean, "median": c.median, "n": c.n, "by_broker": dict(c.by_broker)}
+    if years:
+        out["years"] = years
+    la = digest.latest_actual_year("op") or digest.latest_actual_year("np") or digest.latest_actual_year("revenue")
+    if la:
+        out["latest_actual_year"] = la
+    if getattr(digest, "shares_out", None):
+        out["shares_out"] = {"median": digest.shares_out, "by_broker": dict(digest.shares_by_broker)}
+    basis = {(f.broker or f.path.name): f.basis.get("np") for f in digest.aggregated if f.basis.get("np")}
+    if basis:
+        out["np_basis"] = basis
+    out["report_dates"] = sorted(str(f.date) for f in digest.aggregated if f.date)
+    out["as_of"] = str(digest.as_of)
     draft["financials"] = out
     return out
 
@@ -135,10 +156,25 @@ def compute_sensitivity(m: NewMap, node_id: str, *, delta_pct: float | None = No
         s.method = f"ΔOP = |{segment or '사업부'} 영업이익| × Δ%"
     elif template == "payout":
         fcf = user.get("fcf")
-        inputs.append(_inp("FCF", float(fcf) if fcf is not None else None, "억원", "user" if fcf is not None else "missing", year, "영업활동현금흐름 − CAPEX (표에 없음 — 사용자 입력)"))
+        fsrc, fnote = "user", None
+        if fcf is None:
+            # 설계 v6 S1: 표의 FCF 행 (또는 영업활동현금흐름 − CAPEX) 을 먼저 쓴다
+            from .valuation import year_cell
+
+            c = year_cell(fin, year, "fcf")
+            if c and c.get("mean") is not None:
+                fcf, fsrc, fnote = float(c["mean"]), "table", f"표 FCF 행 ({c.get('n', 0)}곳)"
+            else:
+                o, cx = year_cell(fin, year, "ocf"), year_cell(fin, year, "capex")
+                if o and cx and o.get("mean") is not None and cx.get("mean") is not None:
+                    fcf, fsrc, fnote = float(o["mean"]) - abs(float(cx["mean"])), "derived", "영업활동현금흐름 − CAPEX (표)"
+        inputs.append(_inp("FCF", float(fcf) if fcf is not None else None, "억원", fsrc if fcf is not None else "missing", year,
+                           fnote or ("영업활동현금흐름 − CAPEX (표에 없음 — 사용자 입력)" if fcf is None else None)))
         inputs.append(_inp("환원율 변화", delta, "%p", "user" if "delta_pct" in user else "default", d.period))
         if fcf is None:
             missing.append("FCF(억원) — sensitivity_inputs.fcf (리포트 표에 현금흐름 행이 없다)")
+        else:
+            user = {**user, "fcf": fcf}
         s.method = "Δ주당 환원 = FCF × Δ환원율%p / N (주가 환산 없음)"
     elif template == "orders":
         orders = user.get("orders")
@@ -152,29 +188,18 @@ def compute_sensitivity(m: NewMap, node_id: str, *, delta_pct: float | None = No
         else:
             op_delta = float(orders) * delta / 100.0 * float(conv) * float(margin)
         s.method = "ΔOP = 수주 × Δ% × 전환율 × 마진"
-    # ---- 공통: OP → NP → EPS → 주가
-    np_m, op_m, eps_m = (fin.get("np") or {}).get("mean"), (fin.get("op") or {}).get("mean"), (fin.get("eps") or {}).get("mean")
-    tp_med = fin.get("tp_median")
-    tax = user.get("tax_rate")
-    if tax is None and np_m and op_m and op_m > 0:
-        tax = max(0.0, min(0.5, 1.0 - np_m / op_m))
-    inputs.append(_inp("유효세율 t", float(tax) if tax is not None else None, "", "user" if "tax_rate" in user else ("derived" if tax is not None else "missing"), year,
-                       f"1 − NP/OP (표 {fin.get('np', {}).get('n', 0)}·{fin.get('op', {}).get('n', 0)}곳)" if tax is not None and "tax_rate" not in user else None))
-    shares = user.get("shares")
-    if shares is None and np_m and eps_m and eps_m > 0:
-        shares = np_m * 1e8 / eps_m   # 억원 → 원
-    inputs.append(_inp("주식 수 N", float(shares) if shares is not None else None, "주", "user" if "shares" in user else ("derived" if shares is not None else "missing"), year,
-                       "NP_E / EPS_E" if shares is not None and "shares" not in user else None))
-    per = user.get("per_target")
-    if per is None and tp_med and eps_m and eps_m > 0:
-        per = tp_med / eps_m
-    inputs.append(_inp("목표 PER", float(per) if per is not None else None, "배", "user" if "per_target" in user else ("derived" if per is not None else "missing"), year,
-                       f"목표가 중앙값 {tp_med:,.0f} / EPS_E {eps_m:,.0f}" if per is not None and "per_target" not in user and tp_med and eps_m else None))
+    # ---- 공통: OP → NP → EPS → 주가 — 평가 모델·시나리오와 같은 꼬리 (설계 v6 `valuation.common_tail`)
+    from .valuation import common_tail
+
+    tail = common_tail(m, user, year=year)
+    inputs += tail.inputs
+    tax, shares, per = tail.t, tail.shares, tail.per
     if template == "payout":
+        n_out = tail.shares_out or shares   # 주당 환원은 공시 발행주식수로 (설계 v6 — 사용자 결정 ⑦)
         if "FCF" in " ".join(missing):
             pass
-        elif shares:
-            per_share = float(user["fcf"]) * delta / 100.0 * 1e8 / shares
+        elif n_out:
+            per_share = float(user["fcf"]) * delta / 100.0 * 1e8 / n_out
             s.price_delta = per_share
             s.price_delta_pct = (per_share / m.current_price * 100.0) if m.current_price else None
         else:

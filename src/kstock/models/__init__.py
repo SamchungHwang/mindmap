@@ -73,12 +73,16 @@ from .sub import (
     BiasCheck,
     DecisionLog,
     Driver,
+    DriverAssumption,
     Event,
     Measurement,
     Rule,
     Scenario,
+    ScenarioResult,
     Sensitivity,
     SensitivityInput,
+    SotpPart,
+    ValuationModel,
 )
 
 __all__ = [
@@ -88,7 +92,8 @@ __all__ = [
     "ReconstructionQuality", "ThesisState", "ValuationState", "ValueType", "WeightState", "WhyMarketWrong",
     # node / sub
     "Node", "Source", "HistoryPoint", "map_prefix", "parent_id_of",
-    "BiasCheck", "DecisionLog", "Driver", "Event", "Measurement", "Rule", "Scenario", "Sensitivity", "SensitivityInput",
+    "BiasCheck", "DecisionLog", "Driver", "DriverAssumption", "Event", "Measurement", "Rule", "Scenario", "ScenarioResult", "Sensitivity",
+    "SensitivityInput", "SotpPart", "ValuationModel",
     # maps
     "KIND_PREFIX", "MindMap", "NewMap", "HoldingMap", "Portfolio", "MacroMap", "SectorMap",
     "Position", "MarketState", "load_map", "load_map_file", "new_node",

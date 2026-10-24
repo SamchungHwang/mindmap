@@ -22,7 +22,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from ..models import HoldingMap, MindMap, Node
+from ..models import HoldingMap, MindMap, NewMap, Node
 from .format import node_line, root_title
 from .markmap import FOLD_BY_DEFAULT
 
@@ -251,6 +251,29 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
 #panel .row { display:flex; gap:6px; }
 #panel button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
 #panel .close { position:absolute; top:10px; right:12px; }
+/* 시나리오 계산기 (설계 v6) — 서버 /preview 식 하나로 계산한다 */
+#calc { position:fixed; top:0; right:0; bottom:0; width:min(680px, 96vw); z-index:26; display:none; flex-direction:column; gap:8px; overflow:auto;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; font-size:13px; }
+#calc.show { display:flex; }
+#calc h3 { margin:0; font-size:14px; padding-right:60px; }
+#calc .close { position:absolute; top:10px; right:12px; }
+#calc table { border-collapse:collapse; width:100%; font-size:12.5px; }
+#calc th, #calc td { border-bottom:1px solid var(--box-border); padding:4px 6px; text-align:right; vertical-align:middle; white-space:nowrap; }
+#calc th:first-child, #calc td:first-child { text-align:left; white-space:normal; }
+#calc th { color:var(--muted); font-weight:500; }
+#calc input, #calc select { font:12.5px/1.3 inherit; color:var(--fg); background:var(--bg); border:1px solid var(--box-border); border-radius:6px; padding:3px 6px; width:84px; box-sizing:border-box; text-align:right; }
+#calc select { width:auto; text-align:left; }
+#calc input.wide { width:100%; text-align:left; }
+#calc .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+#calc button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#calc button.primary { background:var(--root-bg); color:#fff; }
+#calc button:disabled { opacity:.45; cursor:not-allowed; }
+#calc .note { color:var(--muted); font-size:12px; }
+#calc .res { background:var(--code-bg); border-radius:8px; padding:8px 10px; white-space:pre-wrap; font-size:12.5px; }
+#calc .warn { color:#c23b3b; }
+#calc .src { color:var(--muted); font-size:11px; }
+#calc fieldset { border:1px solid var(--box-border); border-radius:8px; padding:8px 10px; margin:0; display:flex; flex-direction:column; gap:6px; }
+#calc legend { font-size:12px; color:var(--muted); padding:0 4px; }
 #toast { position:fixed; left:50%; bottom:40px; transform:translateX(-50%); z-index:40; display:none; padding:8px 14px; border-radius:999px;
   background:var(--root-bg); color:#fff; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
 /* 절대 배치 박스는 담는 상자 폭이 0 이면 한 글자씩 줄바꿈된다 — width:max-content 가 그것을 막는다 */
@@ -518,6 +541,7 @@ _JS = r"""
     else if (act === "edit") openEditor(id);
     else if (act === "addchild") openAdder(id);
     else if (act === "delete") askDelete(id);
+    else if (act === "calc") openCalc();
   });
   function openPanel(id) {
     const n = nodes.get(id);
@@ -565,8 +589,9 @@ _JS = r"""
       val = seq.join(" → ") + (d.next_check ? " · 확인 " + d.next_check : "");
     } else if (sub && sub.kind === "scenario") {
       const s = sub.data || {};
-      val = (s.name ? s.name + ": " : "") + (s.target_price != null ? fmtNum(s.target_price) + "원" : "") + (s.probability != null ? " (p=" + s.probability + ", " + (s.horizon_months || 12) + "M)" : "")
-        + (s.assumptions && s.assumptions.length ? " — " + s.assumptions.join("; ") : "");
+      val = (s.name ? s.name + ": " : "") + (s.target_price != null ? fmtNum(s.target_price) + "원" : "미계산") + (s.probability != null ? " (p=" + s.probability + ", " + (s.horizon_months || 12) + "M)" : "")
+        + (s.price_source === "computed" ? " — 가정 " + ((s.driver_assumptions || []).filter(d => d.delta_pct != null).map(d => d.node_id + " " + (d.delta_pct >= 0 ? "+" : "") + d.delta_pct + (d.unit || "%")).join(" · ") || "없음(컨센 경로)") + (s.per ? " · PER " + s.per : "") + " (저장 뒤 계산)"
+           : (s.assumptions && s.assumptions.length ? " — " + s.assumptions.join("; ") : ""));
     } else if (sub && sub.kind === "rule") { const r = sub.data || {}; val = "⚡ " + (r.condition || "") + " → " + (r.action || ""); }
     else if (sub && sub.kind === "event") { const e = sub.data || {}; val = (e.date || "") + " " + (e.fact || ""); }
     else if (ed.value != null && ed.value !== "") val = (typeof ed.value === "object") ? JSON.stringify(ed.value) : (typeof ed.value === "number" ? fmtNum(ed.value) + (ed.unit || "") : String(ed.value));
@@ -906,6 +931,136 @@ _JS = r"""
     });
   }
 
+  // ---------- 밸류에이션 & 시나리오 계산기 (설계 v6) — 가정 묶음을 편집 연산(set A3.8 · set A3.1~3 scenario) 으로 만들고,
+  // 계산은 서버 /preview 의 통합 모델이 한다 (클라이언트에 식을 복제하지 않는다 — 단일 진실). 서버가 없으면 「적용」 만 되고 결과는 저장 뒤 CLI 로.
+  const calc = document.getElementById("calc"), calcBody = document.getElementById("calc-body"), calcRes = document.getElementById("calc-res");
+  const SCEN = ["Bear", "Base", "Bull"], SCEN_ID = { Bear: "A3.1", Base: "A3.2", Bull: "A3.3" };
+  const V = EDIT && EDIT.valuation ? EDIT.valuation : null;
+  function cur(id) { const n = nodes.get(id); return n ? n.d : null; }
+  function calcDrivers() {
+    const a1 = cur("A1"); if (!a1) return [];
+    return a1.children.filter(d => d && d.edit && d.edit.sub && d.edit.sub.kind === "driver" && d.edit.sub.data.role === "cause")
+      .map(d => ({ id: d.id, label: (d.edit.label || d.id).split(" (")[0], kind: d.edit.sub.data.kind, meta: (V && V.drivers && V.drivers[d.id]) || {} }));
+  }
+  function scenData(name) { const d = cur(SCEN_ID[name]); return d && d.edit.sub && d.edit.sub.kind === "scenario" ? clone(d.edit.sub.data) : null; }
+  function critData() { const d = cur("A3.8"); return d && d.edit.value && typeof d.edit.value === "object" ? clone(d.edit.value) : {}; }
+  function numOr(v) { return (v == null || v === "") ? null : Number(v); }
+  function tplOf(dr) { return dr.meta.template || ({ asp: "price_volume", volume: "price_volume", cost: "cost_ratio", margin: "cost_ratio", op: "direct_op", fcf: "payout", orders: "orders" }[dr.meta.variable] || (dr.kind === "qualitative" ? "cost_ratio" : "price_volume")); }
+  function unitOf(tpl) { return tpl === "cost_ratio" ? "%p" : "%"; }
+  function buildCalc() {
+    const drivers = calcDrivers(), crit = critData();
+    const scs = {}; SCEN.forEach(n => { scs[n] = scenData(n); });
+    const p0 = V && V.p0 != null ? fmtNum(V.p0) + "원" : "현재가 없음";
+    let h = `<div class="note">현재가 ${p0} · 기준 연도 ${esc((V && V.year) || "표 기준")} · 컨센 EPS ${V && V.eps != null ? fmtNum(Math.round(V.eps)) : "-"} · 목표 PER 기본값 ${V && V.per != null ? V.per.toFixed(2) : "-"}` +
+      (V && V.line ? `<br>${esc(V.line)}` : "") + `</div>`;
+    h += `<table><thead><tr><th>드라이버 (가정은 컨센 경로 대비)</th>` + SCEN.map(n => `<th>${n}${scs[n] && scs[n].price_source !== "computed" && scs[n].target_price != null ? ` <span class="src">(${esc(scs[n].price_source)} ${fmtNum(scs[n].target_price)})</span>` : ""}</th>`).join("") + `</tr></thead><tbody>`;
+    for (const dr of drivers) {
+      const tpl = tplOf(dr), unit = unitOf(tpl);
+      if (tpl === "payout" || tpl === "orders") { h += `<tr><td>${esc(dr.id)} ${esc(dr.label)} <span class="src">${esc(tpl)} — 가격 경로 밖 (주주환원·수주는 민감도로만)</span></td>` + SCEN.map(() => `<td class="src">—</td>`).join("") + `</tr>`; continue; }
+      const seg = dr.meta.segment ? ` <span class="src">${esc(dr.meta.segment)} · ${esc(tpl)}</span>` : ` <span class="src warn">사업부 없음 — 가정을 적용할 수 없다</span>`;
+      h += `<tr><td>${esc(dr.id)} ${esc(dr.label)}${seg}</td>` + SCEN.map(n => {
+        const das = (scs[n] && scs[n].driver_assumptions) || [];
+        const da = das.find(x => x.node_id === dr.id && !x.variable) || das.find(x => x.node_id === dr.id);
+        const u = da && da.unit ? da.unit : unit;
+        const unitSel = tpl === "direct_op" ? `<select name="u:${n}:${dr.id}"><option value="%"${u === "%" ? " selected" : ""}>%</option><option value="억원"${u === "억원" ? " selected" : ""}>억원</option></select>` : `<span class="src">${unit}</span>`;
+        return `<td><input name="d:${n}:${dr.id}" type="number" step="any" placeholder="0" value="${da && da.delta_pct != null ? da.delta_pct : ""}"> ${unitSel}</td>`;
+      }).join("") + `</tr>`;
+    }
+    h += `<tr><td>적용 PER <span class="src">비우면 기본값</span></td>` + SCEN.map(n => `<td><input name="per:${n}" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${scs[n] && scs[n].per != null ? scs[n].per : ""}"></td>`).join("") + `</tr>`;
+    h += `<tr><td>EPS 기준</td>` + SCEN.map(n => `<td><select name="eb:${n}"><option value="">(A3.8 기준)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${scs[n] && scs[n].eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></td>`).join("") + `</tr>`;
+    h += `<tr><td>확률 (%) <span class="src">사람 몫 · 합 100</span></td>` + SCEN.map(n => `<td><input name="p:${n}" type="number" step="any" min="0" max="100" value="${scs[n] && scs[n].probability != null ? Math.round(scs[n].probability * 1000) / 10 : ""}"></td>`).join("") + `</tr>`;
+    h += `</tbody></table>`;
+    const mult = crit.sotp_multiples ? Object.entries(crit.sotp_multiples).map(([k, v]) => `${k}=${v}`).join(", ") : "";
+    h += `<fieldset><legend>평가 기준 (A3.8) — 비우면 기본값(표시됨)</legend><div class="row">` +
+      `<label>EPS 기준 <select name="c:eps_basis"><option value="">consensus(기본)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${crit.eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></label>` +
+      `<label>EPS(입력) <input name="c:eps" type="number" step="any" value="${crit.eps != null ? crit.eps : ""}"></label>` +
+      `<label>적용 PER <input name="c:per" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${crit.per != null ? crit.per : ""}"></label>` +
+      `<label>주식 수 <input name="c:shares" type="number" step="any" placeholder="${V && V.shares_out != null ? V.shares_out : ""}" value="${crit.shares != null ? crit.shares : ""}"></label>` +
+      `<label>순현금(억원) <input name="c:net_cash" type="number" step="any" placeholder="${V && V.net_cash != null ? Math.round(V.net_cash) : "표"}" value="${crit.net_cash != null ? crit.net_cash : ""}"></label>` +
+      `<label>DPS <input name="c:dps" type="number" step="any" placeholder="${V && V.dps != null ? V.dps : "표"}" value="${crit.dps != null ? crit.dps : ""}"></label>` +
+      `<label>배당 <select name="c:dividend_in_return"><option value="">separate(기본)</option>` + ["separate", "include", "exclude"].map(b => `<option value="${b}"${crit.dividend_in_return === b ? " selected" : ""}>${b}</option>`).join("") + `</select></label></div>` +
+      `<label>SOTP 멀티플 (사용자 입력만) <input class="wide" name="c:sotp" type="text" placeholder="메모리=6, 파운드리=0, DX=8, SDC=6, Harman=10 — 사업부: ${esc(((V && V.segments) || []).join(" · "))}" value="${esc(mult)}"></label></fieldset>`;
+    calcBody.innerHTML = h;
+    calcRes.style.display = "none";
+    document.getElementById("calc-note").textContent = EDIT.server ? "" : "편집 서버가 없어 미리보기는 안 된다 — 「적용」 뒤 저장(edits.json) 하고 `mindmap scenario <맵>` 으로 본다";
+    document.getElementById("calc-preview").disabled = !EDIT.server;
+  }
+  function calcOps() {
+    const q = name => calcBody.querySelector(`[name="${CSS.escape(name)}"]`);
+    const ops = [];
+    const crit = critData();
+    const setOrDel = (k, v) => { if (v == null || v === "") delete crit[k]; else crit[k] = v; };
+    setOrDel("eps_basis", q("c:eps_basis").value || null); setOrDel("eps", numOr(q("c:eps").value)); setOrDel("per", numOr(q("c:per").value));
+    setOrDel("shares", numOr(q("c:shares").value)); setOrDel("net_cash", numOr(q("c:net_cash").value)); setOrDel("dps", numOr(q("c:dps").value));
+    setOrDel("dividend_in_return", q("c:dividend_in_return").value || null);
+    const mt = {}; for (const kv of q("c:sotp").value.split(/[,;\n]/)) { const [k, v] = kv.split("="); if (k && k.trim() && v != null && v.trim() !== "" && Number.isFinite(Number(v))) mt[k.trim()] = Number(v); }
+    if (Object.keys(mt).length) crit.sotp_multiples = mt; else delete crit.sotp_multiples;
+    const before = critData();
+    if (JSON.stringify(crit) !== JSON.stringify(before)) ops.push({ op: "set", id: "A3.8", fields: { value: Object.keys(crit).length ? crit : null } });
+    const norm = o => { if (Array.isArray(o)) return o.map(norm); if (o && typeof o === "object") { const r = {}; for (const [k, v] of Object.entries(o)) { if (k === "model" || v == null || v === "" || (Array.isArray(v) && !v.length)) continue; r[k] = norm(v); } return r; } return o; };
+    for (const n of SCEN) {
+      const sc = scenData(n) || { name: n, assumptions: [], probability: null, target_price: null, horizon_months: 12, valuation_method: "" };
+      const orig = JSON.stringify(norm(scenData(n)));
+      sc.price_source = "computed";
+      sc.driver_assumptions = [];
+      for (const dr of calcDrivers()) {
+        const el = q(`d:${n}:${dr.id}`); if (!el) continue;   // 가격 경로 밖(주주환원·수주) 행은 입력이 없다
+        const v = numOr(el.value); if (v == null) continue;
+        const us = q(`u:${n}:${dr.id}`);
+        sc.driver_assumptions.push({ node_id: dr.id, driver_id: dr.meta.driver_id || null, variable: null, delta_pct: v, value: null, unit: us ? us.value : null, note: "" });
+      }
+      sc.per = numOr(q(`per:${n}`).value); sc.eps_basis = q(`eb:${n}`).value || null;
+      const pv = numOr(q(`p:${n}`).value); sc.probability = pv == null ? null : (pv > 1 ? pv / 100 : pv);
+      delete sc.model;
+      if (JSON.stringify(norm(sc)) !== orig) ops.push({ op: "set", id: SCEN_ID[n], fields: { scenario: sc } });
+    }
+    return ops;
+  }
+  function renderCalcResult(tree, errs, warns) {
+    const L = [];
+    for (const n of SCEN) {
+      const d = findIn(tree, SCEN_ID[n]); const sc = d && d.edit.sub && d.edit.sub.kind === "scenario" ? d.edit.sub.data : null; const r = sc && sc.model;
+      if (!r) { L.push(`${n}: 시나리오 없음`); continue; }
+      if (r.status !== "계산됨") { L.push(`${n}: 미계산 — 필요: ${(r.missing || []).join("; ")}`); }
+      else L.push(`${n}: OP ${(r.op / 1e4).toFixed(1)}조 · EPS ${fmtNum(Math.round(r.eps))} × PER ${r.per.toFixed(2)} → ${fmtNum(Math.round(r.price))}원 (${r.price_vs_p0_pct >= 0 ? "+" : ""}${r.price_vs_p0_pct.toFixed(0)}%)` + (sc.probability != null ? ` · p=${sc.probability}` : " · p=미입력"));
+      for (const w of (r.warnings || [])) L.push(`   ⚠ ${w}`);
+      const by = r.op_delta_by_node || {}; const ks = Object.keys(by); if (ks.length) L.push("   ΔOP: " + ks.map(k => `${k} ${(by[k] / 1e4 >= 0 ? "+" : "")}${(by[k] / 1e4).toFixed(1)}조`).join(" · "));
+    }
+    for (const id of ["A3.9", "A3.10", "A3.11"]) { const d = findIn(tree, id); if (d && d.edit.value) L.push(`${id} ${d.edit.label}: ${d.edit.value}`); }
+    if (errs && errs.length) L.push("⚠ 저장하면 검증 오류: " + errs.join(" · "));
+    if (warns && warns.length) L.push("⚑ " + warns.filter(w => /밸류|시나리오|Bear|Bull|미계산/.test(w)).join(" · "));
+    calcRes.innerHTML = L.map(x => x.startsWith("   ⚠") || x.startsWith("⚠") ? `<span class="warn">${esc(x)}</span>` : esc(x)).join("\n");
+    calcRes.style.display = "";
+  }
+  async function calcPreview() {
+    const ops = calcOps();
+    if (!EDIT.server) { showToast("편집 서버가 없다 — 「적용」 뒤 저장하고 CLI 로 본다"); return; }
+    let r;
+    try { r = await api("/preview", { edits: [...edits, ...ops] }); } catch (e) { showToast("편집 서버에 닿지 않는다 — " + e); return; }
+    if (!r.ok) { calcRes.innerHTML = `<span class="warn">${esc(r.error || "적용 실패")}</span>`; calcRes.style.display = ""; return; }
+    renderCalcResult(r.tree, r.new_errors, r.warnings);
+  }
+  async function calcApply() {
+    const ops = calcOps();
+    if (!ops.length) { showToast("바뀐 것이 없다"); return; }
+    for (const op of ops) { const err = await commit(op); if (err) { showToast("거절 — " + err); return; } }
+    showToast(`가정 묶음 ${ops.length}건을 편집 목록에 넣었다 (저장 전) — 「저장」 으로 맵에 반영`);
+    buildCalc();
+    if (EDIT.server) await calcPreview();
+  }
+  function openCalc() { if (!EDIT) return; buildCalc(); calc.classList.add("show"); editor.classList.remove("show"); panel.classList.remove("show"); }
+  function closeCalc() { calc.classList.remove("show"); }
+  if (EDIT) {
+    document.getElementById("calcbtn").addEventListener("click", openCalc);
+    document.getElementById("calc-close").addEventListener("click", closeCalc);
+    document.getElementById("calc-preview").addEventListener("click", calcPreview);
+    document.getElementById("calc-apply").addEventListener("click", calcApply);
+    document.getElementById("calc-reset").addEventListener("click", buildCalc);
+    window.addEventListener("keydown", e => { if (e.key === "Escape") closeCalc(); });
+  } else {
+    document.getElementById("calcbtn").style.display = "none";
+  }
+
   // ---------- 상호작용
   let drag = null;
   stage.addEventListener("mousedown", e => { if (e.target.closest(".node")) return; drag = { x: e.clientX - tx, y: e.clientY - ty }; stage.classList.add("dragging"); });
@@ -942,8 +1097,21 @@ def edit_options(m: MindMap, *, server: bool = False, token: str | None = None, 
     """HTML 편집 UI 설정 (OPTS.edit). server=True 면 같은 주소의 로컬 편집 서버(/preview, /save) 를 쓰고, 아니면 「저장」이 edits.json 을 내려준다."""
     from ..generate.edits import edit_hash, edit_schemas
 
-    return {"server": server, "token": token or "", "map_id": m.map_id, "base_hash": edit_hash(m), "schemas": edit_schemas(),
-            "today": (today or date.today()).isoformat()}
+    out = {"server": server, "token": token or "", "map_id": m.map_id, "base_hash": edit_hash(m), "schemas": edit_schemas(),
+           "today": (today or date.today()).isoformat()}
+    # 설계 v6: 계산기 머리말 — 현재가·기준 연도·컨센 EPS·목표 PER 기본값·사업부·원인 드라이버의 사업부/템플릿 (값은 서버가 계산한다)
+    draft = m.meta.get("draft") or {}
+    if isinstance(m, NewMap):
+        fin = draft.get("financials") or {}
+        vm = draft.get("valuation") or {}
+        att = draft.get("attractiveness") or {}
+        drivers = {k: {kk: v.get(kk) for kk in ("segment", "template", "variable", "driver_id")} for k, v in (draft.get("drivers") or {}).items()
+                   if isinstance(v, dict) and v.get("role") != "result"}
+        out["valuation"] = {"p0": m.current_price, "year": fin.get("year"), "eps": (fin.get("eps") or {}).get("mean"), "per": vm.get("per"),
+                            "shares_out": (fin.get("shares_out") or {}).get("median"), "net_cash": vm.get("net_cash"), "dps": att.get("dps"),
+                            "line": m["A3.9"].value if "A3.9" in m and isinstance(m["A3.9"].value, str) else None,
+                            "segments": sorted((draft.get("segments") or {}).keys()), "drivers": drivers}
+    return out
 
 
 def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold: set[str] | None = None,
@@ -985,12 +1153,27 @@ def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold
   <button id="collapse" type="button" title="1단계만 남기고 접기">접기</button>
   <button id="fit" type="button" title="화면 맞춤 (f)">맞춤</button>
   <button id="copyall" type="button" title="맵 전체를 Markdown 목록으로 클립보드에">전체 복사</button>
+  <button id="calcbtn" type="button" data-edit title="밸류에이션 & 시나리오 계산기 — 드라이버 가정 묶음 → 통합 모델 → Bear/Base/Bull 가격 (설계 v6)">밸류 계산기</button>
   <button id="theme" type="button" title="밝게/어둡게">☀ / ☾</button>
+</div>
+<div id="calc">
+  <h3>밸류에이션 & 시나리오 계산기</h3>
+  <button id="calc-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <div id="calc-body"></div>
+  <div class="row">
+    <button id="calc-preview" type="button" class="primary" title="서버의 통합 모델로 계산해 보여 준다 (저장 안 함)">미리보기</button>
+    <button id="calc-apply" type="button" title="이 가정 묶음·평가 기준을 편집 목록에 넣는다 — 위쪽 「저장」 으로 맵에 반영">적용</button>
+    <button id="calc-reset" type="button">다시 읽기</button>
+    <span class="note" id="calc-note"></span>
+  </div>
+  <div id="calc-res" class="res" style="display:none"></div>
+  <div class="note">가정은 컨센(또는 선택한 EPS 기준) 경로 대비 변화다. 같은 사업부의 가격·물량이 함께 움직이면 교차항이 들어가고, 민감도(1변수) 를 더한 값과 다르다. 확률·멀티플·가정은 사람 몫 — 비워 두면 미계산으로 남는다. SOTP 는 검증용(멀티플 입력 뒤).</div>
 </div>
 <div id="menu">
   <div data-act="edit" data-edit>✎ 편집… (더블클릭 · F2)</div>
   <div data-act="addchild" data-edit>＋ 자식 노드 추가… (Insert)</div>
   <div data-act="delete" data-edit>✕ 이 노드 삭제 (Delete)</div>
+  <div data-act="calc" data-edit>∑ 밸류 계산기…</div>
   <div class="sep" data-edit></div>
   <div data-act="line">한 줄 복사</div>
   <div data-act="detail">상세 복사 (값·질문·출처)</div>

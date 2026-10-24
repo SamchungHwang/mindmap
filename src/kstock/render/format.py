@@ -99,8 +99,20 @@ def node_line(n: Node, *, show_question: bool = True, show_meta: bool = True) ->
     elif n.scenario is not None:
         sc = n.scenario
         p = f"p={sc.probability:.2f}" if sc.probability is not None else "p=미입력"
-        s = f"{fmt_num(sc.target_price, value_type='price')} ({p}, {sc.horizon_months}M)"
-        if sc.assumptions:
+        s = (f"{fmt_num(sc.target_price, value_type='price')}" if sc.target_price is not None else "미계산") + f" ({p}, {sc.horizon_months}M)"
+        if sc.price_source == "computed":
+            # 설계 v6: 가정 묶음 → 통합 모델. 가정과 결과를 한 줄에
+            das = [f"{d.node_id} {d.delta_pct:+g}{d.unit or '%'}" + (f" {d.variable}" if d.variable else "") for d in sc.driver_assumptions if d.delta_pct is not None]
+            r = sc.model
+            tail = ""
+            if r is not None and r.status == "계산됨":
+                tail = f" → OP {r.op / 1e4:,.0f}조 · EPS {r.eps:,.0f} × PER {r.per:.2f}" if r.op is not None and r.eps is not None and r.per else ""
+            elif r is not None:
+                tail = " — 미계산: " + "; ".join(r.missing)[:80]
+            s += " — 가정 " + (" · ".join(das) if das else "없음(컨센 경로)") + (f" · PER {sc.per:g}" if sc.per else "") + tail
+            if r is not None and r.warnings:
+                s += " ⚠ " + r.warnings[0][:60]
+        elif sc.assumptions:
             s += " — " + "; ".join(sc.assumptions[:3])
         parts.append(s)
     elif n.rule is not None:

@@ -78,6 +78,8 @@ RE_52W_LO = re.compile(r"52\s*주\s*(?:최저가|최저|저가|Low)(?:\s*/\s*(?:
 RE_52W_RANGE = re.compile(r"52\s*주\s*(?:주가|범위|Range)?\s*[:：]?\s*(?P<a>" + _NUM + r")\s*(?:~|-|–|—)\s*(?P<b>" + _NUM + r")\s*원?", re.I)
 RE_TP_HISTORY = re.compile(r"^(?P<d>(?:20)?\d{2}[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2})\s+(?P<op>" + _OPINION + r")\s+(?P<tp>" + _NUM + r")", re.I | re.M)
 RE_MKTCAP = re.compile(r"시가\s*총액\s*\(?(?P<unit>십억원|억원|조원|백만원)?\)?\s*[:：]?\s*(?P<num>\d[\d,]*(?:\.\d+)?)\s*(?P<unit2>십억원|억원|조원|백만원)?")
+# 설계 v6 S1: 발행주식수 — "발행주식수 5,846,279천주" · "발행주식수(천주) 5,846,279" · "발행주식수(보통주) 5,846,279천주". 우선주 포함 여부는 주석(note) 으로만
+RE_SHARES = re.compile(r"발행\s*주식\s*수\s*(?:\((?P<note>[^)\d]{1,14})\))?\s*[:：]?\s*(?P<num>\d[\d,]*(?:\.\d+)?)\s*(?P<unit>천주|백만주|만주|주)?")
 
 # ---------------------------------------------------------------------------- 추정치 표
 YEAR_TOKEN = re.compile(r"(?<![\d.,])(?:FY)?(?P<y>20\d{2})\s?(?P<f>[AEFPaefp])?(?![\d,])")
@@ -100,12 +102,20 @@ ROW_LABELS: list[tuple[str, str]] = [
     ("roe", r"ROE"),
     ("ev_ebitda", r"EV/EBITDA|EV/\s*EBITDA"),
     ("div_yield", r"배당수익률"),
+    # 설계 v6 S1: 밸류에이션 입력 행 — 순차입금(음수 = 순현금) · FCF · CAPEX · 영업활동현금흐름. 비율 행(순차입금 비율·/자기자본) 은 받지 않는다
+    ("net_debt", r"순차입금(?!\s*(?:비율|/|증가|감소|율))|순부채(?!\s*(?:비율|/))|Net\s*Debt(?!\s*/)"),
+    ("net_cash", r"순현금(?!\s*(?:비율|/|흐름))|Net\s*Cash(?!\s*(?:/|Flow))"),
+    ("fcf", r"FCF(?!\s*(?:수익률|yield|Yield|/|마진))|잉여현금흐름|Free\s*Cash\s*Flow"),
+    ("capex", r"CAPEX|Capex|설비투자(?!\s*(?:비율|/))|자본적\s*지출|유형자산의\s*(?:증가|취득)|유형자산\s*취득"),
+    ("ocf", r"영업활동\s*(?:으로\s*인한\s*)?현금흐름|영업활동으로\s*인한\s*현금|OCF(?!\s*/)"),
 ]
 GROWTH_WORDS = re.compile(r"증가율|성장률|증감률|증감|YoY|QoQ|growth|\(%\s*YoY\)", re.I)
 METRIC_LABEL = {"revenue": "매출액", "op": "영업이익", "op_adj": "조정 영업이익", "np": "순이익", "ebitda": "EBITDA", "opm": "영업이익률", "eps": "EPS",
                 "bps": "BPS", "dps": "DPS", "per": "PER", "pbr": "PBR", "roe": "ROE", "ev_ebitda": "EV/EBITDA",
-                "div_yield": "배당수익률"}
+                "div_yield": "배당수익률", "net_debt": "순차입금", "net_cash": "순현금", "fcf": "FCF", "capex": "CAPEX", "ocf": "영업활동현금흐름"}
 RATIO_METRICS = {"opm", "per", "pbr", "roe", "ev_ebitda", "div_yield"}
+# 표 두 개가 나란히 붙은 줄("현금흐름표 … DPS 1,446 …") 에서 줄 **가운데**의 라벨도 읽는 보조 지표 — 핵심 지표(매출·영업이익·순이익·EPS) 는 줄 머리만
+MIDLINE_METRICS = {"dps", "bps", "per", "pbr", "roe", "ev_ebitda", "div_yield", "net_debt", "net_cash", "fcf", "capex", "ocf"}
 
 # ---------------------------------------------------------------------------- 문장
 DISCLAIMER = re.compile(r"당사는|본 자료|조사분석|Compliance|컴플라이언스|투자등급|투자의견 비율|비율공시|자료\s*[:：]|주\s*[:：]|"
@@ -166,6 +176,8 @@ class ReportFacts:
     high_52w: float | None = None
     low_52w: float | None = None
     market_cap: float | None = None     # 원
+    shares_out: float | None = None     # 발행주식수 (주) — 리포트 머리. 보통주만인지 우선주 포함인지는 shares_note 로만 (설계 v6 S1)
+    shares_note: str | None = None
     tp_history: list[tuple[date, str | None, float]] = field(default_factory=list)  # 투자의견 변동 내역 (최근순)
     estimates: dict[str, dict[str, float]] = field(default_factory=dict)   # metric → {"2026E": v}
     quarterly: dict[str, dict[str, float]] = field(default_factory=dict)   # metric → {"3Q26E": v}
@@ -199,9 +211,11 @@ class ReportFacts:
 
 # ---------------------------------------------------------------------------- 숫자·날짜 도우미
 def _to_num(s: str) -> float | None:
-    t = s.strip().replace(",", "")
+    t = s.strip().replace(",", "").rstrip("%")
+    if t.startswith("(") != t.endswith(")"):
+        return None   # 깨진 토큰 — "(1,045," 처럼 표가 줄 끝에서 잘린 것 (설계 v6 S1)
     neg = t.startswith("(") and t.endswith(")")
-    t = t.strip("()").rstrip("%")
+    t = t.strip("()")
     if t in ("", "-", "N/A", "n/a", "NA", "na") or re.fullmatch(r"적전|흑전|적지|흑지", t):
         return None
     try:
@@ -483,6 +497,20 @@ def find_market_cap(text: str) -> float | None:
     return v * {"십억원": 1e9, "억원": 1e8, "조원": 1e12, "백만원": 1e6}.get(unit or "", 1.0)
 
 
+def find_shares_out(text: str) -> tuple[float | None, str | None]:
+    """발행주식수 (주). 단위는 괄호 주석 또는 뒤 단위에서 — 없으면 '주'. 10만 주 미만·1,000억 주 초과는 잘못 읽은 것으로 버린다."""
+    for m in RE_SHARES.finditer(text[:10000]):
+        v = _to_num(m["num"])
+        if v is None:
+            continue
+        note = (m["note"] or "").strip() or None
+        unit = m["unit"] or next((u for u in ("천주", "백만주", "만주") if note and u in note), None)
+        v *= {"천주": 1e3, "백만주": 1e6, "만주": 1e4}.get(unit or "", 1.0)
+        if 1e5 <= v <= 1e11:
+            return v, (note if note and note not in ("천주", "백만주", "만주", "주") else None)
+    return None, None
+
+
 # 표지에서 제목이 아닌 줄: 리포트 종류·섹터 라벨·의견 줄·데이터 박스
 _TITLE_NOISE = re.compile(r"www\.|[\w.\-]+@[\w.\-]+|Company\s*(?:Brief|Analysis|Data|Note|Report|Update|Comment)|기업\s*분석(?:_\w+)?|산업\s*분석"
                           r"|Preview|Review|Initiation|Update|Flash|Daily|Weekly|NDR\s*후기|탐방\s*노트|Earnings\s*(?:Review|Preview)|Comment|Rating", re.I)
@@ -609,6 +637,44 @@ def _row_numbers(rest: str, n: int) -> list[float | None] | None:
 CORE_METRICS = ("revenue", "op", "np", "eps")
 
 
+def _put_row(tbl: dict[str, dict[str, float]], metric: str, cols: list[str], vals: list[float | None], *, is_annual: bool, ref_year: int) -> None:
+    if metric == "capex":
+        vals = [abs(v) if v is not None else None for v in vals]   # 현금흐름표는 유출을 음수로 적는다 — CAPEX 는 크기만
+    dst = tbl.setdefault(metric, {})
+    for col, v in zip(cols, vals, strict=False):
+        if v is not None and col not in dst and (not is_annual or _year_in_window(col, ref_year)):
+            dst[col] = v
+    if not dst:
+        tbl.pop(metric, None)
+
+
+_MIDLINE_RE: dict[str, re.Pattern[str]] = {}
+
+
+def _midline_row(tbl: dict[str, dict[str, float]], ln: str, cols: list[str], *, is_annual: bool, ref_year: int) -> None:
+    """표 두 개가 나란히 찍힌 줄의 **오른쪽 표** 행 (설계 v6 S1): "기타비현금성손익 316 … DPS 1,446 1,668 13,100 16,100 17,200".
+    보조 지표(MIDLINE_METRICS) 만, 라벨 앞은 숫자가 있거나 짧은 머리말이어야 하고, 라벨 뒤에 열 수만큼 숫자가 있어야 한다."""
+    for metric, pat in ROW_LABELS:
+        if metric in tbl or metric not in MIDLINE_METRICS:
+            continue
+        rx = _MIDLINE_RE.get(metric)
+        if rx is None:
+            rx = _MIDLINE_RE[metric] = re.compile(r"(?:^|(?<=\s))(?:" + pat + r")\s*(?:\((?:[^)\d]{1,12})\))?\s*(?P<rest>.*)$", re.I)
+        m = rx.search(ln)
+        if not m or m.start() == 0:
+            continue
+        left = ln[:m.start()]
+        if GROWTH_WORDS.search(ln[m.start():m.start("rest")]):
+            continue
+        if not (NUM_TOKEN.search(left) or len(left.strip()) <= 40):
+            continue
+        vals = _row_numbers(m["rest"], len(cols))
+        if vals is None or sum(1 for v in vals if v is not None) < max(2, len(cols) - 1):
+            continue
+        _put_row(tbl, metric, cols, vals, is_annual=is_annual, ref_year=ref_year)
+        return
+
+
 def _amount_like(tbl: dict[str, dict[str, float]], big_elsewhere: bool) -> int:
     """매출액 행이 금액으로 보이는가 (성장률 표는 음수·작은 수가 섞인다). 매출액이 없으면 중립(1)."""
     rev = [v for v in tbl.get("revenue", {}).values() if v is not None]
@@ -661,7 +727,8 @@ def _merge_tables(tables: list[dict[str, dict[str, float]]]) -> dict[str, dict[s
                     if med and v and not (med / 5 <= abs(v) <= med * 5):
                         continue
                     base[metric][col] = v
-            elif sum(1 for m in CORE_METRICS if m in tables[k]) >= 2:
+            elif sum(1 for m in CORE_METRICS if m in tables[k]) >= 2 or metric in MIDLINE_METRICS:
+                # 보조 지표(현금흐름·순차입금·주당 지표) 는 핵심 지표가 없는 표(재무상태표·현금흐름표) 에 있다 — 열이 기준 표의 연도일 때만 (설계 v6 S1)
                 base[metric] = dict(cols)
     return base
 
@@ -720,13 +787,9 @@ def parse_estimate_tables(text: str, *, ref_date: date) -> tuple[dict[str, dict[
                 b = _basis_of(label_part)
                 if b and metric not in basis:
                     basis[metric] = b
-                dst = tbl.setdefault(metric, {})
-                for col, v in zip(cols, vals, strict=False):
-                    if v is not None and col not in dst and (not is_annual or _year_in_window(col, ref_year)):
-                        dst[col] = v
-                if not dst:
-                    tbl.pop(metric, None)
+                _put_row(tbl, metric, cols, vals, is_annual=is_annual, ref_year=ref_year)
                 break
+            _midline_row(tbl, ln, cols, is_annual=is_annual, ref_year=ref_year)   # 오른쪽 표(보조 지표) — 줄 머리 지표와 별개
             j += 1
         if tbl:
             (annual if is_annual else quarter).append(tbl)
@@ -899,6 +962,7 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
         f.upside_pct = round((f.target_price / f.current_price - 1) * 100, 1)
     f.high_52w, f.low_52w = find_52w(text)
     f.market_cap = find_market_cap(text)
+    f.shares_out, f.shares_note = find_shares_out(text)
     f.estimates, f.quarterly, f.unit = parse_estimate_tables(text, ref_date=f.date or today or date.today())
     f.basis = dict(_LAST_BASIS)
     try:
@@ -920,5 +984,5 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
 
 
 __all__ = ["ReportFacts", "Sentence", "extract_facts", "find_ticker", "find_date", "find_broker", "find_opinion",
-           "find_target_price", "find_current_price", "find_upside", "find_52w", "find_tp_history", "parse_estimate_tables",
+           "find_target_price", "find_current_price", "find_upside", "find_52w", "find_tp_history", "find_shares_out", "parse_estimate_tables",
            "extract_sentences", "paragraphs", "normalize_opinion", "parse_date", "METRIC_LABEL", "RATIO_METRICS", "KIND_WORDS"]

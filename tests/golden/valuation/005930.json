@@ -1,0 +1,24 @@
+{
+  "ticker": "005930",
+  "name": "삼성전자",
+  "verified": false,
+  "note": "설계 v6 §3 — 리포트 3건(IBK 10/8 · 유진 10/12 · DS 10/8) 기준. 값은 ±1% 허용. 현재가는 리포트 현재주가 262,000 기준 (실시간 조회를 끄고 돌린다).",
+  "reports": ["data/reports/삼성전자", "data/reports/samsung"],
+  "price": 262000,
+  "expect": {
+    "eps_consensus": 83320,
+    "per_default": 6.36,
+    "price_per": 530000,
+    "eps_normalized": 75572,
+    "price_normalized": 480700,
+    "implied_eps": 41188,
+    "implied_path_pct": -57,
+    "shares_out": 5846279000,
+    "net_cash_2025A": 982153,
+    "dps_2027E_median": 16100,
+    "sensitivity_dram_asp_price_delta": 47316,
+    "base_scenario_price": 530000,
+    "cycle_bear": {"assumptions": {"A1.1": -30, "A1.4": "-20000억원"}, "per": 3.5, "price": 212553},
+    "sotp": {"multiples": {"메모리": 6, "파운드리": 0, "DX": 8, "SDC": 6, "Harman": 10}, "price": 537428, "gap_pct": 1.4}
+  }
+}

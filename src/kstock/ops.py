@@ -874,6 +874,52 @@ class Ops:
             self.store.save_map(m)
         return f"{name} = {sc.target_price:,.0f} ({sc.valuation_method})"
 
+    # ------------------------------------------------------------------ 설계 v6: 평가 모델 · 가정 묶음 시나리오 (계산은 engine; 숫자는 사람)
+    def valuation_text(self, m: NewMap, *, recompute: bool = True) -> str:
+        """A3.8 기준 · A3.9 평가 모델(PER·정상화·SOTP·역산) · A3.10 매력도 · A3.11 신뢰도 · 시나리오 한 줄씩."""
+        from .engine.attractiveness import attractiveness_line, compute_valuation_all, confidence_line
+        from .engine.scenario_model import SCENARIO_IDS, scenario_line
+        from .engine.valuation import Criteria, valuation_table
+        from .models import ValuationModel
+
+        if recompute:
+            compute_valuation_all(m, today=self.now)
+            evaluate_new_map(m, today=self.now, enforce_gate=True)
+        draft = m.meta.get("draft") or {}
+        c = Criteria.from_map(m)
+        rows = [f"평가 기준(A3.8): EPS {c.eps_basis} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares or '유도/공시'} · 순현금 {c.net_cash if c.net_cash is not None else '표'}"
+                f" · 배당 {c.dividend_in_return} · SOTP 멀티플 {c.sotp_multiples or '없음 (사용자 입력)'}"]
+        rows += valuation_table(ValuationModel.model_validate(draft.get("valuation") or {}), m.current_price).split("\n")
+        for name, nid in SCENARIO_IDS.items():
+            sc = m[nid].scenario if nid in m else None
+            rows.append("  " + (scenario_line(sc) if sc is not None else f"{name}: 공란") + (f" · p={sc.probability:.2f}" if sc is not None and sc.probability is not None else ""))
+        rows.append("매력도(A3.10): " + attractiveness_line(draft.get("attractiveness") or {}))
+        rows.append("신뢰도(A3.11): " + confidence_line(draft.get("confidence") or {}, len(draft.get("valuation_log") or [])))
+        rows.append("  가정 묶음은 HTML 편집의 「밸류 계산기」 또는 `mindmap scenario <맵> --set Bear.A1.1=-30 --set Bear.per=3.5` 로 넣는다")
+        return "\n".join(rows)
+
+    def set_valuation_criteria(self, m: NewMap, fields: dict[str, Any], *, save: bool = True) -> str:
+        """A3.8 평가 기준의 일부를 바꾼다 (None 이면 그 키를 지움) — 그 뒤 밸류 묶음을 다시 계산한다."""
+        from .engine.attractiveness import compute_valuation_all
+        from .engine.valuation import ensure_valuation_nodes
+
+        ensure_valuation_nodes(m)
+        crit = dict(m["A3.8"].value) if isinstance(m["A3.8"].value, dict) else {}
+        for k, v in fields.items():
+            if v is None or v == "" or v == {}:
+                crit.pop(k, None)
+            else:
+                crit[k] = v
+        m["A3.8"].value = crit or None
+        m["A3.8"].as_of = self.now
+        m["A3.8"].tags = sorted(set(m["A3.8"].tags) | {"user"})
+        notes = compute_valuation_all(m, today=self.now)
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        self.log(f"{m.map_id} 평가 기준 갱신 ({', '.join(fields)}) → " + (m["A3.9"].value or "")[:120])
+        return "\n".join(n for n in notes if n.startswith(("평가 모델", "매력도", "신뢰도")))
+
     # ------------------------------------------------------------------ Kill 후보 (설계 v4 V6)
     def kill_candidates(self, m: NewMap) -> list[dict[str, Any]]:
         """meta.draft.kill_candidates — 리포트의 조건부 리스크에서 만든 Risk Trigger 후보. Rule 은 사람이 세 칸을 채워 확정한다."""

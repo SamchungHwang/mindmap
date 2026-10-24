@@ -62,7 +62,9 @@ class DraftResult:
         nid = i.node_id or ""
         if nid in ids:
             return True
-        if nid == "A3" and {"A3.1", "A3.2", "A3.3"} & ids:          # 시나리오 공란 → 'A3: 시나리오 누락'
+        if nid == "A3" and {"A3.1", "A3.2", "A3.3"} & ids:          # 시나리오 공란 → 'A3: 시나리오 누락' (옛 메시지)
+            return True
+        if nid in ("A3.1", "A3.2", "A3.3") and "누락" in i.message:   # 설계 v6: 노드별 '시나리오 누락' — 자동 초안은 시나리오를 만들지 않는다
             return True
         if nid == "A4.4" and "A4.4.1" in ids:                         # Kill 공란
             return True
@@ -124,6 +126,8 @@ class DraftResult:
         res_nodes = [n for n in m.children("A3.7") if n.driver is not None] if "A3.7" in m else []
         if res_nodes:
             lines.append("결과 지표(A3.7): " + " · ".join(f"{n.label} 컨센 {fmt(n.driver.consensus.value)}{n.unit or ''}" for n in res_nodes))
+        if "A3.9" in m and isinstance(m["A3.9"].value, str):
+            lines.append("평가 모델(A3.9): " + m["A3.9"].value)
         scs = m.scenarios()
         if scs:
             for nm, sc in scs.items():
@@ -346,9 +350,16 @@ def draft_from_reports(paths: Sequence[str | Path], *, ticker: str | None = None
 
     fin = financial_snapshot(m, digest)
     seg_names = [k.segment for k in cause_kpis(sector) if k.segment] + [v.get("segment") for v in (m.meta["draft"].get("drivers") or {}).values() if v.get("segment")]
-    cols = [c for c in {fin.get("year"), *(v.get("col") for v in (m.meta["draft"].get("drivers") or {}).values())} if c]
+    seg_names += list(digest.segment_names())   # 설계 v6: SOTP·역산은 사업부 전부를 본다
+    cols = [c for c in {fin.get("year"), fin.get("latest_actual_year"), *(v.get("col") for v in (m.meta["draft"].get("drivers") or {}).values())} if c]
     segment_snapshot(m, digest, sorted(set(seg_names)), cols)
     notes += [f"민감도: {x}" for x in compute_all(m, today=today)]
+    # 밸류에이션 묶음 (설계 v6): A3.8 기준(비어 있음 → 기본값 표시) → A3.9 PER·정상화·역산 (SOTP 는 멀티플 입력 뒤) → A3.10/A3.11. Bear 템플릿은 라벨만
+    from ..engine.attractiveness import compute_valuation_all
+    from ..engine.scenario_model import apply_bear_template
+
+    apply_bear_template(m, sector, today=today)
+    notes += compute_valuation_all(m, today=today)
     # A2.1.x 쟁점 노드 ↔ A1 드라이버 링크 (쟁점이 먼저 만들어졌으므로 여기서 잇는다)
     from .cause import driver_node_for
 

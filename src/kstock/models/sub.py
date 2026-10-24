@@ -40,7 +40,8 @@ class SensitivityInput(BaseModel):
     name: str
     value: float | None = None
     unit: str | None = None
-    source: str = Field(default="missing", pattern="^(table|claim|segment|user|default|derived|missing)$")
+    # header = 리포트 머리(발행주식수·시가총액), criteria = A3.8 평가 기준 (설계 v6)
+    source: str = Field(default="missing", pattern="^(table|claim|segment|header|criteria|user|default|derived|missing)$")
     period: str | None = None
     note: str | None = None
 
@@ -118,17 +119,66 @@ class Driver(BaseModel):
         return Direction.유지
 
 
+class DriverAssumption(BaseModel):
+    """시나리오 안의 드라이버 가정 하나 (설계 v6 §4.2) — "A1.1 DRAM ASP 가 컨센(또는 내 추정) 대비 −30%" 같은 것.
+    delta_pct 와 value 는 택일: delta_pct 는 기준 경로 대비 변화(%, 원가율은 %p), value 는 절대값(현재 price_volume 에선 쓰지 않음)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    node_id: str                                  # A1.1
+    driver_id: str | None = None                  # dram_asp (meta.draft.drivers 의 driver_id)
+    variable: str | None = None                   # asp | volume | cost | margin | op | fcf … (None → 드라이버의 변수)
+    delta_pct: float | None = None
+    value: float | None = None
+    unit: str | None = None
+    note: str = ""
+
+
+class ScenarioResult(BaseModel):
+    """시나리오 가정 묶음을 통합 1차 모델로 돌린 결과 (설계 v6 §4.3). 금액 억원, EPS·주가 원. 코드만 계산한다."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    op: float | None = None
+    np: float | None = None
+    eps: float | None = None
+    per: float | None = None
+    price: float | None = None
+    price_vs_p0_pct: float | None = None
+    eps_basis: str | None = None                  # consensus | my_estimate | normalized | user
+    eps_year: str | None = None
+    op_base: float | None = None                  # 가정 적용 전 OP (기준 경로)
+    op_delta_by_node: dict[str, float] = Field(default_factory=dict)   # node_id → ΔOP (억원)
+    inputs: list[SensitivityInput] = Field(default_factory=list)
+    status: str = Field(default="미계산", pattern="^(계산됨|미계산)$")
+    missing: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    method: str = ""
+    computed_at: date | None = None
+
+
 class Scenario(BaseModel):
-    """Bear / Base / Bull 시나리오 (A3.x / B3.x)."""
+    """Bear / Base / Bull 시나리오 (A3.x / B3.x). 설계 v6: 목표가가 아니라 **드라이버 가정 묶음**이 1차 — price_source=computed 면
+    target_price 는 통합 모델(engine/scenario_model.py) 의 결과이고, 가정이 모자라 계산이 안 되면 None(미계산) 일 수 있다."""
 
     model_config = ConfigDict(extra="forbid")
 
     name: str  # Bear | Base | Bull
     assumptions: list[str] = Field(default_factory=list)
     probability: float | None = Field(default=None, ge=0.0, le=1.0)   # None = 미입력 (자동 초안은 확률을 만들지 않는다 — 설계 v3 §2.5)
-    target_price: float = Field(gt=0)
+    target_price: float | None = Field(default=None, gt=0)            # None = 미계산 (computed 인데 입력이 모자람)
     horizon_months: int = 12
     valuation_method: str = ""
+    # ---- 설계 v6 (전부 기본값 — 옛 저장본 호환)
+    driver_assumptions: list[DriverAssumption] = Field(default_factory=list)
+    eps_basis: str | None = Field(default=None, pattern="^(consensus|my_estimate|normalized|user)$")   # None → A3.8 평가 기준
+    eps_year: str | None = None                   # "2027E" (None → A3.8 / 표의 차년도)
+    per: float | None = Field(default=None, gt=0)  # 적용 PER (None → A3.8 / 목표 PER 기본값)
+    conditions: list[str] = Field(default_factory=list)   # 이 시나리오가 성립하는 조건 (문장)
+    indicators: list[str] = Field(default_factory=list)   # 확인 지표 (A1.x 관측 지표 참조)
+    falsifier: str | None = None                  # 무엇이 보이면 이 시나리오를 버리나
+    price_source: str = Field(default="user", pattern="^(computed|user|broker)$")
+    model: ScenarioResult | None = None           # 계산 결과 스냅숏 (코드가 쓴다)
 
     @field_validator("name")
     @classmethod
@@ -137,6 +187,61 @@ class Scenario(BaseModel):
         if v2 not in {"Bear", "Base", "Bull"}:
             raise ValueError("scenario name must be Bear/Base/Bull")
         return v2
+
+    @property
+    def priced(self) -> bool:
+        return self.target_price is not None
+
+
+class SotpPart(BaseModel):
+    """SOTP 한 줄 — 사업부 영업이익 × (1−t) × 멀티플 (설계 v6 §3.2). 멀티플은 사용자 입력만(사용자 결정 ④)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    segment: str
+    op: float | None = None            # 억원
+    np: float | None = None            # 억원 = op × (1−t)
+    multiple: float | None = None
+    value: float | None = None         # 억원
+    source: str = "missing"            # segment | user | missing
+    n: int = 0
+
+
+class ValuationModel(BaseModel):
+    """A3.9 평가 모델 (설계 v6 §4.3) — PER 가격(기준 EPS × 적용 PER) 이 기본, SOTP 는 검증, 역산은 현재가가 내재하는 EPS·변수 경로.
+    금액 억원, EPS·주가 원. 입력마다 출처. 계산이 안 되면 status=미계산 + missing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eps_basis: str = "consensus"
+    eps_year: str | None = None
+    eps: float | None = None
+    eps_consensus: float | None = None
+    eps_my_estimate: float | None = None
+    eps_normalized: float | None = None
+    normalized_years: list[str] = Field(default_factory=list)
+    per: float | None = None
+    per_basis: str = "default"           # default(목표가 중앙값/EPS) | user
+    price_per: float | None = None
+    price_normalized: float | None = None
+    price_my_estimate: float | None = None
+    sotp: list[SotpPart] = Field(default_factory=list)
+    sotp_other_op: float | None = None   # 전사 OP − 사업부 합 (기타·연결조정)
+    net_cash: float | None = None        # 억원 (순차입금 × −1)
+    net_cash_year: str | None = None
+    shares: float | None = None
+    price_sotp: float | None = None
+    gap_pct: float | None = None         # SOTP / PER − 1
+    implied_eps: float | None = None     # P0 / PER
+    implied_eps_vs_consensus_pct: float | None = None
+    implied_path_pct: float | None = None    # 현재가에 닿는 가격 드라이버 경로 (컨센 대비 %)
+    implied_path_label: str | None = None    # 어느 사업부 매출에 대한 경로인가
+    inputs: list[SensitivityInput] = Field(default_factory=list)
+    status: str = Field(default="미계산", pattern="^(계산됨|미계산)$")
+    missing: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    method: str = ""
+    computed_at: date | None = None
 
 
 class Rule(BaseModel):

@@ -338,6 +338,7 @@ class Console:
             ("L", "LLM 연결 확인 (ANTHROPIC_API_KEY 동작 — 인증·모델·작은 호출 1회)", self.new_llm_check),
             ("C", "시나리오 후보 넣기 (증권사 자체 후보 → Bear/Base/Bull, 확률은 비움)", self.new_scenario_candidate),
             ("P", "예시 확률 입력 (30/45/25 — 통계적 근거 없는 미검증 가정)", self.new_example_probs),
+            ("V", "평가 모델·시나리오 (A3.8 기준 → PER·정상화·SOTP·역산 → 확률가중 매력도·신뢰도; SOTP 멀티플 입력)", self.new_valuation),
             ("K", "Kill 후보 확정 (리포트 조건부 리스크 → 관측 지표·갱신 주기·행동을 채워 Rule)", self.new_kill_candidate),
             ("I", "쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결)", self.new_issues),
             ("R", "Claim 검토 대기함 (승인/반려)", self.new_review_queue),
@@ -536,6 +537,37 @@ class Console:
             self.say(f"  ! {e}")
         self._drain(ops)
         self._print_new_eval(m)
+
+    def new_valuation(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        for ln in ops.valuation_text(m).split("\n"):
+            self.say("  " + ln)
+        if self.ask_yes("평가 기준을 바꿀까요? (적용 PER · SOTP 멀티플 — 비우면 기본값)", False):
+            per = self.ask_float("적용 PER (비우면 기본값 = 목표가 중앙값÷EPS)", None)
+            raw = self.ask("SOTP 멀티플 (예: 메모리=6, 파운드리=0, DX=8, SDC=6, Harman=10 — 비우면 그대로)", "") or ""
+            mult: dict[str, float] | None = None
+            if raw.strip():
+                mult = {}
+                for kv in raw.replace(";", ",").split(","):
+                    k, _, v = kv.partition("=")
+                    try:
+                        mult[k.strip()] = float(v)
+                    except ValueError:
+                        self.say(f"  ! {kv.strip()}: 숫자가 아니다")
+            fields: dict[str, Any] = {"per": per}
+            if mult is not None:
+                fields["sotp_multiples"] = mult
+            try:
+                for ln in ops.set_valuation_criteria(m, fields).split("\n"):
+                    self.say("  ✓ " + ln)
+            except OpsError as e:
+                self.say(f"  ! {e}")
+            self._drain(ops)
 
     def new_issues(self) -> None:
         m = self._pick_map(MapKind.NEW)

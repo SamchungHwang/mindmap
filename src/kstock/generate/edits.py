@@ -297,14 +297,20 @@ def apply_edits(m: MindMap, payload: dict[str, Any], *, today: date, versions_di
 
 # ---------------------------------------------------------------------------- 편집 폼 스키마 (HTML 이 필드를 그리는 데 쓴다)
 _PATTERN_OPTIONS = {"^(fact|price|weight|time|event)$": ["fact", "price", "weight", "time", "event"],
-                    "^(armed|fired|disabled)$": ["armed", "fired", "disabled"]}
-_SCHEMA_SKIP = {"sensitivity"}   # 코드가 계산하는 필드 — 폼에서 고치지 않는다
+                    "^(armed|fired|disabled)$": ["armed", "fired", "disabled"],
+                    "^(computed|user|broker)$": ["computed", "user", "broker"],
+                    "^(consensus|my_estimate|normalized|user)$": ["consensus", "my_estimate", "normalized", "user"],
+                    "^(quant|qualitative)$": ["quant", "qualitative"], "^(cause|result)$": ["cause", "result"]}
+_SCHEMA_SKIP = {"sensitivity", "model"}   # 코드가 계산하는 필드 — 폼에서 고치지 않는다
 _KO = {"current": "현재", "consensus": "컨센서스", "my_estimate": "내 추정", "value": "값", "as_of": "기준일", "source": "출처", "name": "이름",
        "metric": "변수 id", "period": "기간", "kind": "종류 (quant·qualitative)", "role": "역할 (cause·result)", "proxies": "대체 관측 지표",
        "invalidation_condition": "무효화 조건", "invalidation_rule": "Kill 규칙 노드", "sensitivity_inputs": "민감도 입력 (segment_revenue 억원 · pass_through · tax_rate · shares · per_target · fcf …)",
        "url": "URL", "retrieved_at": "확인일", "rationale": "근거", "check_indicator": "확인 지표", "next_check": "다음 확인일", "at_entry": "매수 시점 값",
        "direction": "방향", "higher_is_better": "높을수록 좋음", "assumptions": "가정", "probability": "확률 (0~1)", "target_price": "목표가",
        "horizon_months": "기간 (개월)", "valuation_method": "밸류 방식", "trigger_type": "트리거 종류", "condition": "조건식", "action": "행동",
+       "driver_assumptions": "드라이버 가정 묶음 (JSON 목록: node_id · variable · delta_pct)", "eps_basis": "EPS 기준 (consensus·my_estimate·normalized·user)",
+       "eps_year": "기준 연도", "per": "적용 PER", "conditions": "성립 조건", "indicators": "확인 지표", "falsifier": "버리는 신호",
+       "price_source": "목표가 출처 (computed·user·broker)", "node_id": "노드", "driver_id": "드라이버 id", "variable": "변수", "delta_pct": "변화 %",
        "size": "크기", "escalate_to": "격상 등급", "status": "상태", "fired_at": "발동일", "note": "메모", "date": "날짜", "fact": "사실",
        "affects": "영향 노드", "priced_in": "선반영", "materiality": "중요도"}
 
@@ -319,7 +325,8 @@ def _field_schema(name: str, ann: Any, meta: list[Any], prefix: str) -> list[dic
     key = f"{prefix}{name}"
     label = " · ".join(_KO.get(p, p) for p in (*prefix.rstrip(".").split("."), name) if p)
     adv = (".source." in key or key.endswith((".as_of", ".rationale", ".retrieved_at")) or key.startswith("source.")
-           or key in ("metric", "period", "role", "invalidation_rule", "at_entry", "direction", "higher_is_better", "sensitivity_inputs"))
+           or key in ("metric", "period", "role", "invalidation_rule", "at_entry", "direction", "higher_is_better", "sensitivity_inputs",
+                      "eps_year", "indicators", "falsifier", "horizon_months"))
     origin = typing.get_origin(ann)
     args = [a for a in typing.get_args(ann) if a is not type(None)] if origin in (typing.Union, types.UnionType) else []
     if args:
@@ -343,6 +350,9 @@ def _field_schema(name: str, ann: Any, meta: list[Any], prefix: str) -> list[dic
     if ann is date:
         return [{"key": key, "label": label, "type": "date", "adv": adv}]
     if origin is list:
+        inner = [a for a in typing.get_args(ann) if a is not type(None)]
+        if inner and isinstance(inner[0], type) and issubclass(inner[0], BaseModel):
+            return [{"key": key, "label": label, "type": "json", "adv": adv}]   # 구조 목록 (드라이버 가정 묶음) 은 JSON 으로
         return [{"key": key, "label": label, "type": "list", "adv": adv}]
     if ann is str:
         return [{"key": key, "label": label, "type": "text", "adv": adv}]
@@ -376,9 +386,13 @@ def finalize_after_edit(m: MindMap, *, today: date) -> list[str]:
         if isinstance(m, NewMap):
             res = evaluate_new_map(m, today=today, enforce_gate=True)
             notes += [f"계산: {x}" for x in getattr(res, "notes", [])]
+            from ..engine.attractiveness import compute_valuation_all
             from ..engine.sensitivity import compute_all
 
             compute_all(m, today=today)   # 드라이버·민감도 입력이 바뀌었을 수 있다 (설계 v5 R3)
+            notes += [f"밸류: {x}" for x in compute_valuation_all(m, today=today) if "⚠" in x or "미계산" in x]   # 설계 v6: 가정 묶음·평가 기준이 바뀌었을 수 있다
+            res2 = evaluate_new_map(m, today=today, enforce_gate=True)   # 시나리오 가격이 모델로 바뀌었으면 ER·손익비 다시
+            notes += [f"계산: {x}" for x in getattr(res2, "notes", []) if x not in notes]
         elif isinstance(m, HoldingMap):
             evaluate_holding(m, today=today)
     except Exception as e:  # noqa: BLE001 — 편집 저장을 막지 않는다

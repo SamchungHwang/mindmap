@@ -144,11 +144,16 @@ class NewMap(MindMap):
         return [n for n in self.children("A1") if n.driver is not None]
 
     def scenarios(self) -> dict[str, Scenario]:
+        """목표가가 있는 시나리오만 (설계 v6: computed 인데 미계산이면 target_price=None — ER·손익비 계산에서 뺀다; `scenario_nodes` 가 전부)."""
         out: dict[str, Scenario] = {}
         for n in self.children("A3"):
-            if n.scenario is not None:
+            if n.scenario is not None and n.scenario.target_price is not None:
                 out[n.scenario.name] = n.scenario
         return out
+
+    def scenario_nodes(self) -> dict[str, Node]:
+        """Bear/Base/Bull 노드 전부 (미계산 포함)."""
+        return {n.scenario.name: n for n in self.children("A3") if n.scenario is not None}
 
     def kill_rules(self) -> list[Rule]:
         return [n.rule for n in self.children("A4.4") if n.rule is not None] + \
@@ -237,7 +242,7 @@ class HoldingMap(MindMap):
     def scenarios(self) -> dict[str, Scenario]:
         out: dict[str, Scenario] = {}
         for n in self.children("B3"):
-            if n.scenario is not None:
+            if n.scenario is not None and n.scenario.target_price is not None:
                 out[n.scenario.name] = n.scenario
         return out
 

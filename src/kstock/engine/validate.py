@@ -89,12 +89,19 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
             issues.append(Issue("error", n.id, "driver.current 가 없다"))
         if d.my_estimate.value is None:
             issues.append(Issue("error", n.id, "driver.my_estimate 가 없다"))
-    # A3 시나리오 확률 합
+    # A3 시나리오 확률 합 — 빠진 시나리오는 노드마다 하나씩 (하나를 채워도 남은 오류 문장이 바뀌지 않도록; 설계 v6)
     sc = m.scenarios()
+    nodes_sc = m.scenario_nodes()
     missing = {"Bear", "Base", "Bull"} - set(sc)
-    if missing:
-        issues.append(Issue("error", "A3", f"시나리오 누락: {sorted(missing)}"))
-    else:
+    sc_ids = {"Bear": "A3.1", "Base": "A3.2", "Bull": "A3.3"}
+    for name in sorted(missing):
+        n = nodes_sc.get(name)
+        if n is not None and n.scenario is not None and n.scenario.price_source == "computed":
+            need = "; ".join((n.scenario.model.missing if n.scenario.model is not None else []) or ["가정·표 입력"])[:120]
+            issues.append(Issue("error", sc_ids[name], f"{name} 시나리오 미계산 — 필요: {need}"))
+        else:
+            issues.append(Issue("error", sc_ids[name], f"{name} 시나리오 누락"))
+    if not missing:
         if any(s.probability is None for s in sc.values()):
             issues.append(Issue("error", "A3", "시나리오 확률 미입력 — 사람이 넣어야 기대수익률·손익비가 계산된다"))
         else:
@@ -103,6 +110,8 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
                 issues.append(Issue("error", "A3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
         if not (sc["Bear"].target_price < sc["Base"].target_price < sc["Bull"].target_price):
             issues.append(Issue("warn", "A3", "목표가 순서가 Bear < Base < Bull 이 아니다"))
+        if m.current_price and sc["Bear"].target_price >= m.current_price:
+            issues.append(Issue("warn", "A3.1", f"Bear 목표가 {sc['Bear'].target_price:,.0f} 이 현재가 위 — 하락 시나리오가 아니다 (사이클 꺾임·멀티플 압축을 담았는가)"))
     if m.current_price is None:
         issues.append(Issue("error", "A0.4", "현재가가 없다"))
     # A4.4 kill criteria ≥ 1 (fact 기준)

@@ -12,6 +12,10 @@
   mindmap console   [--db data/db/kstock.sqlite]            # GUI 콘솔 (관심종목·맵 관리) · --text 면 번호 메뉴 콘솔
   mindmap draft     --reports a.pdf b.pdf [--ticker 005930] [--llm] [--db data/db/kstock.sqlite | -o maps/A_draft.json] [--html]
                                                             # 증권사 리포트 여러 건 → A 맵 초안 (판단은 WATCH, 값은 draft 태그)
+  mindmap sensitivity <맵> [--driver A1.1 --delta 10 --set k=v --save]   # 원인 드라이버 민감도 (설계 v5)
+  mindmap valuation   <맵> [--per 6.36 --eps-basis normalized --sotp 메모리=6 … --save]   # 평가 모델 PER·정상화·SOTP·역산·매력도·신뢰도 (설계 v6)
+  mindmap scenario    <맵> --set Bear.A1.1=-30 --set Bear.per=3.5 --probs 30/45/25 --save   # 시나리오 = 가정 묶음 → 통합 모델 (설계 v6)
+  mindmap implied     <맵> [--per 6.36/4.5/3.5]                              # 현재가가 내재하는 EPS·변수 경로 (설계 v6)
 """
 
 from __future__ import annotations
@@ -670,6 +674,224 @@ def cmd_sensitivity(a: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_kv(items: list[str] | None) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for kv in items or []:
+        k, _, v = kv.partition("=")
+        v = v.strip()
+        if v in ("", "none", "null"):
+            out[k.strip()] = None
+            continue
+        try:
+            out[k.strip()] = float(v)
+        except ValueError:
+            out[k.strip()] = v
+    return out
+
+
+def cmd_valuation(a: argparse.Namespace) -> int:
+    """평가 모델 (설계 v6 A3.8/A3.9) — 기준·PER·주식 수·순현금·SOTP 멀티플을 A3.8 에 넣고 PER·정상화·SOTP·역산을 계산한다."""
+    from .engine.attractiveness import attractiveness_line, compute_valuation_all, confidence_line
+    from .engine.valuation import Criteria, ensure_valuation_nodes, valuation_table
+    from .models import ValuationModel
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+        ensure_valuation_nodes(m)
+        crit = dict(m["A3.8"].value) if isinstance(m["A3.8"].value, dict) else {}
+        changed = False
+        if a.eps_basis:
+            crit["eps_basis"] = a.eps_basis
+            changed = True
+        for key, val in (("eps", a.eps), ("eps_year", a.eps_year), ("per", a.per), ("shares", a.shares), ("net_cash", a.net_cash), ("dps", a.dps),
+                         ("dividend_in_return", a.dividend)):
+            if val is not None:
+                crit[key] = val
+                changed = True
+        if a.sotp:
+            mult = dict(crit.get("sotp_multiples") or {})
+            mult.update({k: v for k, v in _parse_kv(a.sotp).items()})
+            crit["sotp_multiples"] = {k: v for k, v in mult.items() if v is not None}
+            changed = True
+        if a.stake:
+            st = dict(crit.get("sotp_stakes") or {})
+            st.update(_parse_kv(a.stake))
+            crit["sotp_stakes"] = {k: v for k, v in st.items() if v is not None}
+            changed = True
+        if a.clear:
+            crit = {}
+            changed = True
+        if changed:
+            m["A3.8"].value = crit or None
+            m["A3.8"].as_of = _today(a.date)
+            m["A3.8"].tags = sorted(set(m["A3.8"].tags) | {"user"})
+        notes = compute_valuation_all(m, today=_today(a.date))
+        vm = ValuationModel.model_validate((m.meta.get("draft") or {}).get("valuation") or {})
+        c = Criteria.from_map(m)
+        print(f"{m.map_id} 평가 기준(A3.8): EPS 기준 {c.eps_basis} · 연도 {c.eps_year or '표 기준'} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares if c.shares else '유도/공시'}"
+              f" · 순현금 {c.net_cash if c.net_cash is not None else '표'} · 배당 {c.dividend_in_return} · SOTP 멀티플 {c.sotp_multiples or '없음'}")
+        print(valuation_table(vm, m.current_price))
+        att = (m.meta.get("draft") or {}).get("attractiveness") or {}
+        print("매력도(A3.10): " + attractiveness_line(att))
+        print("신뢰도(A3.11): " + confidence_line((m.meta.get("draft") or {}).get("confidence") or {}, len((m.meta.get("draft") or {}).get("valuation_log") or [])))
+        for n in notes:
+            if "⚠" in n or "미계산" in n:
+                print("  " + n[:240])
+        if a.save:
+            from .engine import evaluate_new_map
+
+            evaluate_new_map(m, today=_today(a.date), enforce_gate=True)
+            target.save(m)
+            target.render(m)
+            print(f"저장: {m.map_id}")
+        elif changed:
+            print("(저장하려면 --save)")
+    finally:
+        if store is not None:
+            store.close()
+    return 0
+
+
+def cmd_scenario(a: argparse.Namespace) -> int:
+    """시나리오 = 드라이버 가정 묶음 (설계 v6 §4.2) — `--set Bear.A1.1=-30 --set Bear.per=3.5 --set Bear.A1.4=-20000억원` 로 가정을 넣고 통합 모델로 가격을 계산한다."""
+    from .engine.attractiveness import attractiveness_line, compute_valuation_all
+    from .engine.scenario_model import SCENARIO_IDS, scenario_line
+    from .models import DriverAssumption, Scenario
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+        today = _today(a.date)
+        changed = False
+        for kv in a.set or []:
+            key, _, val = kv.partition("=")
+            parts = key.strip().split(".", 1)
+            if len(parts) != 2 or parts[0].capitalize() not in SCENARIO_IDS:
+                print(f"오류: --set 은 'Bear.A1.1=-30' · 'Bear.per=3.5' · 'Base.eps_basis=my_estimate' · 'Bull.clear' 꼴 ({kv})")
+                return 2
+            name, field = parts[0].capitalize(), parts[1].strip()
+            n = m[SCENARIO_IDS[name]]
+            sc = n.scenario or Scenario(name=name, price_source="computed")
+            sc.price_source = "computed"
+            val = val.strip()
+            if field == "per":
+                sc.per = float(val) if val else None
+            elif field == "eps_basis":
+                sc.eps_basis = val or None
+            elif field == "eps_year":
+                sc.eps_year = val or None
+            elif field in ("prob", "probability"):
+                sc.probability = float(val) if val else None
+            elif field == "clear":
+                sc.driver_assumptions = []
+            elif field in ("condition", "conditions"):
+                sc.conditions = [x.strip() for x in val.split(";") if x.strip()]
+            elif field == "falsifier":
+                sc.falsifier = val or None
+            elif field.startswith("A1."):
+                unit = None
+                var = None
+                if ":" in field:            # A1.1:volume
+                    field, var = field.split(":", 1)
+                if val.endswith("억원"):
+                    unit, val = "억원", val[:-2]
+                sc.driver_assumptions = [d for d in sc.driver_assumptions if not (d.node_id == field and (d.variable or None) == (var or None))]
+                if val:
+                    sc.driver_assumptions.append(DriverAssumption(node_id=field, variable=var, delta_pct=float(val), unit=unit))
+            else:
+                print(f"오류: 모르는 필드 {field}")
+                return 2
+            n.scenario = sc
+            n.as_of = today
+            n.tags = sorted((set(n.tags) | {"user"}) - {"pending", "draft"})
+            changed = True
+        if a.probs:
+            ps = [float(x) for x in a.probs.replace("/", ",").split(",")]
+            if len(ps) != 3:
+                print("오류: --probs 30/45/25")
+                return 2
+            tot = sum(ps)
+            for name, pv in zip(("Bear", "Base", "Bull"), ps, strict=True):
+                n = m[SCENARIO_IDS[name]]
+                if n.scenario is None:
+                    print(f"오류: {name} 시나리오가 비어 있다")
+                    return 2
+                n.scenario.probability = pv / tot if tot > 1.5 else pv
+            changed = True
+        notes = compute_valuation_all(m, today=today)
+        from .engine import evaluate_new_map
+
+        ev = evaluate_new_map(m, today=today, enforce_gate=True)
+        print(f"{m.map_id} 시나리오 (통합 1차 모델 · 현재가 {m.current_price:,.0f})" if m.current_price else f"{m.map_id} 시나리오")
+        for name, nid in SCENARIO_IDS.items():
+            sc = m[nid].scenario
+            if sc is None:
+                print(f"  {name}: 공란")
+                continue
+            print("  " + scenario_line(sc) + (f" · p={sc.probability:.2f}" if sc.probability is not None else " · p=미입력") + (f" [{sc.price_source}]" if sc.price_source != "computed" else ""))
+            for d in sc.driver_assumptions:
+                lab = m[d.node_id].label.split(" (")[0] if d.node_id in m else d.node_id
+                print(f"      {d.node_id} {lab}" + (f":{d.variable}" if d.variable else "") + f" {d.delta_pct:+g}{d.unit or '%'}" if d.delta_pct is not None else f"      {d.node_id} {lab} (숫자 없음)")
+            if sc.model is not None:
+                for w in sc.model.warnings:
+                    print(f"      ⚠ {w}")
+                for x in sc.model.missing:
+                    print(f"      미계산 — 필요: {x}")
+        print("  " + attractiveness_line((m.meta.get("draft") or {}).get("attractiveness") or {}))
+        if m["A3.4"].value is not None:
+            print(f"  A3.4 기대수익률 {m['A3.4'].value:+.1%} · A3.5 손익비 {m['A3.5'].value}")
+        for x in ev.notes:
+            print("  " + x)
+        for n in notes:
+            if n.startswith("신뢰도"):
+                print("  " + n[:200])
+        if a.save:
+            target.save(m)
+            target.render(m)
+            print(f"저장: {m.map_id}")
+        elif changed:
+            print("(저장하려면 --save)")
+    finally:
+        if store is not None:
+            store.close()
+    return 0
+
+
+def cmd_implied(a: argparse.Namespace) -> int:
+    """역산 (설계 v6 §3.4) — 현재가(또는 --price) 가 내재하는 EPS 와 가격 드라이버 경로를 PER 몇 개에 대해 표로."""
+    from .engine.valuation import common_tail, drop_contained, price_driver_segments, segment_values
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+    finally:
+        if store is not None:
+            store.close()
+    p0 = a.price or m.current_price
+    if not p0:
+        print("현재가가 없다 (A0.4 또는 --price)")
+        return 2
+    tail = common_tail(m)
+    if tail.eps is None or tail.t is None or tail.op is None or not tail.shares:
+        print("표 입력이 모자라 역산할 수 없다 — 필요: " + "; ".join(tail.missing))
+        return 2
+    segs, _ = drop_contained(price_driver_segments(m))
+    rev = segment_values(m, tail.year, "revenue")
+    base_rev = sum(rev[s][0] for s in segs if s in rev)
+    pers = [float(x) for x in (a.per or "").replace("/", ",").split(",") if x.strip()] or [x for x in (tail.per, 4.5, 3.5, p0 / tail.eps) if x]
+    print(f"{m.map_id} 역산 — 가격 {p0:,.0f} · {tail.year} 컨센 EPS {tail.eps:,.0f} · OP {tail.op / 1e4:,.1f}조 · t {tail.t:.3f}"
+          + (f" · 가격 드라이버 매출 {'+'.join(s for s in segs if s in rev)} {base_rev / 1e4:,.1f}조" if base_rev else ""))
+    print(f"  {'적용 PER':>8} {'내재 EPS':>10} {'vs 컨센':>8} {'내재 OP(조)':>11} {'ASP 경로':>9}")
+    for per in pers:
+        eps_i = p0 / per
+        op_req = eps_i / tail.eps * tail.np / (1.0 - tail.t) if tail.np else None
+        path = ((op_req - tail.op) / base_rev * 100.0) if (op_req is not None and base_rev) else None
+        print(f"  {per:>8.2f} {eps_i:>10,.0f} {eps_i / tail.eps - 1:>+8.0%} {(op_req or 0) / 1e4:>11,.0f} " + (f"{path:>+8.0f}%" if path is not None else "        -"))
+    print("  (ASP 경로 = 가격 드라이버 사업부 매출 대비, 전가율 k=1.0 · 다른 변수 고정 — 시장이 내재하는 변수 경로의 1차 근사)")
+    return 0
+
+
 def cmd_eval_drivers(a: argparse.Namespace) -> int:
     """원인 드라이버 정답표(tests/golden/drivers/<ticker>.json) 대비 맵의 A1 — 재현·순서·결과 지표 금지·수치·민감도 (설계 v5 R5)."""
     from .generate.evals import eval_drivers
@@ -958,6 +1180,38 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
     s.add_argument("--date")
     s.set_defaults(fn=cmd_sensitivity)
+    s = sp.add_parser("valuation", help="평가 모델 (설계 v6 A3.8/A3.9) — EPS 기준·적용 PER·주식 수·순현금·SOTP 멀티플을 넣고 PER·정상화·SOTP·역산·매력도·신뢰도")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--eps-basis", choices=["consensus", "my_estimate", "normalized", "user"], help="기준 EPS (기본 consensus)")
+    s.add_argument("--eps", type=float, help="eps_basis=user 일 때 EPS (원)")
+    s.add_argument("--eps-year", help="기준 연도 (예 2027E)")
+    s.add_argument("--per", type=float, help="적용 PER (기본 = 목표가 중앙값 ÷ EPS, '기본값' 표시)")
+    s.add_argument("--shares", type=float, help="주식 수 (주) — EPS 환산·SOTP 둘 다")
+    s.add_argument("--net-cash", type=float, help="순현금 (억원; 기본 = 최근 실적 연도 순차입금 × −1)")
+    s.add_argument("--dps", type=float, help="DPS 전망 (원; 기본 = 표 중앙값)")
+    s.add_argument("--dividend", choices=["separate", "include", "exclude"], help="기대수익률에 배당을 어떻게 (기본 separate = 둘 다 표시)")
+    s.add_argument("--sotp", nargs="*", action="extend", metavar="SEG=MULT", help="SOTP 멀티플 (사용자 입력만) 예: 메모리=6 파운드리=0 DX=8 SDC=6 Harman=10")
+    s.add_argument("--stake", nargs="*", action="extend", metavar="SEG=RATIO", help="자회사 지배지분 비율 예: SDC=0.85 Harman=1.0")
+    s.add_argument("--clear", action="store_true", help="A3.8 평가 기준을 비운다 (전부 기본값)")
+    s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_valuation)
+    s = sp.add_parser("scenario", help="시나리오 = 드라이버 가정 묶음 (설계 v6) — --set Bear.A1.1=-30 --set Bear.per=3.5 --set Bear.A1.4=-20000억원 --probs 30/45/25")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--set", nargs="*", action="extend", metavar="NAME.FIELD=VAL",
+                   help="Bear|Base|Bull . A1.x[:variable]=Δ% (…억원 이면 금액) | per=배 | eps_basis=consensus·my_estimate·normalized·user | eps_year=2027E | prob=0.3 | conditions=a;b | falsifier=… | clear (여러 번 가능)")
+    s.add_argument("--probs", help="확률 Bear/Base/Bull (예 30/45/25 — 사람의 판단; 자동 초안은 만들지 않는다)")
+    s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_scenario)
+    s = sp.add_parser("implied", help="역산 (설계 v6) — 현재가가 내재하는 EPS 와 가격 드라이버 경로를 적용 PER 별로")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--price", type=float, help="현재가 대신 쓸 가격")
+    s.add_argument("--per", help="적용 PER 목록 (예 6.36/4.5/3.5; 기본 = 목표 PER·4.5·3.5·현재 Fwd PER)")
+    s.set_defaults(fn=cmd_implied)
     s = sp.add_parser("eval-drivers", help="원인 드라이버 정답표(tests/golden/drivers) 대비 A1 재현·순서·결과 지표 혼입·수치·민감도 (설계 v5)")
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")

@@ -117,6 +117,10 @@ weight_state, driver[<id>].current|at_entry|consensus|my_estimate|direction`, �
 | 민감도 템플릿 추가 | `engine/sensitivity.py::compute_sensitivity` 의 템플릿 분기 + `TEMPLATE_BY_VARIABLE` · `DEFAULT_DELTA` |
 | 원인 변수 셀의 변수·측정 판정 | `generate/cause.py::VARIABLE_WORDS` · `MEASURE_WORDS` (Claim metric 이름·명제 단어) |
 | 리포트 기반 제안값 종류 추가 | `generate/suggest.py` (`build_suggestions` 의 `_consensus/_issue_minority/_conditional/_price_band`, `KIND_LABEL`) — `field` 는 노드 필드 경로, 폼은 `render/native.py` 의 `renderSuggestions` |
+| 평가 기준·모델 (설계 v6) | `engine/valuation.py` — `Criteria.from_map`(A3.8 키), `common_tail`(t · N · PER — 민감도·시나리오·평가 모델이 같이 쓴다), `compute_valuation`(PER·정상화·SOTP·역산), `SEGMENT_CONTAINS`(사업부 포함 관계), `NORMALIZE_YEARS` |
+| 시나리오 통합 모델 · Bear 템플릿 | `engine/scenario_model.py` — `SegState.delta`(사업부 식), `evaluate_scenario`, `BEAR_TEMPLATES[<섹터>]`(라벨만) |
+| 확률가중 매력도 · 신뢰도 규칙 | `engine/attractiveness.py` — `compute_attractiveness`(배당 모드), `compute_confidence`(경고 규칙·등급), `compute_valuation_all`(묶음 — draft·편집 저장·CLI 가 부른다) |
+| 밸류 계산기 화면 | `render/native.py` 의 `buildCalc`/`calcOps`/`renderCalcResult` (계산은 `/preview`) · `edit_options(...)["valuation"]` 머리말 |
 | HTML 노드 편집 (고칠 수 있는 필드 · 연산 종류) | `generate/edits.py` (`ALLOWED_FIELDS`, `apply_edit_ops` 의 set/add/delete, `edit_schemas` 가 폼 필드를 만든다) · 화면은 `render/native.py` 의 `_EDIT_KEYS`/편집 JS · 저장 경로는 `render/server.py` (`/preview`, `/save`) |
 
 ## 저장 형식

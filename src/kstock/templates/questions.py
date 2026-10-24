@@ -71,6 +71,20 @@ A_SPEC: dict[str, NodeSpec] = {
     "A3.7.2": _s("영업이익", "estimate", "number", False, "매출 증가분이 얼마나 이익으로 남나 (원가·레버리지)", unit="억원"),
     "A3.7.3": _s("EPS", "estimate", "number", False, "이익이 주당가치로 얼마나 전환되나 (세금·주식 수)", unit="원"),
     "A3.7.4": _s("영업이익률", "estimate", "percent", False, "원가 드라이버의 결과", unit="%"),
+    # 설계 v6: 평가 기준(사람) → 평가 모델(코드) → 시나리오(가정 묶음) → 확률가중 매력도(코드) → 모델 신뢰도(코드). 기존 id 는 그대로 두고 신설(사용자 결정 ①)
+    "A3.8": _s("평가 기준", "judgment", "text", False,
+               "모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} "
+               "(eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 리포트 발행주식수 중앙값 / "
+               "net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배})"),
+    "A3.9": _s("평가 모델 (PER · SOTP)", "computed", "text", False,
+               "기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 현재가가 내재하는 EPS·변수 경로",
+               formula="price_per = EPS(basis) × PER ; price_sotp = (Σ seg OP×(1−t)×multiple + net_cash) / N ; implied_eps = P0 / PER"),
+    "A3.10": _s("확률가중 투자 매력도", "computed", "text", False,
+                "V = Σ p·TP · 기대수익률(가격 / 배당 포함 따로) · 하방 수익률(Bear) · 안전마진 — 확률은 사람이 넣어야 계산된다",
+                formula="V = Σ p_i·TP_i ; ER = V/P0 − 1 ; ER_total = ER + DPS_E/P0 ; downside = TP_bear/P0 − 1 ; MoS = 1 − P0/V"),
+    "A3.11": _s("모델 신뢰도 · 갱신 이력", "computed", "text", False,
+                "규칙 기반 H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합(지배/전체·우선주) · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력",
+                formula="grade = H if no warnings and coverage ≥ 0.8 ; M if warnings ≤ 2 ; else L"),
 
     "A4": _s("리스크 & 무효화 조건", "question", "text", True, "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나"),
     "A4.1": _s("하락 리스크 1", "estimate", "range", True, "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}"),
