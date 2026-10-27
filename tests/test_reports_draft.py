@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
-from helpers import D0  # noqa: F401  (sys.path 설정)
+from helpers import D0, NO_LLM_ENV  # noqa: F401  (sys.path 설정)
 from kstock.cli import main as cli_main
 from kstock.generate import DRAFT_TAG, MockGroupFiller, draft_from_reports, guess_sector, scenario_anchors
 from kstock.generate.rules import next_earnings
@@ -385,8 +385,8 @@ class TestOpsCli(unittest.TestCase):
         self.assertIn("초안", self.ops.overview_text("005930"))
         with self.assertRaises(OpsError):
             self.ops.draft_from_reports([], {})
-        with self.assertRaises(OpsError):
-            self.ops.draft_from_reports(TXTS, {"use_llm": True})       # 키·패키지 없음 → 안내
+        with mock.patch.dict(os.environ, NO_LLM_ENV), self.assertRaises(OpsError):
+            self.ops.draft_from_reports(TXTS, {"use_llm": True})       # 키·패키지·로컬 LLM 없음 → 안내 (.env 가 있어도 없는 상태로 본다)
 
     def test_cli_json_and_db(self):
         out = Path(self.tmp.name) / "A.json"

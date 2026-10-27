@@ -74,8 +74,9 @@ A_SPEC: dict[str, NodeSpec] = {
     # 설계 v6: 평가 기준(사람) → 평가 모델(코드) → 시나리오(가정 묶음) → 확률가중 매력도(코드) → 모델 신뢰도(코드). 기존 id 는 그대로 두고 신설(사용자 결정 ①)
     "A3.8": _s("평가 기준", "judgment", "text", False,
                "모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} "
-               "(eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 리포트 발행주식수 중앙값 / "
-               "net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배})"),
+               "(eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 공시 보통주(리포트 머리, 우선주 포함·자기주식 제외는 걸러냄) / "
+               "net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배} / "
+               "earnings_basis: 지배(기본) / share_count_basis: 보통주(기본) — 컨센 EPS 는 증권사별 EPS 를 평균하지 않고 지배 순이익÷공시 보통주로 정규화한 뒤 평균한다; 기준이 안 맞는 증권사는 제외)"),
     "A3.9": _s("평가 모델 (PER · SOTP)", "computed", "text", False,
                "기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 현재가가 내재하는 EPS·변수 경로",
                formula="price_per = EPS(basis) × PER ; price_sotp = (Σ seg OP×(1−t)×multiple + net_cash) / N ; implied_eps = P0 / PER"),

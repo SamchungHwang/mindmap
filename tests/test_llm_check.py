@@ -182,6 +182,66 @@ class TestLocalFiller(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 make_filler("auto")
 
+    def test_think_off_and_fallbacks(self):
+        """사고 끄기(reasoning_effort=none) 기본 · LLM_THINK/LLM_MAX_TOKENS · 서버가 모르면 빼고 재시도 · <think> 제거 · 사고만 하고 답이 없을 때."""
+        from kstock.generate import OpenAICompatFiller
+        from kstock.generate.llm_fill import strip_think
+
+        self.assertEqual(strip_think("<think>음…</think>\n{\"a\": 1}"), '{"a": 1}')
+        self.assertEqual(strip_think("{\"a\": 1}<think>잘린 사고"), '{"a": 1}')
+        self.assertEqual(strip_think("그냥 답"), "그냥 답")
+
+        calls: list[dict] = []
+
+        def open_(req, timeout=0):
+            body = json.loads(req.data.decode("utf-8"))
+            calls.append(body)
+            if "reasoning_effort" in body and body["model"] == "vllm-old":
+                raise urllib.error.HTTPError(req.full_url, 400, "bad", {}, io.BytesIO(b'{"error":"extra fields: reasoning_effort"}'))
+            return _Resp(200, {"choices": [{"message": {"content": "<think>생각</think>{\"ok\": true}", "reasoning": "생각"}}],
+                               "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+
+        env = {"LLM_BASE_URL": "http://spark:11435/v1", "LLM_API_KEY": "k", "LLM_MODEL": "nemotron-3-nano:latest"}
+        with mock.patch.dict(os.environ, env):
+            for k in ("LLM_THINK", "LLM_MAX_TOKENS"):
+                os.environ.pop(k, None)
+            f = OpenAICompatFiller(opener=open_)
+            self.assertEqual(f.think, "none")                                                  # 기본: 사고 끈다
+            self.assertEqual(f.max_tokens, 8000)
+            self.assertEqual(f.complete("s", "u"), '{"ok": true}')                            # <think> 제거
+            self.assertEqual(calls[-1]["reasoning_effort"], "none")
+            self.assertEqual(calls[-1]["max_tokens"], 8000)
+            self.assertEqual(f.last_usage["completion_tokens"], 5)
+        with mock.patch.dict(os.environ, {**env, "LLM_THINK": "off", "LLM_MAX_TOKENS": "12000"}):
+            f = OpenAICompatFiller(opener=open_)
+            self.assertEqual((f.think, f.max_tokens), ("none", 12000))                         # off 는 none 의 별칭
+        with mock.patch.dict(os.environ, {**env, "LLM_THINK": "high"}):
+            self.assertEqual(OpenAICompatFiller(opener=open_).body("s", "u")["reasoning_effort"], "high")
+        with mock.patch.dict(os.environ, {**env, "LLM_THINK": "auto"}):
+            self.assertNotIn("reasoning_effort", OpenAICompatFiller(opener=open_).body("s", "u"))  # auto: 서버 기본값
+        with mock.patch.dict(os.environ, {**env, "LLM_THINK": "lots"}):
+            with self.assertRaises(RuntimeError):
+                OpenAICompatFiller(opener=open_)
+        with mock.patch.dict(os.environ, {**env, "LLM_MODEL": "vllm-old", "LLM_THINK": "none"}):
+            f = OpenAICompatFiller(opener=open_)
+            n = len(calls)
+            self.assertEqual(f.complete("s", "u"), '{"ok": true}')                            # 400 → reasoning_effort 빼고 재시도
+            self.assertEqual(len(calls), n + 2)
+            self.assertIn("reasoning_effort", calls[-2])
+            self.assertNotIn("reasoning_effort", calls[-1])
+            self.assertEqual(f.think, "auto")
+
+        with mock.patch.dict(os.environ, {**env, "LLM_API_KEY": "", "NEMOCLAW_LOCAL_INFERENCE_TOKEN": "openshell:resolve:env:v42_NEMOCLAW_LOCAL_INFERENCE_TOKEN"}):
+            self.assertEqual(OpenAICompatFiller(opener=open_).api_key, "openshell:resolve:env:v42_NEMOCLAW_LOCAL_INFERENCE_TOKEN")  # 샌드박스 핸들 폴백
+
+        def only_think(req, timeout=0):
+            return _Resp(200, {"choices": [{"message": {"content": "", "reasoning": "생각만 길게 " * 50}}]})
+
+        with mock.patch.dict(os.environ, env):
+            with self.assertRaises(RuntimeError) as cm:
+                OpenAICompatFiller(opener=only_think).complete("s", "u")
+            self.assertIn("사고(reasoning)만", str(cm.exception))
+
 
 class TestSdkTolerance(unittest.TestCase):
     """설치된 anthropic SDK 가 모르는 인자(예: temperature) 를 TypeError 로 거부하면 빼고 다시 부른다."""

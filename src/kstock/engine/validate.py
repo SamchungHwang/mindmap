@@ -114,6 +114,14 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
             issues.append(Issue("warn", "A3.1", f"Bear 목표가 {sc['Bear'].target_price:,.0f} 이 현재가 위 — 하락 시나리오가 아니다 (사이클 꺾임·멀티플 압축을 담았는가)"))
     if m.current_price is None:
         issues.append(Issue("error", "A0.4", "현재가가 없다"))
+    # 설계 v6 §11.1: 회계 기준 불일치 — 정규화 EPS 가 한 곳도 없으면 평가 모델·시나리오 가격은 참고값 (오류 = 미확정, 사람이 A3.8 shares·eps 를 넣거나 리포트를 보강)
+    bstat = (((m.meta.get("draft") or {}).get("financials") or {}).get("basis") or {}).get("status")
+    if bstat == "not_comparable" and "A3.9" in m:
+        issues.append(Issue("error", "A3.9", "EPS 기준 불일치 — 지배 순이익·공시 보통주로 정규화된 증권사가 0곳: 가격은 참고값 (A3.8 eps·shares 입력 또는 리포트 보강)"))
+    elif bstat == "mixed" and "A3.9" in m:
+        issues.append(Issue("warn", "A3.9", "EPS 정규화 1곳뿐 — 컨센이 아니라 한 증권사 값"))
+    elif bstat == "unavailable" and "A3.9" in m:
+        issues.append(Issue("warn", "A3.9", "발행주식수(리포트 머리) 가 없어 EPS 기준을 맞추지 못했다 — 증권사 EPS 를 그대로 평균 (A3.8 shares 를 주면 정규화)"))
     # A4.4 kill criteria ≥ 1 (fact 기준)
     kills = [r for r in m.kill_rules() if r.trigger_type == "fact"]
     if not kills:

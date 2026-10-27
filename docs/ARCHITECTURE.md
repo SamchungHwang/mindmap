@@ -110,7 +110,8 @@ weight_state, driver[<id>].current|at_entry|consensus|my_estimate|direction`, �
 | 집계 규칙 (최신 1건 · 유효 기간 · 실적 전) | `reports/digest.py` (`MAX_AGE_DAYS`, `EARNINGS_LAG_DAYS`, `ReportDigest.build`) |
 | 시나리오 후보 인식 (케이스 문구 · 밸류 산식) | `generate/scenarios.py` (`RE_CASE`, `RE_METHOD`, `candidates_from`) |
 | 변경안 종류 추가 | `models/claims.py::ChangeKind` + `generate/changes.py::propose_changes`/`apply_changes` |
-| 다른 LLM (로컬 OpenAI 호환 서버) | `.env` 의 `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL` → `generate.llm_fill.OpenAICompatFiller` (`make_filler("local")`) |
+| 회계 기준 정규화 (v6 §11.1 / v7 T1) | `reports/digest.py` `BrokerBasis`·`shares_std`·`control_ratio`·`eps_std`·`basis_check` → `engine/sensitivity.py::financial_snapshot` (`financials.basis`·`shares_std`·`eps.basis=std`) → `common_tail`(N = 표준 주식 수)·`ValuationModel.basis_status`·`validate`(not_comparable 오류)·`compute_confidence` |
+| 다른 LLM (로컬 OpenAI 호환 서버) | `.env` 의 `LLM_BASE_URL`/`LLM_API_KEY`/`LLM_MODEL`(+`LLM_THINK` 사고 끄기 · `LLM_MAX_TOKENS`) → `generate.llm_fill.OpenAICompatFiller` (`make_filler("local")`) — `reasoning_effort` 로 사고 제어, `<think>` 제거 |
 | 다른 렌더러 | `render/` 에 `to_xxx(map)` — `render.format.node_line` 을 재사용 |
 | 섹터의 원인 드라이버 5개 정의 (설계 v5) | `generate/kpi_catalog.py` 의 `SECTOR_KPIS[<섹터>]` 에 `Kpi(..., driver_id=, variable=, template=, segment=, kind=, proxies=)` — `driver_id` 가 있어야 A1 후보가 된다; 없으면 쟁점 테마로 |
 | 사업부 표의 행 이름 (증권사별 표기) | `reports/segments.py::SEGMENT_ALIASES` · 블록 라벨 `BLOCK_LABELS` |

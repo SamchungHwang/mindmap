@@ -68,6 +68,32 @@ def financial_snapshot(m: NewMap, digest: Any, *, year: str | None = None) -> di
     basis = {(f.broker or f.path.name): f.basis.get("np") for f in digest.aggregated if f.basis.get("np")}
     if basis:
         out["np_basis"] = basis
+    # 설계 v6 §11.1 (v7 W0): 회계 기준 정규화 — 표준 주식 수(공시 보통주) 와 정규화 EPS(지배 순이익 ÷ 표준 주식 수). 증권사가 적은 EPS 는 reported 로 남긴다.
+    if hasattr(digest, "basis_check"):
+        from .valuation import Criteria
+
+        crit = Criteria.from_map(m)
+        bc = digest.basis_check(year, shares=crit.shares)
+        out["basis"] = bc
+        if bc.get("shares_std"):
+            out["shares_std"] = {"value": bc["shares_std"], "source": bc["shares_source"], "note": bc["shares_note"]}
+            if out.get("shares_out"):
+                out["shares_out"]["median"] = bc["shares_std"]       # 주당 환산도 표준 주식 수로 (이원화 폐지)
+        e = bc.get("eps") or {}
+        if year and e.get("n"):
+            out["eps"] = {"mean": e["mean"], "median": e["median"], "n": e["n"], "by_broker": dict(e["by_broker"]), "basis": "std",
+                          "reported": dict(e.get("reported") or {}), "excluded": dict(e.get("excluded") or {}), "approx": dict(e.get("approx") or {})}
+        elif year and isinstance(out.get("eps"), dict):
+            out["eps"]["basis"] = "reported"
+        for yr in list(years):
+            if not yr.endswith("E") or "eps" not in years[yr]:
+                continue
+            ey = digest.eps_std(yr, shares=crit.shares)
+            if ey.n:
+                years[yr]["eps"] = {"mean": ey.mean, "median": ey.median, "n": ey.n, "by_broker": dict(ey.by_broker), "basis": "std",
+                                    "reported": dict(ey.reported), "excluded": dict(ey.excluded), "approx": dict(ey.approx)}
+            else:
+                years[yr]["eps"]["basis"] = "reported"
     out["report_dates"] = sorted(str(f.date) for f in digest.aggregated if f.date)
     out["as_of"] = str(digest.as_of)
     draft["financials"] = out

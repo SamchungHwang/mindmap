@@ -224,6 +224,9 @@ def evaluate_scenario(m: MindMap, sc: Scenario, *, today: date | None = None) ->
     if not sc.driver_assumptions or all(da.delta_pct is None and da.value is None for da in sc.driver_assumptions):
         if sc.name != "Base":
             warnings.append("가정이 비어 있다 — 기준 경로(컨센) 그대로")
+    r.basis_status = tail.basis_status
+    if tail.basis_status == "not_comparable":
+        warnings.insert(0, "EPS 기준 불일치 — 가격은 참고값")
     r.inputs, r.missing, r.warnings = inputs, missing, warnings
     r.status = "계산됨" if r.price is not None else "미계산"
     r.method = "OP' = Σ[R_i(1+a_i)(1+v_i)·k − C_i(1+v_i) − R_i'·c_i] + 기타 ; NP' = OP'(1−t) ; EPS' = NP'/N (기준 EPS 비례) ; P = EPS' × PER_s"
@@ -236,7 +239,7 @@ def scenario_line(sc: Scenario) -> str:
         return f"{sc.name}: " + (f"{sc.target_price:,.0f}원" if sc.target_price else "미계산") + " (모델 없음)"
     if r.status != "계산됨":
         return f"{sc.name}: 미계산 — 필요: " + "; ".join(r.missing)[:160]
-    parts = [f"{sc.name}: OP {r.op / 1e4:,.1f}조" if r.op is not None else sc.name]
+    parts = [("⚠ 참고값 " if r.basis_status == "not_comparable" else "") + (f"{sc.name}: OP {r.op / 1e4:,.1f}조" if r.op is not None else sc.name)]
     if r.eps is not None:
         parts.append(f"EPS {r.eps:,.0f}")
     parts.append(f"× PER {r.per:.2f}" if r.per else "")

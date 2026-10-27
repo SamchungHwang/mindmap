@@ -68,36 +68,70 @@ class ClaudeGroupFiller:
         return self._inner._complete(system, user)
 
 
+RE_THINK = re.compile(r"<think>.*?</think>\s*", re.S)
+THINK_LEVELS = ("none", "low", "medium", "high")
+
+
+def strip_think(text: str) -> str:
+    """사고 모델이 content 안에 `<think>…</think>` 를 섞어 보내면 걷어낸다 (닫히지 않은 <think> 는 통째로 버린다)."""
+    s = RE_THINK.sub("", text or "")
+    i = s.find("<think>")
+    return (s[:i] if i >= 0 else s).strip()
+
+
 class OpenAICompatFiller:
     """OpenAI 호환 서버(vLLM·Ollama·LM Studio…)용 — `.env` 의 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL. urllib 만 쓴다.
-    `/v1/chat/completions` 에 system+user 를 보내고 첫 choice 의 content 를 돌려준다. JSON 모드는 서버가 지원할 때만 켠다."""
+    `/v1/chat/completions` 에 system+user 를 보내고 첫 choice 의 content 를 돌려준다. JSON 모드는 서버가 지원할 때만 켠다.
+
+    - max_tokens 기본 8000 (LLM_MAX_TOKENS 로 바꿀 수 있다) — Claim JSON 은 리포트 한 건에 수천 토큰이고, 사고가 켜진 모델이면
+      사고 토큰까지 이 예산에서 나간다.
+    - think: 사고(reasoning) 수준. 기본 "none" = 끈다 (LLM_THINK 로 바꿀 수 있다: none|low|medium|high|auto).
+      OpenAI 호환 `reasoning_effort` 로 보낸다 — Ollama 는 bool 사고 모델(Nemotron 3 Nano 등)에 "none" 을 think=false 로 넘기고,
+      서버가 그 필드를 모른다고 400 을 내면 빼고 한 번 더 묻는다. "auto" 는 아무것도 보내지 않는다(서버 기본값).
+    - 응답 content 에 `<think>…</think>` 가 섞여 오면 걷어낸다. 필드 채움엔 사고가 필요 없고, Nano 급 로컬 모델은 사고가
+      켜지면 호출당 수천 토큰·수십 초가 더 든다."""
 
     def __init__(self, base_url: str | None = None, *, api_key: str | None = None, model: str | None = None,
-                 max_tokens: int = 4000, temperature: float = 0.0, timeout: float = 120.0, json_mode: bool = True,
-                 opener: Callable[..., Any] | None = None):
+                 max_tokens: int | None = None, temperature: float = 0.0, timeout: float = 300.0, json_mode: bool = True,
+                 think: str | None = None, opener: Callable[..., Any] | None = None):
         import os
 
         from ..env import load_dotenv
 
         load_dotenv()
         self.base_url = (base_url or os.environ.get("LLM_BASE_URL", "")).rstrip("/")
-        self.api_key = api_key or os.environ.get("LLM_API_KEY", "") or "none"
+        # OpenShell 샌드박스 안에서는 실제 토큰 대신 '자격증명 핸들'(openshell:resolve:env:…) 을 보내면 게이트웨이가 바꿔 넣는다 —
+        # NemoClaw 가 새 프로세스에 넣어 주는 NEMOCLAW_LOCAL_INFERENCE_TOKEN 이 그 핸들. LLM_API_KEY 가 없으면 그것을 쓴다.
+        self.api_key = api_key or os.environ.get("LLM_API_KEY", "") or os.environ.get("NEMOCLAW_LOCAL_INFERENCE_TOKEN", "") or "none"
         self.model = model or os.environ.get("LLM_MODEL", "")
-        self.max_tokens, self.temperature, self.timeout, self.json_mode = max_tokens, temperature, timeout, json_mode
+        self.max_tokens = int(max_tokens or os.environ.get("LLM_MAX_TOKENS", "") or 8000)
+        self.temperature, self.timeout, self.json_mode = temperature, timeout, json_mode
+        t = (think if think is not None else os.environ.get("LLM_THINK", "")).strip().lower() or "none"
+        if t in ("off", "false", "0", "no"):
+            t = "none"
+        if t not in THINK_LEVELS + ("auto",):
+            raise RuntimeError(f"LLM_THINK={t!r} 는 모른다 — none|low|medium|high|auto 중 하나")
+        self.think = t
         self._open = opener
+        self.last_usage: dict[str, Any] | None = None
         if not self.base_url:
             raise RuntimeError("LLM_BASE_URL 이 없다 — .env 에 LLM_BASE_URL=http://host:port/v1, LLM_MODEL=… 을 적을 것")
+
+    def body(self, system: str, user: str) -> dict[str, Any]:
+        body: dict[str, Any] = {"model": self.model, "max_tokens": self.max_tokens, "temperature": self.temperature,
+                                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        if self.json_mode:
+            body["response_format"] = {"type": "json_object"}
+        if self.think != "auto":
+            body["reasoning_effort"] = self.think
+        return body
 
     def complete(self, system: str, user: str) -> str:
         import urllib.error
         import urllib.request
 
         url = self.base_url + ("" if self.base_url.endswith("/v1") else "/v1") + "/chat/completions"
-        body: dict[str, Any] = {"model": self.model, "max_tokens": self.max_tokens, "temperature": self.temperature,
-                                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
-        if self.json_mode:
-            body["response_format"] = {"type": "json_object"}
-        req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), method="POST",
+        req = urllib.request.Request(url, data=json.dumps(self.body(system, user)).encode("utf-8"), method="POST",
                                      headers={"content-type": "application/json", "authorization": f"Bearer {self.api_key}"})
         open_ = self._open or urllib.request.urlopen
         try:
@@ -108,9 +142,18 @@ class OpenAICompatFiller:
             if self.json_mode and e.code == 400 and "response_format" in text:
                 self.json_mode = False          # 서버가 JSON 모드를 모르면 끄고 한 번 더
                 return self.complete(system, user)
+            if self.think != "auto" and e.code == 400 and ("reasoning" in text or "think" in text):
+                self.think = "auto"             # 서버가 reasoning_effort 를 모르면 빼고 한 번 더
+                return self.complete(system, user)
             raise RuntimeError(f"LLM 서버 HTTP {e.code}: {text}") from e
         try:
-            return data["choices"][0]["message"]["content"] or ""
+            self.last_usage = data.get("usage") if isinstance(data, dict) else None
+            msg = data["choices"][0]["message"]
+            out = strip_think(msg.get("content") or "")
+            if not out and msg.get("reasoning"):
+                raise RuntimeError("LLM 이 사고(reasoning)만 하고 답을 내지 않았다 — max_tokens 를 늘리거나 LLM_THINK=none 으로 사고를 끌 것"
+                                   f" (사고 {len(str(msg['reasoning']))}자)")
+            return out
         except (KeyError, IndexError, TypeError) as e:
             raise RuntimeError(f"LLM 서버 응답 모양이 다르다: {str(data)[:200]}") from e
 
@@ -127,7 +170,7 @@ def make_filler(kind: str = "auto", **kw: Any) -> GroupFiller:
     if k in ("claude", "auto") and llm_available() and not key_problem():
         return ClaudeGroupFiller(**kw)
     if k in ("local", "auto") and local_llm_available():
-        return OpenAICompatFiller(**{x: v for x, v in kw.items() if x in ("model", "max_tokens", "temperature")})
+        return OpenAICompatFiller(**{x: v for x, v in kw.items() if x in ("model", "max_tokens", "temperature", "think", "timeout")})
     if k == "claude":
         raise RuntimeError("Claude 를 쓸 수 없다 — " + llm_status())
     if k == "local":

@@ -879,7 +879,7 @@ class Ops:
         """A3.8 기준 · A3.9 평가 모델(PER·정상화·SOTP·역산) · A3.10 매력도 · A3.11 신뢰도 · 시나리오 한 줄씩."""
         from .engine.attractiveness import attractiveness_line, compute_valuation_all, confidence_line
         from .engine.scenario_model import SCENARIO_IDS, scenario_line
-        from .engine.valuation import Criteria, valuation_table
+        from .engine.valuation import Criteria, basis_summary, valuation_table
         from .models import ValuationModel
 
         if recompute:
@@ -889,6 +889,7 @@ class Ops:
         c = Criteria.from_map(m)
         rows = [f"평가 기준(A3.8): EPS {c.eps_basis} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares or '유도/공시'} · 순현금 {c.net_cash if c.net_cash is not None else '표'}"
                 f" · 배당 {c.dividend_in_return} · SOTP 멀티플 {c.sotp_multiples or '없음 (사용자 입력)'}"]
+        rows.append("회계 기준(v6 §11.1): " + basis_summary(draft.get("financials") or {}))
         rows += valuation_table(ValuationModel.model_validate(draft.get("valuation") or {}), m.current_price).split("\n")
         for name, nid in SCENARIO_IDS.items():
             sc = m[nid].scenario if nid in m else None

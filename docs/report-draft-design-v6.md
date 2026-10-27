@@ -1,4 +1,4 @@
-# 밸류에이션 & 시나리오(A3) 재설계 — 설계 v6 (2026-10-24 검토 → 같은 날 S1~S5 구현)
+# 밸류에이션 & 시나리오(A3) 재설계 — 설계 v6 (2026-10-24 검토 → 같은 날 S1~S5 구현 · 10-26 로컬 LLM 실측 §9 · 보강 과제 §10 · 검토 의견 반영 §11)
 
 작성 2026-10-24 · **사용자 결정(2026-10-24)**: ① 기존 id 유지 + A3.8~A3.11 신설 ② 적용 PER 기본값 = 목표가 중앙값÷EPS "기본값" 표시 ③ 정상화 EPS = 2026E~2028E 평균(1곳 셀 n 표시) ④ SOTP 멀티플은 사용자 입력만 ⑤ 배당은 별도 표시(ER_price · ER_total) ⑥ KR-SEMI Bear 템플릿은 라벨만 ⑦ 주식 수 기본값 = 공시 보통주 · 구현 결과는 §8 · 앞선 문서: `report-draft-design-v5.md`(A1 원인 드라이버 · A3.7 결과 지표 · 민감도 체인, R1~R5 구현 완료) · 입력: 사용자의 A3 개선 제안 — ① 흐름 A1 → 사업부별 실적 예측 → 가치평가 모델(PER 기본 + SOTP 검증) → Bear/Base/Bull(일관된 드라이버 가정 묶음) → 확률가중 적정가치 · 기대수익률(배당 포함) · 하방 위험 · 안전마진 → A6 ② 데이터 표(Forward PER 2.59 vs 리포트 3.2) ③ 노드 구조 A3.1 평가 기준 ~ A3.8 모델 신뢰도 ④ 설계 원칙 표 ⑤ 3단계 권고와 핵심 질문("DRAM 가격 지속성 → EPS vs 컨센 → 상승여력").
 
@@ -221,3 +221,84 @@ S1~S2 가 핵심이고 각 1~2 세션. S3 는 식이 다 있어 짧다. S4·S5 �
 - **삼성전자 실측 (리포트 현재주가 262,000)**: PER 530,000(컨센 83,320 × 6.36 기본값) · 정상화 480,717(26E~28E 75,572; 28E 1곳) · 역산 EPS 41,188(컨센 −51%) · DRAM ASP 경로 −57% 내재 · SOTP(임의 멀티플 메모리 6 · 파운드리 0 · DX 8 · SDC 6 · Harman 10) 537,428(PER 대비 +1%, 순현금 2025A 98.2조) · Bear(DRAM ASP −30% · 파운드리 −2조 · PER 3.5) 212,553(−19%) · Base 530,000 · Bull(ASP +10% · 파운드리 BEP · PER 7) 635,852(+143%) · 확률 30/45/25(예시) → V 461,255 · 기대수익률 +76.1% · 배당 포함 +82.2%(DPS 16,100) · 하방 −19% · 손익비 5.4 · 신뢰도 M(목표 PER 기본값 · 순이익 기준 혼합 · 발행주식수 차이 · 28E 1곳). 완만한 Bear(ASP −10% · PER 4.5) 는 349,400(+33%) 로 경고가 뜬다 — §0 2 그대로.
 - **문서의 수정**: §2.2 "주식 수는 사용자 입력(공시 보통주) 우선" 은 **주당 환산(SOTP·주당 환원)** 에 적용하고, EPS 환산용 N 은 `NP_E/EPS_E` 로 두어 가정 없는 Base 가 컨센 EPS × PER 과 같게 했다(둘의 차이는 신뢰도 경고로). 역산의 분모는 가격·물량 템플릿 원인 드라이버의 사업부 매출(포함 관계 정리 후) — 삼성전자는 DRAM 만(NAND 는 드라이버가 아님) 이라 "DRAM ASP 경로" 로 표시한다.
 
+## 9. 로컬 LLM 투입 실측 (2026-10-26, DGX Spark · OpenShell 샌드박스 · Ollama `nemotron-3-nano:latest`)
+
+- 경로: `mindmap draft --reports data/reports/samsung/*.pdf --llm --llm-kind local --claims llm --no-fetch` — `OpenAICompatFiller`(사고 끔 `LLM_THINK=none`, `max_tokens` 8000, 자격증명 핸들 `NEMOCLAW_LOCAL_INFERENCE_TOKEN`) 로 NemoClaw 인증 프록시(11435) → Ollama. 테스트 209건 통과(샌드박스 `.env` 에 로컬 LLM 이 있어도 "LLM 없음" 테스트가 흔들리지 않게 `tests/helpers.py::NO_LLM_ENV`).
+- 결과: 끝까지 돈다 — Claim 추출(LLM) → 쟁점 3(공통 1) → A1 원인 드라이버 5(수치 1 · 정성 4) → 민감도 5 → 평가 모델(PER 530,000 · 정상화 480,717 · 역산 EPS 41,188 / DRAM ASP 경로 −57%) → 신뢰도 L(경고 6). 밸류 숫자는 클라우드(Claude) 실측(§8) 과 같다 — **엔진이 같은 표 숫자를 썼다는 뜻**이지(밸류는 LLM 이 만들지 않는다), 로컬 모델이 증권사 의견을 정확히 읽었다는 뜻은 아니다(§11.3).
+- Claim 품질: 리포트 3건에서 26건 중 **verified 5(19%) · 검토 대기 21** (96588 1/5 · 96597 3/8 · 96634 1/13). Claude 캐시(`data/claims_llm`) 대비 낮다. 어느 단계(① 인용 위치 ② 숫자 ③ 의미 판정) 에서 떨어지는지 분해가 없어 원인은 미확정 → §10 C1·C2.
+- 환경 메모: 샌드박스 네트워크는 정책으로 막혀 pypi 프리셋(`nemoclaw <name> policy-add pypi`) 이 필요했고, NemoClaw v0.0.136+ 의 로컬 provider 자격증명 핸들 버그(#13553) 는 `openclaw.json` 의 `apiKey` 를 범위 핸들로 바꿔 우회. 현재가는 오프라인이라 리포트 기준일(14일 전) 값 — §10 B3.
+
+## 10. 보강 과제 목록 (2026-10-26 검토 — 릴리스 순서는 §11.4)
+
+§8 구현은 삼성전자(KR-SEMI) 3건으로 검증했다. 같은 코드를 NAVER(6건)·두산에너빌리티(4건) 리포트에 돌려 보면 **A1 원인 드라이버 0개 → 민감도·가정 묶음·역산 전부 미계산**이고 평가 모델은 PER·정상화만 뜬다. 원인은 v6 식이 아니라 그 앞단 두 가지(A1·A2) 다. 우선순위 순.
+
+| # | 과제 | 왜 | 어디 | 크기 |
+|---|---|---|---|---|
+| **A1** | 섹터 원인 KPI 사전 확장 — KR-INTERNET(광고 성장 · 커머스 거래액/테이크레이트 · 핀테크 결제액 · 콘텐츠 · 마케팅/인프라 비용) · KR-UTIL(신규수주/수주잔고 `orders` · 원전 매출 · 가스터빈 · 자회사(밥캣) `direct_op` · 원가율) 을 v5 형식(driver_id · variable · template · segment · proxies) 으로 | `cause_kpis()` 가 `driver_id` 있는 KPI 만 쓰므로 지금은 KR-SEMI 만 A1 이 채워진다(옛 MAU·테이크레이트 항목은 후보가 아님). 다른 섹터는 쟁점 테마로만 채워져 템플릿이 없어 민감도가 안 돈다 | `generate/kpi_catalog.py` SECTOR_KPIS, `engine/sensitivity.py`(orders 템플릿 입력 확인) | 중 |
+| **A2** | 사업부 표 추출 일반화 — `SEGMENT_ALIASES` 가 삼성 사업부 고정 → 종목/섹터별 별칭(NAVER 서치플랫폼·커머스·핀테크·콘텐츠·클라우드, 두산 원자력·가스터빈·밥캣·산업차량 …) + "사업부별/부문별" 캡션 표 안의 모르는 행도 사업부로 받기(SKIP_ROWS 만 버림) | NAVER·두산 `financials.segments` 가 `null` — 가격·물량 템플릿의 분모(사업부 매출) 가 없다 | `reports/segments.py` | 중 |
+| **C1** | `mindmap claims stats <dir>` — ClaimSet 의 ① 인용 ② 숫자 ③ 의미 단계별 통과/실패와 검토 대기 사유(`review_reason`) 집계 | Nano verified 19% 의 원인을 모른다 (인용 패러프레이즈? 숫자 불일치? ③ 판정 실패?) | `cli.py` · `reports/validate_claims.py` | 소 |
+| **C2** | `mindmap claims compare <dirA> <dirB>` — 같은 리포트의 두 ClaimSet(Claude 캐시 vs 로컬) 비교: (driver_id · variable · 수치) 셀 재현율 · 방향 일치 · 인용 위치 겹침 · 증권사별 표 | Spark 에서 Nano 를 계속 쓸지, Super/Qwen 으로 갈지 숫자로 정한다 | `generate/evals.py` · `cli.py` | 소~중 |
+| **C3** | 로컬 모델용 프롬프트 프로파일(`--prompt-profile local`): JSON 스키마·"인용은 원문 그대로"·청크당 Claim 상한 강조, `CLAIM_PROMPT_VERSION` c4 로 캐시 구분; ③ 의미 판정을 로컬 모델로 할지 끌지(`--semantic off`) 옵션 | 작은 모델은 긴 지시를 흘린다 · 판정 모델이 약하면 verified 가 통째로 빠진다 | `generate/prompts.py` · `reports/claims.py` | 소 |
+| **B3** | `draft/changes --price 262000 --price-date 2026-10-26` 수동 현재가 | 오프라인 샌드박스에서 2~3주 묵은 리포트 가격으로 역산·매력도가 계산된다. 에이전트가 호스트에서 받은 값을 넘길 통로 | `cli.py` · `generate/draft.py`(price_source=user) | 소 |
+| **D1** | `mindmap batch --reports-dir data/reports --maps-dir data/maps [--db]` — 종목 폴더마다 맵이 없으면 `draft`, 있으면 `changes`; 결과를 요약 Markdown/JSON 한 장과 종료 코드로 | 에이전트(OpenClaw heartbeat) 가 콘솔 없이 부른다 | `cli.py` · `ops.py` 재사용 | 중 |
+| **D2** | `mindmap alerts <map>` — 체크포인트(A7.1) 도래 · Kill 규칙 발동 · 리비전 · 현재가 기준일 경고를 알림 텍스트(한 줄/상세) 로. 전송(Telegram/카카오) 은 에이전트 몫 | 운영 단계의 핵심 산출. 판단은 사람(알림만) | `cli.py` · `engine/lifecycle.py` | 소 |
+| **D3** | `mindmap export-knowledge --out knowledge/` — 맵·ClaimSet·IssueSet → 종목별 Markdown(논제 · A1 · 쟁점 · 시나리오 · 평가 모델 · Kill 한 장) | OpenClaw `memory_search` 가 읽는 2층 지식(docs/openshell.md §6). 판단 필드는 그대로 적되 "사람 판단" 표시 | `render/`(markdown) · `cli.py` | 소~중 |
+| **D4** | `draft/changes --json` 요약 출력 | 에이전트가 파싱 (현재는 사람용 텍스트만) | `cli.py` | 소 |
+| **B1** | 발행주식수 라벨 구분 — 보통주 / 우선주 포함 / 자기주식 제외 를 머리 문구에서 읽어 **공시 보통주(결정 ⑦)** 를 고르고 출처 표시 | 삼성 5,919 vs 6,742 백만주, NAVER 159.3 vs 152.1 백만주 — 지금은 중앙값 + 신뢰도 경고 | `reports/extract.py::find_shares_out` · `digest.py` | 소 |
+| **B2** | 추정치 표 단위 추정 검증 — "단위 못 읽어 십억원 가정"(NAVER 한화) 때 다른 증권사 매출 크기와 비교해 ×1000 어긋나면 보정·경고 | 단위 하나가 틀리면 컨센 중앙값이 밀린다 | `reports/digest.py` | 소 |
+| **A3** | Bear 템플릿 라벨 — KR-INTERNET(광고 성장 둔화 · 커머스 투자 비용 · 멀티플 압축) · KR-UTIL(수주 지연 · 원전 일정 · 멀티플) 추가(라벨만, 결정 ⑥) | 삼성만 있음 | `engine/scenario_model.py::BEAR_TEMPLATES` | 소 |
+| **A4** | 손실 사업부의 `direct_op` 는 % 대신 절대값(조원) 기본 | "파운드리 +10% → +50원" 처럼 읽히지 않는 민감도 | `engine/sensitivity.py` | 소 |
+| **E1** | 문서: README 에이전트/Spark 절, `docs/openshell.md` 에 진행 기록, ARCHITECTURE 표 갱신 | — | docs | 소 |
+
+보류 유지(§6): DCF·RIM, 자동 확률·멀티플, 재번호, JS 식 복제, LLM 의 가정 숫자, 역사 밴드 자동 계산. 카카오 "나에게 보내기" 전송기는 D2 의 텍스트가 먼저고, 전송은 에이전트/스킬 쪽에서.
+
+순서 제안(초안): A1·A2 → C1·C2 → B3·D1·D2 → 나머지. **→ §11 검토 의견으로 순서를 바꿨다**: 정합성(P0-1) · 해석(P0-2) · Claim 품질(P0-3) 을 v6.1 로 먼저, 섹터 확장(A1·A2) 과 운영 CLI 는 v6.2.
+
+## 11. 검토 의견 반영 (2026-10-26) — v6.1 = 정합성 · 해석 · Claim 품질
+
+외부 검토("반드시 수정할 3가지") 를 코드와 대조한 결과 세 지적이 모두 맞다. 각 항목에 **지금 코드가 하는 일 → 고칠 설계 → 숫자 영향** 을 적는다. v6.1 은 새 기능이 아니라 이 세 기반을 고치는 릴리스다.
+
+### 11.1 P0-1 회계 기준 정규화 — EPS · 순이익 · 주식 수
+
+**지금.** `digest` 는 순이익(NP) 만 다수 기준으로 평균한다("지배 2 · 전체 1 → 지배만"). **EPS 는 기준을 보지 않고 3곳을 그대로 평균**한다(83,320) — §2.2 에 적힌 대로 IBK EPS 는 우선주 포함 6.65B 주, 유진은 전체 순이익, DS 는 지배 ÷ 5.91B 로 서로 다른 기준이다. `common_tail` 은 이 혼합 EPS 로 N = NP/EPS(6.02B, `derived`) 를 유도해 쓰고, 차이는 A3.11 경고로만 남긴다. 시나리오의 EPS' = EPS × NP'/NP 는 비율 보정이라 **최초 EPS 의 기준 불일치를 없애지 못한다**(검토 의견 그대로).
+
+**설계.**
+- A3.8 평가 기준에 `earnings_basis`(`지배` | `전체`, 기본 지배), `share_count_basis`(`보통주` | `보통주+우선주` | `자기주식 제외`, 기본 보통주), `shares_std`(표준 주식 수 — 머리 발행주식수 중 "우선주 포함" 문구가 없는 것의 중앙값; 사용자 입력 우선) 를 둔다.
+- 증권사별 분류 `BrokerBasis(np_basis, share_basis, n_implied)`: NP 기준은 표의 `basis.np`, 주식 수 기준은 머리 문구(우선주 포함) 와 N_i = NP_i/EPS_i 를 공시 보통주와 비교해 정한다(±4% → 보통주, +12~16% → 우선주 포함, 그 밖 → 불명).
+- **EPS 정규화**: EPS_i^std = NP_i(지배) ÷ shares_std — 지배 순이익이 있는 증권사만. 전체 순이익만 있는 증권사는 `not_comparable` 로 평균에서 **제외**하고 표에 회색으로 남긴다(지배 비율로 환산하는 추정은 하지 않는다 — 검증 불가). 컨센 EPS = 정규화 EPS 의 평균, n 표시.
+- **호환성 검사** `check_basis(digest, criteria) -> BasisCheck(status, per_broker, notes)` 를 `compute_valuation()` 과 `compute_sensitivity()` 진입 전에 돈다. `status`: `comparable`(정규화 2곳 이상) · `mixed`(1곳만 정규화 — 값은 계산하되 "참고") · `not_comparable`(0곳 — PER·정상화·역산·시나리오 가격을 **확정 표시하지 않음**: A3.9 값 칸 "기준 불일치 — 참고값", HTML 회색, 검증에 미확정 1건). 상태는 `ValuationModel.basis_status` · `ScenarioResult.status` 로 전파되고 A3.11 은 경고가 아니라 이 상태를 읽는다.
+- **N 통일**: EPS 환산 N 도 `shares_std` 로. §8 의 "EPS 환산은 유도 N, 주당 환산은 공시 주식 수" 이원화는 없앤다 — 정규화 뒤에는 EPS^std × N_std = NP(지배) 가 성립하므로 Base(가정 없음) = EPS^std × PER 가 그대로 유지된다. 민감도 EPS 환산(ΔNP ÷ N) 도 같은 N 을 쓴다.
+- 발행주식수 라벨 구분(§10 B1) 과 표 단위 검증(B2) 은 이 항목의 일부로 함께 한다.
+
+**삼성전자 숫자(2027E).** IBK 465.4조 ÷ 5.846B = **79,606** · DS 537.8조 ÷ 5.846B = **91,990** · 유진(전체 529.4조) 제외 → 컨센 EPS^std **85,798 (2곳, mixed 아님 — comparable)** vs 지금 83,320(+3.0%). 목표가 유도 PER 는 530,000/85,798 = 6.18 로 바뀌고, 정상화·역산·SOTP 주당 환산의 분모가 한 종류가 된다. 유진 리포트는 EPS 표에 `not_comparable` 표시 — 그 증권사 목표가(560,000) 는 분포에 그대로 쓴다(목표가는 기준 문제가 없다).
+
+**구현 (2026-10-27, v7 T1)** — v7 §12.3. 삼성 컨센 EPS 86,693(3곳) · PER 6.11; 전체만 적은 증권사는 "제외" 대신 측정 지배 비율(≥0.9) 로 환산해 넣는다(표시). 테스트 217.
+
+### 11.2 P0-2 역산 결과의 조건부 해석 — "내재" 를 쓰지 않는다
+
+**지금.** 기본 PER = 목표가 중앙값 ÷ 컨센 EPS(`per_source=default`) 이고, A3.9 한 줄이 "역산: 현재가는 EPS 41,188 (컨센 −51%) · DRAM ASP 경로 −57% **내재**" 로 단정형이다. `mindmap implied --per …` 는 여러 PER 를 받지만 초안 요약·HTML 은 단일 값만 보인다. Base(가정 없음) = EPS × 목표가 유도 PER = 목표가 중앙값 재현(순환) 이 라벨 없이 뜬다.
+
+**설계.**
+- `per_source` 열거를 바꾼다: `broker_target_implied`(지금의 default) | `user` | `historical_normalized`(과거 PER 밴드 — 가격·EPS 시계열 DB 가 생기면) | `peer`(피어 멀티플 — 수집 어댑터가 생기면). 당장 쓸 수 있는 것은 앞 둘이고 뒤 둘은 자리만 둔다(§6 보류 유지).
+- `ValuationModel.implied_status`: `per_source == broker_target_implied` 면 **`assumption_dependent`**, 그 밖은 `anchored`. 문구: "PER 6.18(목표가 유도) 와 현재 비용 구조가 유지된다는 가정에서 현재가 262,000 을 설명하는 EPS = 41,188(컨센 −51%), DRAM ASP 변화 = −57%". 단어 "내재" · "시장은 …를 반영" 은 쓰지 않는다. A2.1 "시장과 내 견해 차이" 가 이 값을 쓸 때 `assumption_dependent` 면 질문형으로만 적는다.
+- **역산 표** `implied_table`: PER 여러 개에서 EPS · 컨센 대비 · 가격 드라이버 경로를 한 표로 — 기본 행은 목표가 유도 PER · 증권사 PER 행 중앙값(각 리포트 가격 기준, §2.2) · 사용자 PER(있으면) · 사용자 지정 목록(`--per`). A3.9 상세와 HTML 계산기에 표로 보이고, 한 줄에는 "PER 6.18 → −57% · 4.5 → −40% · 3.5 → …" 식으로 범위를 보인다.
+- Base 라벨: 가정 없는 Base 가 목표가 유도 PER 를 쓰면 "**Base = 목표가 중앙값 재현(순환) — 내 PER 입력 전 참고**" 를 시나리오 줄과 A3.10 에 붙인다. 사용자가 `per` 를 넣으면 라벨이 사라진다.
+
+### 11.3 P0-3 로컬 LLM Claim 품질 게이트
+
+**지금.** §9 실측 — 26건 중 verified 5(19%) · 검토 대기 21. 어느 단계(① 인용 위치 ② 숫자 ③ 의미 판정) 에서 떨어지는지 집계가 없고, Claim 품질이 낮아도 초안은 "완료" 로 표시된다. 검토 의견대로 **19% 는 정확도가 아니라 검증기 통과율**이다 — ③ 의미 판정을 같은 작은 모델이 하므로 판정기가 병목일 수도 있다.
+
+**설계.**
+- **C1 `mindmap claims stats <dir>`**: ClaimSet 별·전체로 ① quote ok/fail ② numbers ok/none/fail ③ support supported/unchecked/contradicted 의 교차표, `review_reason` 사유 집계, 추출 모델 · `CLAIM_PROMPT_VERSION` 별 분리. 결과는 표 + JSON.
+- **C2 `mindmap claims compare <기준 dir> <비교 dir>`**: 같은 리포트 파일끼리 — (a) 원인 KPI 셀 재현율: 기준의 (driver_id · variable · col · 값±1%) 가 비교에 있는 비율 (b) 증권사별 방향(상향/하향/유지) 일치율 (c) 중요 이견 누락률: 기준 쟁점 표의 핵심 이견 테마가 비교 쪽 Claim 으로 재구성되는지 (d) 인용 위치 겹침. 표 + JSON.
+- **품질 게이트**: `draft` 가 `meta.draft.quality` 에 `claim_gate = {verified_ratio, core_verified_ratio, recall_vs_reference?, status}` 를 적고, **핵심 Claim**(원인 KPI 셀 · 목표가/추정치 변경 · 조건부 리스크) 의 검증률 < 50% 또는 기준 캐시가 있을 때 재현율 < 70% 면 `draft_status = needs_claim_review` — 요약 첫 줄 "⚠ Claim 품질 게이트 미달 (검증 19% · 재현율 —)", HTML 배지, A1 노드 question 에 "Claim 검토 전" 표시, 검증 결과에 미확정 1건. 완료 표시는 사람이 검토함을 처리해 비율이 올라가거나 게이트를 명시적으로 끌 때(`--no-claim-gate`, 기록 남김) 만. 문턱 50/70 은 첫 값이고 C2 결과로 보정한다.
+- 순서: C1 → C2 → 결과에 따라 C3(로컬용 프롬프트 · ③ 판정을 Claude 또는 사람으로) 또는 모델 교체(Super/Qwen). Claude 와 로컬 모델의 밸류 숫자가 같았던 것은 **엔진이 같은 숫자를 썼다는 뜻**이고 Claim 분석의 정확성을 말하지 않는다 — §9 문구를 그렇게 고쳤다.
+
+### 11.4 수정된 순서
+
+| 릴리스 | 내용 | 크기 |
+|---|---|---|
+| **v6.1 정합성·해석·품질** | P0-1 회계 기준 정규화(+B1 발행주식수 라벨 · B2 표 단위 검증) → P0-2 `per_source`·`assumption_dependent`·역산 표·순환 라벨 → P0-3 C1 · C2 · 품질 게이트. 테스트: 삼성 3건 정규화 숫자(85,798 · PER 6.18) 골든 갱신, `not_comparable` 차단, 문구, 게이트. | 중 · 소~중 · 중 (3~4 세션) |
+| **v6.2 확장·운영** | A1·A2 섹터 원인 KPI · 사업부 표 일반화(NAVER·두산), A3·A4, B3 `--price`, D1 `batch` · D2 `alerts` · D3 `export-knowledge` · D4 `--json`, E1 문서 | §10 표대로 |
+
+검토 의견과 다른 점 두 가지만 적는다. ① `not_comparable` 은 "값을 비우는 차단" 이 아니라 "확정 표시를 막는 상태" 다 — 참고값은 회색으로 남겨야 사용자가 무엇이 빠졌는지 볼 수 있다. ② `historical_normalized` · `peer_based` PER 는 데이터(가격·EPS 시계열, 피어 멀티플) 가 없어 열거값만 두고 보류한다 — 당장은 `user` 가 독립 PER 의 유일한 경로다.

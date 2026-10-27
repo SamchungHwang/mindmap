@@ -33,6 +33,14 @@ ANTHROPIC_WORKSPACE_ID=wrkspc_…    # 키 범위가 '조직'(워크스페이스
 KSTOCK_LLM_MODEL=claude-sonnet-5-5 # 선택 — 비우면 계정의 모델 목록에서 최신 Sonnet 을 자동으로 고른다 (kstock.llm.models)
 KSTOCK_LLM_THINKING=off            # 선택 — 기본 off: Claude 5 계열은 사고(thinking) 가 기본으로 켜져 사고 토큰이 max_tokens 를 먹고 텍스트가 빈다 → 끈다. adaptive 면 모델 기본
 KSTOCK_PREFER_DOTENV=1             # 선택 — 이 파일의 키가 셸(Windows 사용자/시스템) 환경변수를 덮는다. 예전 키가 환경변수에 남아 .env 를 자꾸 가릴 때
+
+# 로컬 OpenAI 호환 서버 (DGX Spark 의 Ollama/vLLM 등) — `--llm-kind local` 또는 Claude 키가 없을 때 auto 가 이쪽을 쓴다
+LLM_BASE_URL=http://host.openshell.internal:11435/v1   # OpenShell 샌드박스 안에서는 NemoClaw 인증 프록시(11435) 주소. 호스트에서 직접이면 http://127.0.0.1:11434/v1
+LLM_MODEL=nemotron-3-nano:latest   # Ollama 모델 id
+LLM_API_KEY=local-ollama           # 로컬 서버는 아무 값이나 (헤더만 채운다). OpenShell 샌드박스 안에서는 비워 두면 NEMOCLAW_LOCAL_INFERENCE_TOKEN(자격증명 핸들) 을 쓴다
+LLM_THINK=none                     # 선택 — 기본 none: 사고(reasoning) 를 끈다 (reasoning_effort=none → Ollama 가 think=false 로 넘김). low|medium|high|auto(서버 기본)
+LLM_MAX_TOKENS=8000                # 선택 — 기본 8000. 사고를 켜면 사고 토큰도 이 예산에서 나간다
+KSTOCK_OFFLINE=1                   # 선택 — 가격·외부 조회를 하지 않는다 (샌드박스처럼 바깥 네트워크가 막힌 곳)
 ```
 
 셸 환경변수가 `.env` 를 가리면 `llm-check`·`describe()` 가 **어디서 온 변수인지**(Windows 사용자 / 시스템 / 이 세션 — 프로필·conda) 와 지우는 명령을 함께 보여 준다.
@@ -209,12 +217,16 @@ LLM 이 없으면 키워드 문장 분류로 대체하고 `quality: rules`(저�
 - **편집·명령** — HTML 편집 폼의 드라이버 필드에 `kind`·`proxies`·`invalidation_condition`(무효화 조건)·`sensitivity_inputs`(JSON: `segment_revenue` 억원 · `pass_through` · `tax_rate` · `shares` · `per_target` · `fcf` …) 가 있고, 적용/저장하면 민감도가 다시 계산된다. `mindmap sensitivity <맵> [--driver A1.1] [--delta 10] [--set pass_through=0.8] [--save]`, `mindmap eval-drivers <맵>`(정답표 `tests/golden/drivers/<ticker>.json` 대비 재현·순서·결과 지표 혼입·수치·민감도). `draft --claims cached --mode replace` 는 Claim 저장본을 그대로 쓰고 맵만 v5 구조로 다시 만든다(LLM 비용 없음).
 - **검증** — `kind=quant` 드라이버는 현재값·내 추정이, `qualitative` 는 관측 지표와 무효화 조건이 있어야 한다. 조기 경보 지표(A4.5) 는 원인 드라이버의 관측 지표로.
 
+### 설계 v7 (2026-10-27) — 투자 의사결정 마인드맵, `docs/report-draft-design-v7.md`
+
+"증권사들이 얼마를 예상하는가" 를 넘어 **"그 가격이 성립하려면 무엇이 일어나야 하며, 어떤 증거가 나오면 내 판단을 수정해야 하는가"** 까지: 가정 표 · 역산 표(한 변수 해 · 두 변수 조합) · 날짜별 필요 경로 · 증거 계획(관측값 데이터 계약 · 같은 자 규칙 · 신호등) · 판단 수정 규칙(드라이버 역할별, 감지→검증→제안→승인) · 판단 상태 전이. 작업 목록은 v7 §12 — T1 회계 기준 정규화부터 구현 중(아래 v6 절의 "회계 기준 정규화" 참조).
+
 ### 설계 v6 (2026-10-24) — 밸류에이션 & 시나리오, `docs/report-draft-design-v6.md`
 
 A3 를 **A1 드라이버 → 사업부 실적 → 평가 모델(PER 기본 · SOTP 검증) → Bear/Base/Bull = 드라이버 가정 묶음(통합 1차 모델, 합산 아님) → 확률가중 가치 · 기대수익률(배당 별도) · 하방 · 안전마진 → A6** 으로 잇는다. 기존 id 는 그대로 두고 **A3.8 평가 기준(사람) · A3.9 평가 모델 · A3.10 확률가중 투자 매력도 · A3.11 모델 신뢰도·갱신 이력** 을 신설했다(사용자 결정 ①). 확률·멀티플·내 추정·가정은 사람 몫, LLM 은 숫자를 만들지 않는다.
 
 - **평가 모델** (`engine/valuation.py`) — PER 가격 = 기준 EPS(`consensus | my_estimate | normalized | user`) × 적용 PER. 적용 PER 기본값은 **목표가 중앙값 ÷ 컨센 EPS** 로 "기본값" 표시(②), 정상화 EPS 는 **첫 추정 연도부터 3개(2026E~2028E) 평균** 에 1곳 셀 경고(③). SOTP = Σ 사업부 OP × (1−t) × 멀티플 + 순현금(최근 실적 연도 순차입금 × −1), ÷ 공시 발행주식수 — **멀티플은 사용자 입력만**(④), 포함 관계(메모리 ⊃ DRAM ⊃ HBM, DX ⊃ MX·VD) 가 겹치면 자식을 뺀다. **역산**: 현재가 ÷ PER = 내재 EPS, 그 EPS 가 요구하는 OP 를 가격 드라이버 사업부 매출로 나눠 "DRAM ASP 경로 −57% 내재" 처럼 보여 준다. 삼성전자 3건: PER 530,000원(= 목표가 중앙값 — 컨센 × 목표 PER 는 순환이라 내 추정이 들어가야 의미) · 정상화 480,700원 · 역산 EPS 41,188(컨센 −51%).
-- **주식 수 둘** — EPS 환산용 N 은 `NP_E/EPS_E`(컨센 EPS 기준과 맞춰 가정 없는 Base = 컨센 EPS × PER), 주당 환산(SOTP·주당 환원) 은 **리포트 머리의 발행주식수 중앙값**(⑦). 둘이 5% 넘게 다르면 신뢰도에 "EPS 기준 혼합(우선주 포함·지배/전체)" 경고.
+- **회계 기준 정규화 (v6 §11.1 / v7 T1, 2026-10-27)** — 증권사별 EPS 는 기준이 다르다(IBK 는 우선주 포함 주식 수, 유진은 전체 순이익, DS 는 지배 순이익) 그래서 **평균하지 않고** `EPS^std = 지배 순이익 ÷ 공시 보통주` 로 맞춘 뒤 평균한다(`reports/digest.py` `basis_check`). 주식 수 기준은 머리 문구(보통주/우선주) 로, 없으면 다른 증권사와 비교해 추정(최소값 대비 +6~30% → 우선주 포함, 최대값 대비 −1.5~−10% → 자기주식 제외); 전체 순이익만 적은 증권사는 같은 표에 두 행을 다 적은 증권사의 **측정** 지배 비율(≥0.9) 로 환산해 넣고(표시 '전체×비율'), 그것도 없으면 제외. 상태 `comparable`(2곳 이상) / `mixed`(1곳 — 경고) / `not_comparable`(0곳 — A3.9 가격에 "⚠ 기준 불일치 — 참고값", 검증 오류, 신뢰도 L) / `unavailable`(발행주식수 없음 — 예전 규칙). 환산 N 도 표준 주식 수 하나(유도 N 이원화 폐지). 삼성전자: 표의 EPS 평균 83,320 → 정규화 86,693(3곳) · PER 6.11 · 정상화 502,545 · 역산 EPS 42,856. 표 아래 "EPS 기준 통일" 줄과 `mindmap valuation` 의 "회계 기준" 줄에 그대로 보인다. 단위를 못 읽은 리포트의 표가 다른 증권사와 ×1000 어긋나면 보정한다.
 - **시나리오 = 가정 묶음** (`engine/scenario_model.py`) — `Scenario.driver_assumptions`(A1.x 별 Δ% 또는 억원) · `per` · `eps_basis` · `conditions` · `indicators` · `falsifier` · `price_source=computed`. 통합 모델은 사업부마다 `R(1+a)(1+v)·k − C(1+v) − R'·c` 를 한 번에 풀어 **같은 사업부의 가격·물량 교차항** 을 포함한다(민감도를 더하면 빠지는 항). 가정이 하나면 민감도와 같은 수(회귀 테스트), 없으면 Base = 평가 모델. **Bear ≥ 현재가면 ⚠ "하락 시나리오가 아니다"** — 현재가가 이미 이익 지속성 의심을 내재하면 완만한 Bear 는 현재가 위에 뜬다; KR-SEMI Bear 템플릿은 라벨만("메모리 ASP 경로 · 멀티플 압축 · 기준 연도", ⑥). 입력이 모자라면 `target_price=None`(미계산) 으로 남고 검증이 노드별로 알려 준다.
 - **확률가중 투자 매력도** (`engine/attractiveness.py`) — V = Σ p·TP · 기대수익률(가격) 과 **배당 포함(DPS 중앙값 ÷ 현재가) 을 따로**(⑤) · 하방(Bear) · 안전마진(vs 가중 · vs Base) · 손익비. 확률은 사람(「예시 확률」 은 미검증 가정). **모델 신뢰도** H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합 · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력 · 1곳 셀, 갱신 이력은 `meta.draft.valuation_log`.
 - **추출 보강** — 추정치 표에서 **순차입금 · 순현금 · FCF · CAPEX · 영업활동현금흐름** 행과 **표 두 개가 나란히 찍힌 줄의 오른쪽 표**(DPS·BPS·PER…) 를 읽고, 깨진 토큰("(1,045,") 은 버리며, 리포트 머리의 **발행주식수** 를 `ReportFacts.shares_out` 로 읽는다. 삼성전자: 순차입금 2025A −98.2조(3곳) · DPS 2027E 18,000/16,100/1,440 → 중앙값 16,100(이상치 흩어짐 표시).

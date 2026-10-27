@@ -151,6 +151,7 @@ class ScenarioResult(BaseModel):
     op_delta_by_node: dict[str, float] = Field(default_factory=dict)   # node_id → ΔOP (억원)
     inputs: list[SensitivityInput] = Field(default_factory=list)
     status: str = Field(default="미계산", pattern="^(계산됨|미계산)$")
+    basis_status: str = "unchecked"      # 설계 v6 §11.1 — 평가 모델과 같은 상태
     missing: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     method: str = ""
@@ -222,6 +223,7 @@ class ValuationModel(BaseModel):
     normalized_years: list[str] = Field(default_factory=list)
     per: float | None = None
     per_basis: str = "default"           # default(목표가 중앙값/EPS) | user
+    basis_status: str = "unchecked"      # 설계 v6 §11.1: comparable(정규화 EPS 2곳 이상) | mixed(1곳 — 참고) | not_comparable(0곳 — 확정 표시 안 함) | unchecked(옛 맵)
     price_per: float | None = None
     price_normalized: float | None = None
     price_my_estimate: float | None = None

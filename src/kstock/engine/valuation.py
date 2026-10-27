@@ -68,6 +68,8 @@ class Criteria:
     dps: float | None = None                 # 원 (사용자가 직접 줄 때)
     sotp_multiples: dict[str, float] = field(default_factory=dict)
     sotp_stakes: dict[str, float] = field(default_factory=dict)   # 자회사 지배지분 비율 (0~1) — 없으면 1.0 + 경고
+    earnings_basis: str = "지배"            # 설계 v6 §11.1: 컨센 EPS 의 순이익 기준 (지금은 지배만 지원 — 전체는 측정 지배 비율로 환산)
+    share_count_basis: str = "보통주"       # 설계 v6 §11.1: 주식 수 기준 (지금은 보통주만 지원 — 우선주 포함·자기주식 제외 머리값은 걸러낸다)
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -90,6 +92,8 @@ class Criteria:
         c.net_cash_year = str(v["net_cash_year"]).strip() if v.get("net_cash_year") else None
         d = str(v.get("dividend_in_return") or "separate").strip()
         c.dividend_in_return = d if d in DIVIDEND_MODES else "separate"
+        c.earnings_basis = str(v.get("earnings_basis") or "지배").strip() or "지배"
+        c.share_count_basis = str(v.get("share_count_basis") or "보통주").strip() or "보통주"
         mult = v.get("sotp_multiples")
         if isinstance(mult, dict):
             for k, x in mult.items():
@@ -160,6 +164,8 @@ class Tail:
     shares_out_source: str = "missing"
     per: float | None = None
     per_source: str = "missing"
+    basis_status: str = "unchecked"         # 설계 v6 §11.1: comparable | mixed | not_comparable | unchecked(옛 맵)
+    basis_notes: list[str] = field(default_factory=list)
     inputs: list[SensitivityInput] = field(default_factory=list)
     missing: list[str] = field(default_factory=list)
 
@@ -178,6 +184,13 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
     np_c, op_c, eps_c = year_cell(fin, year, "np"), year_cell(fin, year, "op"), year_cell(fin, year, "eps")
     tl.np, tl.op, tl.eps = _mean(np_c), _mean(op_c), _mean(eps_c)
     tl.eps_n = int((eps_c or {}).get("n") or 0)
+    # 설계 v6 §11.1: 회계 기준 검사 결과 (financial_snapshot 이 남긴 것). 옛 맵(없음) 은 unchecked — 예전 규칙 그대로
+    bc = fin.get("basis") or {}
+    if bc:
+        tl.basis_status = str(bc.get("status") or "unchecked")
+        tl.basis_notes = list(bc.get("notes") or [])
+        if (eps_c or {}).get("basis") == "std":
+            tl.basis_notes.append(f"EPS 정규화: 지배 순이익 ÷ 공시 보통주 ({tl.eps_n}곳" + (f", 비율 환산 {len((eps_c or {}).get('approx') or {})}곳" if (eps_c or {}).get("approx") else "") + ")")
     # 유효세율 t
     tax = user.get("tax_rate")
     src_t = "user" if tax is not None else "derived"
@@ -191,6 +204,7 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
     # 주식 수 — 두 개를 구분한다 (설계 v6 §2.2). ① EPS 환산용 N = NP_E/EPS_E (컨센 EPS 와 기준을 맞춘다: 가정 없는 Base = 컨센 EPS × PER 이 되도록)
     # ② 공시 발행주식수 N_out (리포트 머리 중앙값, 사용자 결정 ⑦) = SOTP 주당 환산·주당 환원. 사용자(드라이버 입력·A3.8) 가 shares 를 주면 둘 다 그 값
     hdr = (fin.get("shares_out") or {})
+    std = fin.get("shares_std") or {}
     shares_eps: float | None = None
     note = None
     if user.get("shares") is not None:
@@ -198,6 +212,10 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
     elif crit.shares is not None:
         shares_eps, tl.shares_source = crit.shares, "criteria"
         note = "A3.8 평가 기준"
+    elif std.get("value") and (eps_c or {}).get("basis") == "std":
+        # 설계 v6 §11.1: EPS 가 표준 주식 수로 정규화됐으면 환산 N 도 같은 값 — 유도 N 과의 이원화를 없앤다 (EPS_std × N_std = 지배 NP)
+        shares_eps, tl.shares_source = float(std["value"]), "header"
+        note = f"표준 주식 수 — {std.get('note') or '공시 보통주'}"
     elif tl.np and tl.eps and tl.eps > 0:
         shares_eps, tl.shares_source = tl.np * 1e8 / tl.eps, "derived"
         note = "NP_E / EPS_E — 컨센 EPS 기준에 맞춘 환산용"
@@ -328,7 +346,8 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
     fin = (m.meta.get("draft") or {}).get("financials") or {}
     p0 = getattr(m, "current_price", None)
     vm = ValuationModel(eps_basis=crit.eps_basis, eps_year=tail.year, computed_at=today, per=tail.per,
-                        per_basis="user" if tail.per_source in ("user", "criteria") else ("default" if tail.per is not None else "missing"))
+                        per_basis="user" if tail.per_source in ("user", "criteria") else ("default" if tail.per is not None else "missing"),
+                        basis_status=tail.basis_status)
     inputs = list(tail.inputs)
     missing = list(tail.missing)
     warnings: list[str] = []
@@ -421,10 +440,33 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
             op_req = vm.implied_eps * tail.shares / 1e8 / (1.0 - tail.t)
             vm.implied_path_pct = (op_req - tail.op) / base_rev * 100.0
             vm.implied_path_label = "+".join(s for s in keep if s in rev) + " ASP 경로 (k=1.0)"
+    # 설계 v6 §11.1: 회계 기준 호환성 — not_comparable 이면 값은 남기되 '확정' 으로 표시하지 않는다 (valuation_line · 검증 · 신뢰도가 읽는다)
+    if tail.basis_status == "not_comparable":
+        warnings.insert(0, "EPS 기준 불일치 — 정규화된 증권사 0곳: 가격은 참고값 (" + "; ".join(tail.basis_notes)[:160] + ")")
+    elif tail.basis_status == "mixed":
+        warnings.append("EPS 정규화 1곳뿐 — 컨센이 아니라 한 증권사 값 (" + "; ".join(tail.basis_notes)[:120] + ")")
     vm.inputs, vm.missing, vm.warnings = inputs, missing, warnings
     vm.status = "계산됨" if vm.price_per is not None else "미계산"
     vm.method = "price_per = EPS(basis) × PER ; price_normalized = mean(EPS 2026E~2028E) × PER ; price_sotp = (Σ seg OP×(1−t)×multiple×stake + net_cash)/N ; implied_eps = P0/PER"
     return vm
+
+
+def basis_summary(fin: dict[str, Any]) -> str:
+    """회계 기준 검사 결과 한 줄 (설계 v6 §11.1) — meta.draft.financials.basis 에서."""
+    bc = fin.get("basis") or {}
+    if not bc:
+        return "검사 없음 (옛 맵 — 증권사 EPS 평균, NP/EPS 유도 주식 수)"
+    st = bc.get("status")
+    label = {"comparable": "비교 가능", "mixed": "정규화 1곳뿐 (참고)", "not_comparable": "기준 불일치 — 가격은 참고값", "unavailable": "발행주식수 없음 — 미정규화"}.get(st, st)
+    e = bc.get("eps") or {}
+    parts = [f"{label}"]
+    if bc.get("shares_std"):
+        parts.append(f"표준 주식 수 {bc['shares_std'] / 1e3:,.0f}천주 ({bc.get('shares_note') or ''})")
+    if e.get("n"):
+        parts.append(f"정규화 EPS {e['mean']:,.0f} ({e['n']}곳" + (f", 비율 환산 {len(e.get('approx') or {})}" if e.get("approx") else "") + ")")
+    if e.get("excluded"):
+        parts.append("제외 " + ", ".join(f"{k}({v})" for k, v in e["excluded"].items()))
+    return " · ".join(parts)
 
 
 def valuation_line(vm: ValuationModel | None, p0: float | None = None) -> str:
@@ -434,7 +476,8 @@ def valuation_line(vm: ValuationModel | None, p0: float | None = None) -> str:
     if vm.status != "계산됨":
         return "평가 모델 미계산 — 필요: " + "; ".join(vm.missing)[:200]
     per_tag = "기본값" if vm.per_basis == "default" else "기준"
-    parts = [f"PER {vm.price_per:,.0f}원 ({EPS_BASIS_LABEL.get(vm.eps_basis, vm.eps_basis)} EPS {vm.eps:,.0f} × {vm.per:.2f} {per_tag})"]
+    head = "⚠ 기준 불일치 — 참고값: " if vm.basis_status == "not_comparable" else ""
+    parts = [f"{head}PER {vm.price_per:,.0f}원 ({EPS_BASIS_LABEL.get(vm.eps_basis, vm.eps_basis)} EPS {vm.eps:,.0f} × {vm.per:.2f} {per_tag})"]
     if p0 and vm.price_per:
         parts[0] += f" {vm.price_per / p0 - 1:+.0%}"
     if vm.price_normalized is not None and vm.eps_basis != "normalized":
@@ -502,6 +545,6 @@ def write_valuation(m: MindMap, *, today: date | None = None) -> ValuationModel:
     return vm
 
 
-__all__ = ["Criteria", "Tail", "common_tail", "compute_valuation", "write_valuation", "valuation_line", "valuation_table", "ensure_valuation_nodes",
+__all__ = ["basis_summary", "Criteria", "Tail", "common_tail", "compute_valuation", "write_valuation", "valuation_line", "valuation_table", "ensure_valuation_nodes",
            "eps_for_basis", "normalized_eps", "my_estimate_eps", "segment_values", "drop_contained", "price_driver_segments", "year_cell",
            "EPS_BASES", "EPS_BASIS_LABEL", "DIVIDEND_MODES", "VALUATION_NODES", "SEGMENT_CONTAINS", "SNAP_METRICS"]

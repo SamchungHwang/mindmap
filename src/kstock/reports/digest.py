@@ -18,7 +18,76 @@ from ..models import Source
 from .extract import KIND_WORDS, METRIC_LABEL, RATIO_METRICS, ReportFacts, Sentence
 
 UNIT_TO_EOK = {"억원": 1.0, "십억원": 10.0, "조원": 10000.0, "백만원": 0.01, "천원": 0.00001, "bn": 10.0, "mn": 0.01}
-AMOUNT_METRICS = {"revenue", "op", "op_adj", "np", "ebitda", "net_debt", "net_cash", "fcf", "capex", "ocf"}   # 설계 v6 S1: 현금흐름·순차입금 행도 금액(억원)
+AMOUNT_METRICS = {"revenue", "op", "op_adj", "np", "np_ctrl", "np_total", "ebitda", "net_debt", "net_cash", "fcf", "capex", "ocf"}   # 설계 v6 S1: 현금흐름·순차입금 행도 금액(억원)
+
+# ---- 설계 v6 §11.1 (v7 W0): 회계 기준 — 순이익 기준(지배/전체) 과 주식 수 기준(보통주 / 보통주+우선주 / 자기주식 제외) 을 증권사별로 분류하고,
+# EPS 를 "지배 순이익 ÷ 공시 보통주" 로 정규화한다. 기준이 다른 EPS 는 평균하지 않는다.
+SHARE_BASIS_COMMON = "보통주"
+SHARE_BASIS_WITH_PREF = "보통주+우선주"
+SHARE_BASIS_EX_TREASURY = "자기주식 제외"
+NP_BASIS_STD = "지배"
+
+
+def unit_factor(f: ReportFacts) -> float | None:
+    """표 금액 → 억원 배수. 단위를 못 읽었는데 추정치가 있으면 십억원(국내 리포트 기본) 으로 가정한다."""
+    fac = UNIT_TO_EOK.get(f.unit or "", None)
+    if fac is None and f.estimates:
+        return 10.0
+    return fac
+
+
+@dataclass
+class BrokerBasis:
+    """증권사 한 곳의 회계 기준 — EPS 정규화의 재료."""
+
+    broker: str
+    np_basis: str | None = None              # 지배 | 전체 | None (표에 없음)
+    shares_header: float | None = None       # 리포트 머리 발행주식수 (주)
+    share_basis: str | None = None           # 보통주 | 보통주+우선주 | 자기주식 제외 | None (불명)
+    share_basis_source: str | None = None    # label (머리 문구) | inferred (다른 증권사와 비교) | None
+    note: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {"broker": self.broker, "np_basis": self.np_basis, "shares_header": self.shares_header,
+                "share_basis": self.share_basis, "share_basis_source": self.share_basis_source, "note": self.note}
+
+
+@dataclass
+class EpsStd:
+    """한 연도의 정규화 EPS — EPS_i^std = NP_i(지배) × 1e8 ÷ shares_std. 비교 불가 증권사는 평균에서 뺀다."""
+
+    year: str
+    shares_std: float | None
+    shares_source: str
+    by_broker: dict[str, float] = field(default_factory=dict)        # 정규화 EPS (원)
+    reported: dict[str, float] = field(default_factory=dict)         # 증권사가 적은 EPS (원)
+    np_by_broker: dict[str, float] = field(default_factory=dict)     # 지배 순이익 (억원)
+    excluded: dict[str, str] = field(default_factory=dict)           # 증권사 → 비교 불가 사유
+    approx: dict[str, str] = field(default_factory=dict)             # 증권사 → 전체 × 측정 지배 비율로 맞춘 경우의 메모
+
+    @property
+    def n(self) -> int:
+        return len(self.by_broker)
+
+    @property
+    def mean(self) -> float | None:
+        return statistics.fmean(self.by_broker.values()) if self.by_broker else None
+
+    @property
+    def median(self) -> float | None:
+        return statistics.median(self.by_broker.values()) if self.by_broker else None
+
+    @property
+    def status(self) -> str:
+        """comparable(정규화 2곳 이상) · mixed(1곳) · not_comparable(0곳 — 기준이 안 맞아서) · unavailable(표준 주식 수가 없어 정규화 자체가 불가 — 예전 규칙)."""
+        if self.shares_std is None:
+            return "unavailable"
+        return "comparable" if self.n >= 2 else ("mixed" if self.n == 1 else "not_comparable")
+
+    def to_dict(self) -> dict[str, object]:
+        return {"year": self.year, "status": self.status, "mean": self.mean, "median": self.median, "n": self.n,
+                "by_broker": dict(self.by_broker), "reported": dict(self.reported), "np_by_broker": dict(self.np_by_broker),
+                "excluded": dict(self.excluded), "approx": dict(self.approx), "shares_std": self.shares_std, "shares_source": self.shares_source}
 
 
 @dataclass
@@ -163,17 +232,39 @@ class ReportDigest:
                                key=lambda f: f.date or date.min, reverse=True)
         n_backfill = 0
 
-        def _factor(f: ReportFacts) -> float | None:
-            fac = UNIT_TO_EOK.get(f.unit or "", None)
-            if fac is None and f.estimates:
-                return 10.0
-            return fac
+        _factor = unit_factor
+        # 설계 v6 §11.1 B2: 단위를 못 읽어 십억원으로 가정한 리포트는 다른 증권사(단위를 읽은) 의 같은 셀과 비교해 ×1000 어긋나면 보정한다
+        unit_fix: dict[str, float] = {}
+        known = [f for f in agg if UNIT_TO_EOK.get(f.unit or "", None) is not None and f.estimates]
+        for f in agg:
+            if UNIT_TO_EOK.get(f.unit or "", None) is not None or not f.estimates or not known:
+                continue
+            ratios: list[float] = []
+            for metric in ("revenue", "op"):
+                for col, v in (f.estimates.get(metric) or {}).items():
+                    peers = [g.estimates[metric][col] * (unit_factor(g) or 1.0) for g in known
+                             if metric in g.estimates and col in g.estimates[metric] and g.estimates[metric][col]]
+                    if peers and v:
+                        ratios.append((v * 10.0) / statistics.median(peers))
+            if ratios:
+                r = statistics.median(ratios)
+                if 300 <= r <= 3000:
+                    unit_fix[f.path.name] = 0.001
+                elif 1 / 3000 <= r <= 1 / 300:
+                    unit_fix[f.path.name] = 1000.0
 
         for f in agg:
             factor = _factor(f)
+            if f.path.name in unit_fix and factor:
+                factor *= unit_fix[f.path.name]
             if UNIT_TO_EOK.get(f.unit or "", None) is None and f.estimates:
-                warnings.append(f"{f.path.name}: 추정치 표 단위를 못 읽어 십억원으로 가정")   # 단위를 못 읽으면 십억원 (국내 리포트 기본)
-                unit_notes["가정:십억원"] += 1
+                if f.path.name in unit_fix:
+                    unit = "억원" if unit_fix[f.path.name] < 1 else "조원"
+                    warnings.append(f"{f.path.name}: 추정치 표 단위를 못 읽어 십억원으로 가정했으나 다른 증권사와 ×1000 어긋나 {unit} 으로 보정")
+                    unit_notes[f"보정:{unit}"] += 1
+                else:
+                    warnings.append(f"{f.path.name}: 추정치 표 단위를 못 읽어 십억원으로 가정")   # 단위를 못 읽으면 십억원 (국내 리포트 기본)
+                    unit_notes["가정:십억원"] += 1
             elif f.unit:
                 unit_notes[f.unit] += 1
             for table, dst in ((f.estimates, estimates), (f.quarterly, quarterly)):
@@ -189,6 +280,8 @@ class ReportDigest:
                             cell.sources[f.broker] = (f.path.name, str(f.date or ""), "대표")
         for f in backfill_pool:   # 최신 것부터 — 같은 증권사의 빈 셀만 채운다
             factor = _factor(f)
+            if f.path.name in unit_fix and factor:
+                factor *= unit_fix[f.path.name]
             for table, dst in ((f.estimates, estimates), (f.quarterly, quarterly)):
                 for metric, cols in table.items():
                     if metric == "np" and np_major and f.basis.get("np") and f.basis.get("np") != np_major:
@@ -280,6 +373,136 @@ class ReportDigest:
         if not xs:
             return None
         return xs[len(xs) // 2] if len(xs) % 2 else (xs[len(xs) // 2 - 1] + xs[len(xs) // 2]) / 2
+
+    # ---- 설계 v6 §11.1 (v7 W0): 회계 기준 분류 · 표준 주식 수 · 정규화 EPS
+    def broker_bases(self) -> dict[str, BrokerBasis]:
+        """증권사별 순이익 기준(표 행 라벨) 과 주식 수 기준(머리 문구, 없으면 다른 증권사와 비교해 추정).
+        추정 규칙: 가장 작은 값 대비 +6~30% 는 '보통주+우선주', 가장 큰 값 대비 −1.5~−10% 는 '자기주식 제외', 그 밖은 '보통주'. 30% 넘게 벌어지면 불명."""
+        out: dict[str, BrokerBasis] = {}
+        for f in self.aggregated:
+            key = f.broker or f.path.name
+            b = BrokerBasis(broker=key, np_basis=f.basis.get("np"), shares_header=f.shares_out)
+            note = (f.shares_note or "")
+            if f.shares_out:
+                if "우선주" in note and "포함" in note:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_WITH_PREF, "label"
+                elif "보통주" in note:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_COMMON, "label"
+                elif "자기주식" in note or "자사주" in note:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_EX_TREASURY, "label"
+            out[key] = b
+        vals = [b.shares_header for b in out.values() if b.shares_header]
+        if vals:
+            lo, hi = min(vals), max(vals)
+            for b in out.values():
+                if not b.shares_header or b.share_basis:
+                    continue
+                v = b.shares_header
+                if hi / lo > 1.30:
+                    b.note = f"증권사 간 발행주식수가 {hi / lo - 1:+.0%} 벌어져 기준을 추정할 수 없다"
+                    continue
+                r_lo, r_hi = v / lo, v / hi
+                if r_lo >= 1.06:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_WITH_PREF, "inferred"
+                    b.note = f"최소값 대비 {r_lo - 1:+.1%} — 우선주 포함으로 추정"
+                elif r_hi <= 0.985 and hi / lo < 1.06:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_EX_TREASURY, "inferred"
+                    b.note = f"최대값 대비 {r_hi - 1:+.1%} — 자기주식 제외로 추정"
+                else:
+                    b.share_basis, b.share_basis_source = SHARE_BASIS_COMMON, "inferred"
+        return out
+
+    def shares_std(self, user: float | None = None) -> tuple[float | None, str, str]:
+        """표준 주식 수 = 공시 보통주 (사용자 결정 ⑦). 돌려주는 것: (값, 출처 user|header|header_median|missing, 메모)."""
+        if user:
+            return float(user), "user", "A3.8 평가 기준"
+        bases = self.broker_bases()
+        common = sorted(b.shares_header for b in bases.values() if b.shares_header and b.share_basis == SHARE_BASIS_COMMON)
+        if common:
+            med = common[len(common) // 2] if len(common) % 2 else (common[len(common) // 2 - 1] + common[len(common) // 2]) / 2
+            srcs = Counter(b.share_basis_source for b in bases.values() if b.share_basis == SHARE_BASIS_COMMON)
+            return med, "header", f"공시 보통주 {len(common)}곳 중앙값 ({', '.join(f'{k} {n}' for k, n in srcs.items())})"
+        if self.shares_out:
+            return self.shares_out, "header_median", "주식 수 기준 불명 — 리포트 머리 중앙값"
+        return None, "missing", "발행주식수 없음"
+
+    def control_ratio(self, year: str) -> tuple[float | None, int, str | None]:
+        """지배 비율 r = 지배 순이익 ÷ 전체 순이익 — 같은 표에 두 행을 다 적은 증권사들의 중앙값 (측정값, 추정이 아니다).
+        그 연도에 없으면 최근 실적 연도의 것. 돌려주는 것: (r, 곳 수, 어느 연도)."""
+        def _at(yr: str) -> list[float]:
+            out: list[float] = []
+            for f in self.aggregated:
+                c, t = (f.estimates.get("np_ctrl") or {}).get(yr), (f.estimates.get("np_total") or {}).get(yr)
+                if c and t and t > 0 and 0.3 <= c / t <= 1.02:
+                    out.append(min(c / t, 1.0))
+            return out
+        xs = _at(year)
+        used = year
+        if len(xs) < 1:
+            la = self.latest_actual_year("np") or self.latest_actual_year("op")
+            if la:
+                xs, used = _at(la), la
+        if not xs:
+            return None, 0, None
+        return statistics.median(xs), len(xs), used
+
+    def eps_std(self, year: str, *, shares: float | None = None) -> EpsStd:
+        """연도 하나의 정규화 EPS — EPS_i^std = NP_i(지배) × 1e8 ÷ shares_std.
+        지배 순이익은 ① 표의 지배 행(np_ctrl) ② 순이익 행의 기준이 지배이면 그 행 ③ 전체만 있으면 측정된 지배 비율(control_ratio ≥ 0.9) 을 곱한 값(표시 'ratio')
+        — ③ 도 없으면 비교 불가로 평균에서 뺀다."""
+        sv, ssrc, _ = self.shares_std(shares)
+        e = EpsStd(year=year, shares_std=sv, shares_source=ssrc)
+        bases = self.broker_bases()
+        eps_cell = (self.estimates.get("eps") or {}).get(year)
+        r, r_n, r_year = self.control_ratio(year)
+        for f in self.aggregated:
+            key = f.broker or f.path.name
+            if eps_cell is not None and key in eps_cell.by_broker:
+                e.reported[key] = eps_cell.by_broker[key]
+            fac = unit_factor(f) or 1.0
+            ctrl = (f.estimates.get("np_ctrl") or {}).get(year)
+            total = (f.estimates.get("np_total") or {}).get(year)
+            npv = (f.estimates.get("np") or {}).get(year)
+            nb = bases.get(key)
+            if ctrl is not None and (total is None or (total > 0 and 0.3 <= ctrl / total <= 1.05)):
+                np_ctrl, how = ctrl * fac, "exact"
+            elif npv is not None and nb is not None and nb.np_basis == NP_BASIS_STD:
+                np_ctrl, how = npv * fac, "exact"
+            elif (total is not None or npv is not None) and r is not None and r >= 0.9:
+                np_ctrl, how = (total if total is not None else npv) * fac * r, "ratio"
+            elif total is None and npv is None:
+                if key in e.reported:
+                    e.excluded[key] = "순이익 셀 없음"
+                continue
+            else:
+                e.excluded[key] = "전체 순이익만 (지배 비율 측정값 없음)" if r is None else f"전체 순이익만 (지배 비율 {r:.2f} < 0.9)"
+                continue
+            if not sv:
+                e.excluded[key] = "표준 주식 수 없음"
+                continue
+            e.np_by_broker[key] = np_ctrl
+            e.by_broker[key] = np_ctrl * 1e8 / sv
+            if how == "ratio":
+                e.approx[key] = f"전체 × 지배 비율 {r:.3f} ({r_n}곳 측정, {r_year})"
+        return e
+
+    def basis_check(self, year: str | None = None, *, shares: float | None = None) -> dict[str, object]:
+        """회계 기준 호환성 검사 (설계 v6 §11.1) — compute_valuation·compute_sensitivity 가 들어가기 전에 본다."""
+        year = year or self.next_estimate_year("eps") or self.next_estimate_year("np")
+        bases = self.broker_bases()
+        sv, ssrc, snote = self.shares_std(shares)
+        e = self.eps_std(year, shares=shares) if year else None
+        notes: list[str] = []
+        np_mix = Counter(b.np_basis or "불명" for b in bases.values())
+        if len(np_mix) > 1:
+            notes.append("순이익 기준 혼합: " + ", ".join(f"{b.broker} {b.np_basis or '불명'}" for b in bases.values()))
+        sh_mix = Counter(b.share_basis or "불명" for b in bases.values() if b.shares_header)
+        if len(sh_mix) > 1:
+            notes.append("주식 수 기준 혼합: " + ", ".join(f"{b.broker} {b.share_basis or '불명'}" for b in bases.values() if b.shares_header))
+        if e is not None and e.excluded:
+            notes.append("EPS 비교 불가: " + ", ".join(f"{k} ({v})" for k, v in e.excluded.items()))
+        return {"year": year, "status": e.status if e is not None else ("unavailable" if sv is None else "not_comparable"), "shares_std": sv, "shares_source": ssrc, "shares_note": snote,
+                "per_broker": {k: b.to_dict() for k, b in bases.items()}, "eps": e.to_dict() if e is not None else None, "notes": notes}
 
     @property
     def tp_values(self) -> list[float]:
@@ -525,8 +748,37 @@ class ReportDigest:
             rows.append(self.metric_label(metric).ljust(14) + "".join(cells))
         if any_bf:
             rows.append("  * 최신 리포트에 없어 같은 증권사 이전 리포트(45일 안) 값으로 보강한 셀 포함")
-        rows.append("  (EPS 는 증권사별 주식 수 가정이 다를 수 있다 — 표에서는 확인 불가)")
+        rows.extend(self.basis_lines())
         return "\n".join(rows)
+
+    def basis_lines(self) -> list[str]:
+        """표 아래 한두 줄 — EPS 기준 통일 결과 (설계 v6 §11.1). 표의 EPS 행은 증권사가 적은 값의 평균이고, 모델은 아래 정규화 값을 쓴다."""
+        year = self.next_estimate_year("eps") or self.next_estimate_year("np")
+        if not year:
+            return []
+        bc = self.basis_check(year)
+        e = bc.get("eps") or {}
+        st = bc.get("status")
+        if st == "unavailable":
+            return ["  (EPS 기준 통일 불가 — 리포트 머리에 발행주식수가 없다. 증권사 EPS 를 그대로 평균; A3.8 shares 를 주면 정규화)"]
+        sv = bc.get("shares_std") or 0
+        parts = []
+        for b, v in (e.get("by_broker") or {}).items():
+            tag = " (전체×비율)" if b in (e.get("approx") or {}) else ""
+            parts.append(f"{b} {v:,.0f}{tag}")
+        for b, why in (e.get("excluded") or {}).items():
+            parts.append(f"{b} 제외({why})")
+        head = f"  EPS 기준 통일 ({year}, 지배 순이익 ÷ 공시 보통주 {sv / 1e3:,.0f}천주): "
+        line = head + " · ".join(parts)
+        if e.get("n"):
+            line += f" → {e['mean']:,.0f} ({e['n']}곳" + (f", 표의 평균 {statistics.fmean(e['reported'].values()):,.0f} 대신 모델이 쓰는 값" if e.get("reported") else "") + ")"
+        else:
+            line += " → 비교 가능 0곳 — 모델 가격은 참고값"
+        out = [line]
+        mix = [n for n in bc.get("notes") or [] if n.startswith("주식 수 기준 혼합")]
+        if mix:
+            out.append("  " + mix[0] + " — 보통주 값만 표준으로")
+        return out
 
     def summary_lines(self) -> list[str]:
         lines = [f"[리포트 {len(self.reports)}건] {self.name or ''} {self.ticker or ''} · 기준일 {self.as_of}"]

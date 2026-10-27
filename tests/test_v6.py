@@ -356,6 +356,18 @@ class TestGoldenSamsung(unittest.TestCase):
         self.assertAlmostEqual(vm["implied_path_pct"], e["implied_path_pct"], delta=2)
         fin = m.meta["draft"]["financials"]
         self.assertEqual(fin["shares_out"]["median"], e["shares_out"])
+        # 설계 v6 §11.1: 회계 기준 정규화 — 증권사별 EPS 는 평균하지 않고 지배 순이익 ÷ 공시 보통주로 맞춘 뒤 평균한다
+        self.assertEqual(fin["basis"]["status"], e["basis_status"])
+        self.assertEqual(vm["basis_status"], e["basis_status"])
+        self.assertEqual(fin["eps"]["basis"], "std")
+        for b, v in e["eps_by_broker"].items():
+            self.assertAlmostEqual(fin["eps"]["by_broker"][b], v, delta=v * 0.01)
+        self.assertAlmostEqual(sum(fin["eps"]["reported"].values()) / len(fin["eps"]["reported"]), e["eps_reported_mean"], delta=e["eps_reported_mean"] * 0.01)
+        self.assertIn("유진투자증권", fin["eps"]["approx"])                                  # 전체 순이익만 → 측정 지배 비율로 환산
+        self.assertEqual(fin["shares_std"]["value"], e["shares_out"])
+        self.assertEqual(fin["basis"]["per_broker"]["IBK투자증권"]["share_basis"], "보통주+우선주")   # 6,648,650천주 → 우선주 포함 추정
+        n_in = next(i for i in vm["inputs"] if i["name"] == "주식 수 N")
+        self.assertEqual((n_in["source"], n_in["value"]), ("header", e["shares_out"]))           # 환산 N = 표준 주식 수 (유도 N 이원화 폐지)
         self.assertAlmostEqual(-fin["years"]["2025A"]["net_debt"]["mean"], e["net_cash_2025A"], delta=e["net_cash_2025A"] * 0.01)
         self.assertEqual(dps_estimate(m)[0], e["dps_2027E_median"])
         s = m["A1.1"].driver.sensitivity

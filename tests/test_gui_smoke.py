@@ -7,6 +7,7 @@ tkinter / tkinter.ttk / messagebox / filedialog 를 가짜 모듈로 바꿔 끼�
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import types
@@ -14,7 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from helpers import D0, D1, build_all, build_new_map  # noqa: F401  (sys.path 설정)
+from helpers import D0, D1, NO_LLM_ENV, build_all, build_new_map  # noqa: F401  (sys.path 설정)
 
 
 # --------------------------------------------------------------------------- 가짜 tkinter
@@ -371,9 +372,10 @@ class TestGuiReportDraft(unittest.TestCase):
         # 현재가 갱신 — 오프라인이라 네트워크·DB 모두 없음 → 입력 오류 안내
         with self.assertRaises(self.console.OpsError):
             app.a_refresh_price()
-        # LLM 체크 + 키 없음 → 입력 오류로 안내 (debug 모드라 _guard 가 다시 던진다)
+        # LLM 체크 + 키 없음 → 입력 오류로 안내 (debug 모드라 _guard 가 다시 던진다).
+        # 개발 PC·샌드박스의 .env 에 Claude 키나 로컬 LLM(LLM_BASE_URL) 이 있어도 이 테스트는 '없는 상태' 를 본다
         self.console.FormDialog = _dialog_returning({"ticker": "005930", "name": "삼성전자", "invest_type": "growth", "use_llm": True, "open_html": False})
-        with self.assertRaises(self.console.OpsError) as cm:
+        with mock.patch.dict(os.environ, NO_LLM_ENV), self.assertRaises(self.console.OpsError) as cm:
             app._guard(lambda: app.a_draft_reports([str(p) for p in fixtures]))
         self.assertIn("ANTHROPIC_API_KEY", str(cm.exception))
 

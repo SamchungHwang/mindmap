@@ -148,21 +148,40 @@ def compute_confidence(m: MindMap, *, today: date | None = None) -> dict[str, An
     checks["brokers_eps"] = n_eps
     if n_eps and n_eps < 3:
         warns.append(f"EPS 컨센 증권사 {n_eps}곳 — 3곳 미만")
-    # 3) EPS 기준 혼합 (지배/전체) · 주식 수 유도 vs 머리
-    basis = fin.get("np_basis") or {}
-    if len(set(basis.values())) > 1:
-        warns.append("순이익 기준 혼합: " + ", ".join(f"{b} {v}" for b, v in basis.items()))
-    so = (fin.get("shares_out") or {})
-    np_m, eps_m = (fin.get("np") or {}).get("mean"), (fin.get("eps") or {}).get("mean")
-    if so.get("median") and np_m and eps_m:
-        derived = np_m * 1e8 / eps_m
-        diff = derived / so["median"] - 1.0
-        checks["shares_derived_vs_header_pct"] = round(diff * 100, 1)
-        if abs(diff) > 0.05:
-            warns.append(f"EPS 기준 혼합 의심 — NP/EPS 유도 주식 수가 발행주식수와 {diff:+.0%} 다르다 (우선주 포함·지배/전체)")
-    by = so.get("by_broker") or {}
-    if len(by) >= 2 and (max(by.values()) / min(by.values()) - 1.0) > 0.05:
-        warns.append("증권사별 발행주식수가 다르다 (우선주 포함 여부) — 중앙값 사용")
+    # 3) 회계 기준 — 설계 v6 §11.1: 정규화가 됐으면 상태(comparable/mixed/not_comparable) 를 읽고, 옛 맵(검사 없음) 은 예전 혼합 경고
+    bc = fin.get("basis") or {}
+    eps_f = fin.get("eps") or {}
+    checks["basis_status"] = bc.get("status") or "unchecked"
+    if bc:
+        st = bc.get("status")
+        if st == "not_comparable":
+            warns.append("EPS 기준 불일치 — 정규화된 증권사 0곳 (가격은 참고값): " + "; ".join(bc.get("notes") or [])[:120])
+        elif st == "mixed":
+            warns.append("EPS 정규화 1곳뿐 — 컨센이 아니라 한 증권사 값")
+        elif st == "unavailable":
+            warns.append("발행주식수 없음 — EPS 기준 미정규화 (증권사 EPS 평균)")
+        if eps_f.get("approx"):
+            warns.append("EPS 정규화에 측정 지배 비율 환산 " + f"{len(eps_f['approx'])}곳 (전체 순이익만 적은 증권사)")
+        if eps_f.get("excluded"):
+            warns.append("EPS 평균에서 제외: " + ", ".join(f"{k} ({v})" for k, v in eps_f["excluded"].items())[:120])
+        for note in bc.get("notes") or []:
+            if note.startswith("주식 수 기준 혼합"):
+                warns.append(note + " — 공시 보통주로 통일")
+    else:
+        basis = fin.get("np_basis") or {}
+        if len(set(basis.values())) > 1:
+            warns.append("순이익 기준 혼합: " + ", ".join(f"{b} {v}" for b, v in basis.items()))
+        so = (fin.get("shares_out") or {})
+        np_m, eps_m = (fin.get("np") or {}).get("mean"), (fin.get("eps") or {}).get("mean")
+        if so.get("median") and np_m and eps_m:
+            derived = np_m * 1e8 / eps_m
+            diff = derived / so["median"] - 1.0
+            checks["shares_derived_vs_header_pct"] = round(diff * 100, 1)
+            if abs(diff) > 0.05:
+                warns.append(f"EPS 기준 혼합 의심 — NP/EPS 유도 주식 수가 발행주식수와 {diff:+.0%} 다르다 (우선주 포함·지배/전체)")
+        by = so.get("by_broker") or {}
+        if len(by) >= 2 and (max(by.values()) / min(by.values()) - 1.0) > 0.05:
+            warns.append("증권사별 발행주식수가 다르다 (우선주 포함 여부) — 중앙값 사용")
     # 4) 사업부 합 vs 전사 OP
     year = fin.get("year")
     seg_op = segment_values(m, year, "op")
@@ -209,9 +228,11 @@ def compute_confidence(m: MindMap, *, today: date | None = None) -> dict[str, An
             warns.append(f"{nm} 시나리오 미계산")
         if sc is not None and sc.price_source != "computed" and sc.target_price:
             warns.append(f"{nm} 목표가는 가정 묶음이 아니라 입력값 ({sc.price_source})")
-    # 등급
-    hard = [w for w in warns if any(k in w for k in ("혼합", "미계산", "차이", "커버리지", "하락 시나리오"))]
-    if not warns and cov >= 0.8:
+    # 등급 — 기준 불일치(not_comparable) 면 L 고정
+    hard = [w for w in warns if any(k in w for k in ("혼합", "미계산", "차이", "커버리지", "하락 시나리오", "불일치", "1곳뿐"))]
+    if checks.get("basis_status") == "not_comparable":
+        grade = "L"
+    elif not warns and cov >= 0.8:
         grade = "H"
     elif len(hard) <= 2 and cov >= 0.6:
         grade = "M"

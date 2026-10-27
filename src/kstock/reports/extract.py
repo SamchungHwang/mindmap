@@ -110,7 +110,7 @@ ROW_LABELS: list[tuple[str, str]] = [
     ("ocf", r"영업활동\s*(?:으로\s*인한\s*)?현금흐름|영업활동으로\s*인한\s*현금|OCF(?!\s*/)"),
 ]
 GROWTH_WORDS = re.compile(r"증가율|성장률|증감률|증감|YoY|QoQ|growth|\(%\s*YoY\)", re.I)
-METRIC_LABEL = {"revenue": "매출액", "op": "영업이익", "op_adj": "조정 영업이익", "np": "순이익", "ebitda": "EBITDA", "opm": "영업이익률", "eps": "EPS",
+METRIC_LABEL = {"revenue": "매출액", "op": "영업이익", "op_adj": "조정 영업이익", "np": "순이익", "np_ctrl": "지배 순이익", "np_total": "전체 순이익", "ebitda": "EBITDA", "opm": "영업이익률", "eps": "EPS",
                 "bps": "BPS", "dps": "DPS", "per": "PER", "pbr": "PBR", "roe": "ROE", "ev_ebitda": "EV/EBITDA",
                 "div_yield": "배당수익률", "net_debt": "순차입금", "net_cash": "순현금", "fcf": "FCF", "capex": "CAPEX", "ocf": "영업활동현금흐름"}
 RATIO_METRICS = {"opm", "per", "pbr", "roe", "ev_ebitda", "div_yield"}
@@ -788,6 +788,9 @@ def parse_estimate_tables(text: str, *, ref_date: date) -> tuple[dict[str, dict[
                 if b and metric not in basis:
                     basis[metric] = b
                 _put_row(tbl, metric, cols, vals, is_annual=is_annual, ref_year=ref_year)
+                if metric == "np" and b in ("지배", "전체") and not re.search(r"률|율|%", label_part):
+                    # 설계 v6 §11.1: 지배/전체 순이익 행을 따로도 둔다 — 한 표에 둘 다 있으면 지배 비율(지배/전체) 을 잴 수 있다
+                    _put_row(tbl, "np_ctrl" if b == "지배" else "np_total", cols, vals, is_annual=is_annual, ref_year=ref_year)
                 break
             _midline_row(tbl, ln, cols, is_annual=is_annual, ref_year=ref_year)   # 오른쪽 표(보조 지표) — 줄 머리 지표와 별개
             j += 1
