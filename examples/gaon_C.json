@@ -4,7 +4,7 @@
   "name": "포트폴리오",
   "created_at": "2027-01-15",
   "updated_at": "2027-01-15",
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "nodes": {
     "C0": {
       "id": "C0",

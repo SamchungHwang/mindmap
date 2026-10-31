@@ -1,13 +1,13 @@
-# 주식투자 마인드맵 템플릿 v1.0
+# 주식투자 마인드맵 템플릿 v2.0
 
 > **목적** — 신규 투자 판단(맵 A), 보유 종목 대응(맵 B), 포트폴리오 롤업(맵 C)을 **하나의 노드 스키마**로 생성·갱신·복기할 수 있게 하는 기준 문서. 마인드맵 자동 생성 시스템의 데이터 모델과 규칙의 출발점.
-> **작성** 2026-10-19 · v1.0 · 작성자 hsc65 + Claude
+> **작성** 2026-10-19 · v1.0 → **v2.0 (2026-10-28, 노드 번호 개편: A3 밸류에이션 · A4 시나리오 분리, A5~A9 한 칸씩 이동)** · 작성자 hsc65 + Claude
 
 ---
 
 ## 0. 설계 원칙
 
-**논제 중심.** 모든 종목 맵의 중심은 종목명이 아니라 한 문장 투자 논제다. 모든 가지는 그 논제를 지지·반박·숫자화·실행하는 역할만 한다. 논제와 무관한 정보는 근거 레이어(A8)로 내려가 접힌다.
+**논제 중심.** 모든 종목 맵의 중심은 종목명이 아니라 한 문장 투자 논제다. 모든 가지는 그 논제를 지지·반박·숫자화·실행하는 역할만 한다. 논제와 무관한 정보는 근거 레이어(A9)로 내려가 접힌다.
 
 **매입가 제거.** 보유 맵에서 매입가·평가손익은 세금 계산과 복기용 메타데이터일 뿐, 어떤 판단 노드의 입력도 아니다. 보유 맵의 중심 질문은 "오늘 현금으로 이 가격·이 비중에 새로 사겠는가"이다.
 
@@ -109,11 +109,11 @@
 
 `at_entry`·`direction`은 보유 맵에서만 채워진다 (`direction` ∈ `강화` / `유지` / `약화`).
 
-**Scenario** — `A3.1~3`, `B3.1~3`.
+**Scenario** — `A4.2~4`, `B3.1~3`.
 
 ```json
 {
-  "id": "A3.2", "label": "Base", "node_type": "estimate", "value_type": "price",
+  "id": "A4.3", "label": "Base", "node_type": "estimate", "value_type": "price",
   "scenario": {
     "assumptions": ["2027E 영업이익률 13%", "PER 밴드 중앙값 12배 적용"],
     "probability": 0.50,
@@ -126,7 +126,7 @@
 
 세 시나리오의 `probability` 합은 1.0이어야 한다 (검증 규칙).
 
-**Rule** — `A6.3~4`, `A4.4`, `B7.x`.
+**Rule** — `A7.3~4`, `A5.4`, `B7.x`.
 
 ```json
 {
@@ -145,7 +145,7 @@
 
 `trigger_type` ∈ `fact` / `price` / `weight` / `time` / `event`. `action` ∈ `add` / `hold` / `trim` / `switch` / `exit` / `hedge` / `review`. `escalate_to` ∈ `YELLOW` / `RED` / `null`. `status` ∈ `armed` / `fired` / `disabled`.
 
-**Event** — `A5.1.x`, `B2.4` 사실 로그.
+**Event** — `A6.1.x`, `B2.4` 사실 로그.
 
 ```json
 {
@@ -201,36 +201,47 @@ A0 투자 논제 (한 문장)  ← 중심
 │    ├─ A2.2 내가 다르게 보는 것 + 근거
 │    └─ A2.3 시장이 틀린 이유 (시간축 / 정보 / 심리 / 구조)
 │
-├─ A3 밸류에이션 & 시나리오
-│    ├─ A3.1 Bear · A3.2 Base · A3.3 Bull        Scenario 스키마
-│    ├─ A3.4 기대수익률 (computed)
-│    ├─ A3.5 손익비 (computed)
-│    └─ A3.6 밸류 근거: 역사 밴드 위치 · 피어 비교 · EPS 리비전 방향
+├─ A2.4 가격이 성립하기 위한 조건 (computed — 가정 표 · 역산 표 · 필요 경로; 설계 v7)
 │
-├─ A4 리스크 & 무효화 조건
-│    ├─ A4.1~3 하락 리스크 Top 3 (확률 × 영향)
-│    ├─ A4.4 Kill criteria (Rule, 사실 기준)        "이 사실이 확인되면 논제 폐기"
-│    └─ A4.5 조기 경보 지표 (무엇을 · 어디서 · 얼마나 자주)
+├─ A3 밸류에이션                                값이 얼마인가
+│    ├─ A3.1 재무 전망 (결과 지표): 매출 · 영업이익 · EPS · 영업이익률 (컨센서스 vs 내 추정; 설계 v5)
+│    ├─ A3.2 평가 기준 (judgment — EPS 기준 · 적용 PER · 주식 수 · 순현금 · SOTP 멀티플; 설계 v6)
+│    ├─ A3.3 평가 모델 (computed — PER · 정상화 · SOTP · 역산; 설계 v6)
+│    ├─ A3.4 모델 신뢰도 · 갱신 이력 (computed)
+│    └─ A3.5 밸류 근거: 역사 밴드 위치 · 피어 비교 · EPS 리비전 방향 · 증권사 목표가 분포
 │
-├─ A5 촉매 & 타임라인
-│    ├─ A5.1 날짜 박힌 이벤트 (Event 스키마)
-│    └─ A5.2 수급/기술 (진입 타이밍용 · 프로파일 가중치)
+├─ A4 시나리오                                  세 갈래로 숫자화
+│    ├─ A4.1 시나리오 한눈에 (computed — 갈래별 뜻 · 가정 · PER · 확률 · 목표가, 증권사 후보, 빠진 것)
+│    ├─ A4.2 Bear · A4.3 Base · A4.4 Bull        Scenario 스키마 (드라이버 가정 묶음 → 통합 모델 → 목표가)
+│    ├─ A4.5 기대수익률 (computed)
+│    ├─ A4.6 손익비 (computed)
+│    └─ A4.7 확률가중 투자 매력도 (computed — V = Σ p·TP · 하방 · 안전마진)
 │
-├─ A6 실행 계획
-│    ├─ A6.1 목표 비중 (computed 제안 → judgment)
-│    ├─ A6.2 진입 가격대 · 분할 횟수
-│    ├─ A6.3 손절 규칙 (가격 + 사실)  · A6.4 익절/축소 규칙
-│    └─ A6.5 판단: BUY / WATCH / PASS
+├─ A5 리스크 & 무효화 조건
+│    ├─ A5.1~3 하락 리스크 Top 3 (확률 × 영향)
+│    ├─ A5.4 Kill criteria (Rule, 사실 기준)        "이 사실이 확인되면 논제 폐기"
+│    ├─ A5.5 조기 경보 지표 → 증거 계획 (무엇을 · 어디서 · 얼마나 자주 · 신호등; 설계 v7)
+│    └─ A5.6 판단 수정 규칙 (Rule, 증거 기준 — 감지 → 검증 → 제안 → 사람 승인; 설계 v7)
 │
-├─ A7 모니터링 & 복기
-│    ├─ A7.1 체크포인트 (A1.x next_check 집계, computed)
-│    ├─ A7.2 업데이트 로그
-│    └─ A7.3 사후 복기 (B 맵 종료 시 채움)
+├─ A6 촉매 & 타임라인
+│    ├─ A6.1 날짜 박힌 이벤트 (Event 스키마)
+│    └─ A6.2 수급/기술 (진입 타이밍용 · 프로파일 가중치)
 │
-└─ A8 근거 자료 (기본 접힘)
-     ├─ A8.1 기업: 비즈니스모델 · 경쟁우위 · 경영진/지배구조/주주환원 · 재무(성장·수익·현금·건전성)
-     ├─ A8.2 산업 → link S.<섹터>
-     └─ A8.3 매크로 → link M
+├─ A7 실행 계획
+│    ├─ A7.1 목표 비중 (computed 제안 → judgment)
+│    ├─ A7.2 진입 가격대 · 분할 횟수
+│    ├─ A7.3 손절 규칙 (가격 + 사실)  · A7.4 익절/축소 규칙
+│    └─ A7.5 판단: BUY / WATCH / PASS
+│
+├─ A8 모니터링 & 복기
+│    ├─ A8.1 체크포인트 (A1.x next_check 집계, computed)
+│    ├─ A8.2 업데이트 로그
+│    └─ A8.3 사후 복기 (B 맵 종료 시 채움)
+│
+└─ A9 근거 자료 (기본 접힘)
+     ├─ A9.1 기업: 비즈니스모델 · 경쟁우위 · 경영진/지배구조/주주환원 · 재무(성장·수익·현금·건전성)
+     ├─ A9.2 산업 → link S.<섹터>
+     └─ A9.3 매크로 → link M
 ```
 
 ### 3.2 노드 표
@@ -246,48 +257,57 @@ A0 투자 논제 (한 문장)  ← 중심
 | A2.1 | 내재 가정 | estimate | text | ✓ | 현재 주가가 성립하려면 시장은 무엇을 믿고 있어야 하나 |
 | A2.2 | 내 뷰 | judgment | text | ✓ | 어디서 다르게 보고, 근거는 무엇인가 |
 | A2.3 | 시장이 틀린 이유 | judgment | enum `시간축/정보/심리/구조` + text | ✓ | 내가 맞다면 왜 시장은 아직 모르는가 |
-| A3.1~3 | Bear/Base/Bull | estimate | Scenario | ✓ | 각 시나리오의 가정·확률·목표가 |
-| A3.4 | 기대수익률 | computed | percent | — | §3.4 |
-| A3.5 | 손익비 | computed | number | — | §3.4 |
-| A3.6.1 | 역사 밴드 위치 | fact | percent (백분위) | ✓ | 현재 멀티플이 자기 역사 분포의 몇 %에 있나 |
-| A3.6.2 | 피어 비교 | fact | text/number | | 피어 대비 프리미엄/디스카운트와 그 정당성 |
-| A3.6.3 | EPS 리비전 방향 | fact | enum `up/flat/down` | ✓ | 최근 3개월 컨센서스 EPS 방향 |
-| A4.1~3 | 하락 리스크 | estimate | `{probability, impact_pct, text}` | ✓ (≥2) | 무엇이, 어느 확률로, 얼마나 깎는가 |
-| A4.4 | Kill criteria | rule | Rule (trigger_type=fact) | ✓ (≥1) | 어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나 |
-| A4.5 | 조기 경보 | fact | text + next_check | | 그 사실을 미리 알려주는 지표는 |
-| A5.1.x | 촉매 이벤트 | event | Event | | 날짜가 박힌 사건만 |
-| A5.2.1 | 추세 | fact | enum `상승/횡보/하락` | | |
-| A5.2.2 | 거래량 | fact | number | | 20일 평균 대비 |
-| A5.2.3 | 외국인/기관 순매수 | fact | number | | 20일 누적 |
-| A5.2.4 | 공매도/신용잔고 | fact | percent | | 유통주식 대비 |
-| A6.1 | 목표 비중 | computed→judgment | percent | ✓ | §3.4 제안식 → 확정 |
-| A6.2 | 진입 계획 | judgment | `{price_range, tranches}` | ✓ | 어느 가격대에서 몇 번에 나눠 사나 |
-| A6.3 | 손절 규칙 | rule | Rule (price + fact) | ✓ | 가격 기준 하나, 사실 기준 하나 |
-| A6.4 | 익절/축소 규칙 | rule | Rule | | |
-| A6.5 | 판단 | judgment | enum `BUY/WATCH/PASS` | ✓ | |
-| A7.1 | 체크포인트 | computed | date[] | — | A1.x.next_check ∪ A5.1.x.date |
-| A7.2 | 업데이트 로그 | event[] | | | |
-| A7.3 | 사후 복기 | judgment | text | | 매도 완료 후 |
-| A8.* | 근거 자료 | fact/link | | | 논제를 뒷받침하는 것만 |
+| A2.4 | 성립 조건 | computed | text | — | 가정 표 · 역산 표 · 날짜별 필요 경로 (설계 v7) |
+| A3.1.x | 재무 전망 (결과 지표) | estimate | number | | 매출 · 영업이익 · EPS · 영업이익률 — 원인 변수(A1) 가 만드는 숫자 (설계 v5) |
+| A3.2 | 평가 기준 | judgment | dict | | EPS 기준 · 적용 PER · 주식 수 · 순현금 · 배당 · SOTP 멀티플 (비우면 기본값 표시; 설계 v6) |
+| A3.3 | 평가 모델 | computed | text | — | PER · 정상화 · SOTP · 역산(조건부) |
+| A3.4 | 모델 신뢰도 | computed | text | — | H/M/L + 갱신 이력 |
+| A3.5.1 | 역사 밴드 위치 | fact | percent (백분위) | ✓ | 현재 멀티플이 자기 역사 분포의 몇 %에 있나 |
+| A3.5.2 | 피어 비교 | fact | text/number | | 피어 대비 프리미엄/디스카운트와 그 정당성 |
+| A3.5.3 | EPS 리비전 방향 | fact | enum `up/flat/down` | ✓ | 최근 3개월 컨센서스 EPS 방향 |
+| A3.5.4 | 증권사 목표가 분포 | fact | dict | | min/중앙/max/분산 · 상승여력 (시나리오가 아니라 분포) |
+| A4.1 | 시나리오 한눈에 | computed | text | — | 갈래별 뜻 · 가정 · PER · 확률 · 목표가 · 증권사 후보 · 빠진 것 |
+| A4.2~4 | Bear/Base/Bull | estimate | Scenario | ✓ | 각 시나리오의 가정 묶음 · 확률 · 목표가(통합 모델) |
+| A4.5 | 기대수익률 | computed | percent | — | §3.4 |
+| A4.6 | 손익비 | computed | number | — | §3.4 |
+| A4.7 | 확률가중 투자 매력도 | computed | text | — | V = Σ p·TP · 기대수익률 · 하방 · 안전마진 |
+| A5.1~3 | 하락 리스크 | estimate | `{probability, impact_pct, text}` | ✓ (≥2) | 무엇이, 어느 확률로, 얼마나 깎는가 |
+| A5.4 | Kill criteria | rule | Rule (trigger_type=fact) | ✓ (≥1) | 어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나 |
+| A5.5 | 조기 경보 → 증거 계획 | computed | text | | 드라이버별 관측 지표 · 관측값 · 필요값 · 띠 · 경계 · 신호등 (설계 v7) |
+| A5.6.x | 판단 수정 규칙 | rule | Rule (trigger_type=evidence) | | 드라이버 · 경계값 · 지속성 · 등급 · 제안 (설계 v7) |
+| A6.1.x | 촉매 이벤트 | event | Event | | 날짜가 박힌 사건만 |
+| A6.2.1 | 추세 | fact | enum `상승/횡보/하락` | | |
+| A6.2.2 | 거래량 | fact | number | | 20일 평균 대비 |
+| A6.2.3 | 외국인/기관 순매수 | fact | number | | 20일 누적 |
+| A6.2.4 | 공매도/신용잔고 | fact | percent | | 유통주식 대비 |
+| A7.1 | 목표 비중 | computed→judgment | percent | ✓ | §3.4 제안식 → 확정 |
+| A7.2 | 진입 계획 | judgment | `{price_range, tranches}` | ✓ | 어느 가격대에서 몇 번에 나눠 사나 |
+| A7.3 | 손절 규칙 | rule | Rule (price + fact) | ✓ | 가격 기준 하나, 사실 기준 하나 |
+| A7.4 | 익절/축소 규칙 | rule | Rule | | |
+| A7.5 | 판단 | judgment | enum `BUY/WATCH/PASS` | ✓ | |
+| A8.1 | 체크포인트 | computed | date[] | — | A1.x.next_check ∪ A6.1.x.date |
+| A8.2 | 업데이트 로그 | event[] | | | |
+| A8.3 | 사후 복기 | judgment | text | | 매도 완료 후 |
+| A9.* | 근거 자료 | fact/link | | | 논제를 뒷받침하는 것만 |
 
 ### 3.3 완료 조건 (판단 가능 상태)
 
-A0 논제가 비어 있지 않고, A1 드라이버가 3개 이상이며 각각 `current`와 `my_estimate`가 있고, A3 세 시나리오의 확률 합이 1.0이고, A4.4 Kill criteria가 1개 이상이며, A6.5 판단이 있을 때만 맵을 "완료"로 표시한다. 미완료 맵의 A6.5는 `WATCH`로 강제한다.
+A0 논제가 비어 있지 않고, A1 드라이버가 3개 이상이며 각각 `current`와 `my_estimate`가 있고, A4 세 시나리오의 확률 합이 1.0이고, A5.4 Kill criteria가 1개 이상이며, A7.5 판단이 있을 때만 맵을 "완료"로 표시한다. 미완료 맵의 A7.5는 `WATCH`로 강제한다.
 
 ### 3.4 계산식
 
 ```
-A3.4 기대수익률  ER = Σ_i  p_i × (TP_i / P0 − 1)            i ∈ {Bear, Base, Bull}, Σ p_i = 1
-A3.5 손익비      RR = ((TP_base − P0) / P0) / ((P0 − TP_bear) / P0)
+A4.5 기대수익률  ER = Σ_i  p_i × (TP_i / P0 − 1)            i ∈ {Bear, Base, Bull}, Σ p_i = 1
+A4.6 손익비      RR = ((TP_base − P0) / P0) / ((P0 − TP_bear) / P0)
                  (설정 rr_upside = "base" | "bull" ; 기본 base — 보수적)
-A6.1 목표 비중   w = clamp( w_base × f_conf × f_rr , 0 , w_max )
+A7.1 목표 비중   w = clamp( w_base × f_conf × f_rr , 0 , w_max )
                  w_base = 5% (설정) ; f_conf = {H:1.5, M:1.0, L:0.5}
                  f_rr   = clamp(RR / 2, 0.5, 1.5)
                  포트폴리오 상관 패널티는 C4에서 적용 (A에서는 단독 제안값)
-A7.1 체크포인트  = sort( {A1.x.driver.next_check} ∪ {A5.1.x.event.date} )
+A8.1 체크포인트  = sort( {A1.x.driver.next_check} ∪ {A6.1.x.event.date} )
 ```
 
-RR이 프로파일의 `rr_min`(§8) 미만이면 A6.5는 `BUY`를 허용하지 않는다 (경고 후 `WATCH`).
+RR이 프로파일의 `rr_min`(§8) 미만이면 A7.5는 `BUY`를 허용하지 않는다 (경고 후 `WATCH`).
 
 ---
 
@@ -302,9 +322,9 @@ B0 [보유: ○○]  상태등 🟢 유지 / 🟡 재검토 / 🔴 즉시대응 
 │
 ├─ B1 매수 당시 논제 복원 (A 맵 스냅숏 또는 재구성)
 │    ├─ B1.1 원래 논제 (A0)  · B1.2 당시 드라이버 값 (A1 → at_entry)
-│    ├─ B1.3 당시 목표가/기간 (A3)  · B1.4 당시 무효화 조건 (A4.4)
+│    ├─ B1.3 당시 목표가/기간 (A4)  · B1.4 당시 무효화 조건 (A5.4)
 │    ├─ B1.5 복원 품질: 기록 / 재구성 / 불가   → "불가"는 '논제 없는 보유' 태그
-│    └─ B1.6 섹터·매크로 링크 (A8.2, A8.3 복사)  → C2 노출 집계의 키
+│    └─ B1.6 섹터·매크로 링크 (A9.2, A9.3 복사)  → C2 노출 집계의 키
 │
 ├─ B2 그 이후 무엇이 바뀌었나
 │    ├─ B2.1 드라이버별 at_entry → now → direction (강화/유지/약화)
@@ -351,11 +371,11 @@ B0 [보유: ○○]  상태등 🟢 유지 / 🟡 재검토 / 🔴 즉시대응 
 | B0.1 | 핵심 질문 답 | judgment | bool | ✓ | 오늘 현금으로 이 가격·비중에 새로 사겠는가 |
 | B0.2 | 보유 이유 (아니오일 때) | judgment | enum `세금/유동성/촉매 임박/없음` | B0.1=false | "없음"이면 B2.3 재판정을 요구한다. 새로 사지 않을 종목을 이유 없이 들고 있다면 대개 무효/변질에 해당 → exit |
 | B0.3 | 현재 비중 | fact | percent | ✓ | C1.1에서 내려받음 |
-| B0.4 | 목표 비중 | judgment | percent | ✓ | A6.1 스냅숏, 리밸런싱 시 갱신 |
+| B0.4 | 목표 비중 | judgment | percent | ✓ | A7.1 스냅숏, 리밸런싱 시 갱신 |
 | B0.5 | 평가손익 | fact | percent | | **meta_only: true** — 어떤 computed/judgment의 입력으로도 참조 금지 (검증 규칙) |
-| B1.1~4 | 스냅숏 | fact | ref | ✓ | 매수 체결 시 A0/A1/A3/A4.4 복사 (불변) |
+| B1.1~4 | 스냅숏 | fact | ref | ✓ | 매수 체결 시 A0/A1/A4/A5.4 복사 (불변) |
 | B1.5 | 복원 품질 | judgment | enum `기록/재구성/불가` | ✓ | 기록=A 맵 존재, 재구성=위자드로 사후 작성, 불가=논제 없음 |
-| B1.6 | 섹터·매크로 링크 | link | ref[] | ✓ | A8.2(S 맵), A8.3(M 맵) 링크 복사. C2 집계와 S3 사이클 변경 전파의 키 |
+| B1.6 | 섹터·매크로 링크 | link | ref[] | ✓ | A9.2(S 맵), A9.3(M 맵) 링크 복사. C2 집계와 S3 사이클 변경 전파의 키 |
 | B2.1.x | 드라이버 | estimate | Driver(+at_entry, direction) | ✓ | at_entry 대비 now가 내 추정에 가까워졌나 멀어졌나 |
 | B2.2 | 주가 분해 | computed | `{dP, dEPS, dPE}` | — | §4.4 |
 | B2.3 | 논제 상태 | judgment | enum `강화/유효/약화/무효/변질` | ✓ | 변질 = 처음과 다른 이유로 들고 있음 (예: 성장 → 배당) |
@@ -371,7 +391,7 @@ B0 [보유: ○○]  상태등 🟢 유지 / 🟡 재검토 / 🔴 즉시대응 
 | B6 | 대응 결정 | judgment | enum `add/hold/trim/switch/exit/hedge` | ✓ | §4.5 매트릭스 기본값. 오버라이드 시 `override: true` + 사유 필수 |
 | B7.x | 사전 약속 | rule | Rule | ✓ (≥1) | 사실 기준 1개 이상 필수 |
 | B8.4 | 결정 로그 | DecisionLog[] | | | 모든 B6 변경 시 자동 1건 |
-| B8.5 | 사후 복기 | judgment | `{thesis_correct, wrong_assumption, biases, lesson}` | exit 시 ✓ | A7.3으로 복사 |
+| B8.5 | 사후 복기 | judgment | `{thesis_correct, wrong_assumption, biases, lesson}` | exit 시 ✓ | A8.3으로 복사 |
 
 ### 4.3 상태등 규칙
 
@@ -410,7 +430,7 @@ B2.2 주가 변화 분해 (12M forward EPS 기준, 배당 제외)
                ΔEPS < 0 and B2.3 == 유효        → 판정 재검토 요구 (모순)
      적자 기업: EPS 대신 매출(PSR) 또는 EBITDA(EV/EBITDA)로 대체, 설정 decomp_metric
 
-B3.4 / B3.5  = A3.4 / A3.5 와 동일 (P0 = 현재가, 시나리오는 재추정값)
+B3.4 / B3.5  = A4.5 / A4.6 와 동일 (P0 = 현재가, 시나리오는 재추정값)
 
 B3.8 상대 우위  edge = ER_this − max(ER_cash, ER_watchlist_top, ER_sector_substitute)
 
@@ -427,7 +447,7 @@ drawdown_from_peak = 1 − P_now / max(P since entry)
 
 | 논제 상태 | 밸류 | 비중 | 기본 대응 | 비고 |
 |---|---|---|---|---|
-| 강화 / 유효 | 저평가 | 과소 / 적정 | **add** | A6.1 재계산 비중까지 |
+| 강화 / 유효 | 저평가 | 과소 / 적정 | **add** | A7.1 재계산 비중까지 |
 | 강화 / 유효 | 저평가 | 과다 | hold | 비중 상한 유지, 추가 금지 |
 | 강화 / 유효 | 적정 | 과소 | add (소폭) 또는 hold | 프로파일 기본값 |
 | 강화 / 유효 | 적정 | 적정 | **hold** | `next_check` 반드시 지정 |
@@ -489,7 +509,7 @@ C0 [포트폴리오]  총자산 · 현금 비중 · 종목 수 · 상태등 분�
 | C2.2 | 각 B 맵 tags 중 `팩터:*` 집계 |
 | C3.1 | B6 ∈ {add, trim, exit, switch} 인 종목의 목표 변화량 × 현재가 합산. switch는 exit + add 두 건으로 분해 |
 | C3.4 충돌 | (현금 + 순매도 − 순매수) < 0 → 실행 불가 경고 ; 같은 S 맵 안에서 add와 exit 동시 발생 → 교체 후보로 묶어 표시 |
-| C4.3 | w_target_adj = A6.1 제안 × (1 − ρ_penalty), ρ_penalty = clamp(avg corr with top3 − 0.5, 0, 0.5) (설정) |
+| C4.3 | w_target_adj = A7.1 제안 × (1 − ρ_penalty), ρ_penalty = clamp(avg corr with top3 − 0.5, 0, 0.5) (설정) |
 | C4.4 | 실현이익 후보(exit/trim, 평가익 > 0) 와 실현손실 후보(exit, 평가손 < 0)를 과세 구간 내에서 페어링. 해외주식·대주주 양도세 대상에만 적용 |
 | C5.1 | B1.5 == 불가 인 B 맵의 수와 w 합 |
 | C5.4 | Σ w_i × B3.4_i + w_cash × ER_cash |
@@ -513,7 +533,7 @@ M0 매크로 레짐 (judgment enum: 확장/둔화/침체/회복 × 리스크온/
 └─ M6 레짐 변경 이력 : [{date, from, to, note}]  → 변경 시 모든 B 맵 🟡 후보 (설정)
 ```
 
-종목 맵은 M을 복사하지 않고 `A8.3 → links: ["M0"]`로 참조한다. 투자 유형이 `momentum`·`event`가 아니면 M은 논제의 입력이 아니라 배경이다.
+종목 맵은 M을 복사하지 않고 `A9.3 → links: ["M0"]`로 참조한다. 투자 유형이 `momentum`·`event`가 아니면 M은 논제의 입력이 아니라 배경이다.
 
 ### 6.2 S 섹터 맵 (섹터별 1개, 월 1회 또는 주요 이벤트)
 
@@ -522,7 +542,7 @@ S.<시장>-<섹터코드>   예: S.KR-SEMI, S.US-AUTO-EV, S.KR-ROBOT
 ├─ S1 TAM / 성장률 (fact + source)
 ├─ S2 경쟁구도 : 상위 플레이어 · 점유율 · 진입장벽
 ├─ S3 사이클 위치 (judgment enum: 초기/확장/피크/둔화/바닥)
-├─ S4 섹터 밸류 밴드 : PER/PBR 역사 분포 (A3.6.1·B3.6의 비교 기준)
+├─ S4 섹터 밸류 밴드 : PER/PBR 역사 분포 (A3.5.1·B3.6의 비교 기준)
 ├─ S5 섹터 촉매/리스크 : Event[]
 └─ S6 섹터 내 종목 리스트 : [{A 또는 B 맵 ref, ER, 상태}]  → B3.7 교체(switch) 후보 소스
 ```
@@ -537,11 +557,11 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
 [관심 등록] ──▶ A 작성 중 (WATCH)
                  │ 완료 조건 충족 (§3.3)
                  ▼
-            A6.5 판단 ──── PASS ──▶ 보관 (관심 해제, 복기용 보존)
-                 │ WATCH ──▶ A7.1 체크포인트 대기 → 재평가 → A6.5
+            A7.5 판단 ──── PASS ──▶ 보관 (관심 해제, 복기용 보존)
+                 │ WATCH ──▶ A8.1 체크포인트 대기 → 재평가 → A7.5
                  │ BUY
                  ▼
-            매수 체결 ──▶ snapshot(A0, A1.current→at_entry, A3, A4.4, A6.1, A8.2·A8.3 링크)
+            매수 체결 ──▶ snapshot(A0, A1.current→at_entry, A4, A5.4, A7.1, A9.2·A9.3 링크)
                  ▼
             B 생성 (open, B1.5 = 기록, reconstructed = false)
                  │
@@ -558,7 +578,7 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
     └────────────┬─────────────────────────────────────────────┘
                  │ B6 = exit 완료
                  ▼
-            B 종료 (closed) ──▶ B8.5 사후 복기 ──▶ A7.3 복사 ──▶ C6 집계
+            B 종료 (closed) ──▶ B8.5 사후 복기 ──▶ A8.3 복사 ──▶ C6 집계
 
 [맵 없이 이미 보유] ──▶ 논제 복원 위자드 ──▶ B1 (B1.5 = 재구성 | 불가, reconstructed = true)
                                             └─▶ B2부터 정상 운영 (불가면 상태등 최소 🟡)
@@ -577,8 +597,8 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
 | 항목 | growth | value | turnaround | momentum | event |
 |---|---|---|---|---|---|
 | 핵심 드라이버 예시 | 매출성장률 · TAM 침투율 · 마진 레버리지 | FCF 수익률 · 자산가치 할인율 · 주주환원 | 마진 회복 · 부채 감축 · 가동률 | 이익 리비전 · 상대강도 · 수급 | 이벤트 일정 · 성공 확률 · 결과별 가치 |
-| A5.2 수급/기술 weight | 0.2 | 0.1 | 0.2 | 0.6 | 0.3 |
-| A8 근거 자료 weight | 0.6 | 0.8 | 0.6 | 0.2 | 0.4 |
+| A6.2 수급/기술 weight | 0.2 | 0.1 | 0.2 | 0.6 | 0.3 |
+| A9 근거 자료 weight | 0.6 | 0.8 | 0.6 | 0.2 | 0.4 |
 | 정기 리뷰 주기 | 분기 | 반기 | 분기 | 주간 | 이벤트 전후 |
 | `stale_days` | 90 | 180 | 90 | 14 | 이벤트일까지 |
 | `dd_threshold` (🟡) | 25% | 20% | 30% | 10% | 15% |
@@ -603,16 +623,16 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
       { "id": "A1.2", "label": "수주잔고(억원)", "driver": { "current": {"value": 4200}, "consensus": {"value": 4500}, "my_estimate": {"value": 6000}, "check_indicator": "IR 자료·공시", "next_check": "2026-11-14" } },
       { "id": "A1.3", "label": "양산 라인 가동률", "driver": { "current": {"value": 55}, "consensus": {"value": 65}, "my_estimate": {"value": 80}, "check_indicator": "탐방·공급사 코멘트", "next_check": "2026-12-01" } }
     ],
-    "A3": [
-      { "id": "A3.1", "label": "Bear", "scenario": { "probability": 0.25, "target_price": 48000, "assumptions": ["양산 지연 6개월", "OPM 7%"] } },
-      { "id": "A3.2", "label": "Base", "scenario": { "probability": 0.50, "target_price": 85000, "assumptions": ["OPM 13%", "PER 18배"] } },
-      { "id": "A3.3", "label": "Bull", "scenario": { "probability": 0.25, "target_price": 120000, "assumptions": ["해외 고객 추가", "PER 25배"] } },
-      { "id": "A3.4", "formula": "Σ p_i × (TP_i/P0 − 1)", "value": 0.457 },
-      { "id": "A3.5", "formula": "((85000−58000)/58000) / ((58000−48000)/58000)", "value": 2.70 }
+    "A4": [
+      { "id": "A4.2", "label": "Bear", "scenario": { "probability": 0.25, "target_price": 48000, "assumptions": ["양산 지연 6개월", "OPM 7%"] } },
+      { "id": "A4.3", "label": "Base", "scenario": { "probability": 0.50, "target_price": 85000, "assumptions": ["OPM 13%", "PER 18배"] } },
+      { "id": "A4.4", "label": "Bull", "scenario": { "probability": 0.25, "target_price": 120000, "assumptions": ["해외 고객 추가", "PER 25배"] } },
+      { "id": "A4.5", "formula": "Σ p_i × (TP_i/P0 − 1)", "value": 0.457 },
+      { "id": "A4.6", "formula": "((85000−58000)/58000) / ((58000−48000)/58000)", "value": 2.70 }
     ],
-    "A4.4": [ { "id": "A4.4.1", "rule": { "trigger_type": "fact", "condition": "driver[A1.2].current < 3500", "action": "exit", "escalate_to": "RED", "status": "armed" } } ],
-    "A6": { "A6.1": { "suggested": 0.0675, "confirmed": 0.05, "formula": "5% × f_conf(M)=1.0 × f_rr=clamp(2.70/2,0.5,1.5)=1.35" },
-            "A6.2": { "price_range": [55000, 60000], "tranches": 3 }, "A6.5": "BUY",
+    "A5.4": [ { "id": "A5.4.1", "rule": { "trigger_type": "fact", "condition": "driver[A1.2].current < 3500", "action": "exit", "escalate_to": "RED", "status": "armed" } } ],
+    "A7": { "A7.1": { "suggested": 0.0675, "confirmed": 0.05, "formula": "5% × f_conf(M)=1.0 × f_rr=clamp(2.70/2,0.5,1.5)=1.35" },
+            "A7.2": { "price_range": [55000, 60000], "tranches": 3 }, "A7.5": "BUY",
             "_note": "RR 2.70 ≥ rr_min(growth)=2.0 → BUY 허용. 제안 비중 6.75%를 신규 섹터라는 이유로 5%로 낮춰 확정 (judgment, 사유 기록)" }
   },
 
@@ -649,9 +669,9 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
 
 | 규칙 | 대상 | 위반 시 |
 |---|---|---|
-| 시나리오 확률 합 = 1.0 (±0.01) | A3, B3 | 저장 거부 |
+| 시나리오 확률 합 = 1.0 (±0.01) | A4, B3 | 저장 거부 |
 | 드라이버 3~5개 | A1 | 완료 불가 |
-| Kill criteria ≥ 1 (trigger_type = fact) | A4.4 | 완료 불가 |
+| Kill criteria ≥ 1 (trigger_type = fact) | A5.4 | 완료 불가 |
 | `fact` 노드는 `source` 필수 | 전체 | status = unverified 강제 |
 | `B0.5 평가손익` 은 어떤 computed/judgment의 입력이 될 수 없음 | B, C | 저장 거부 (의존 그래프 검사) |
 | B1.1~B1.4 스냅숏 수정 금지 | B | 저장 거부 |
@@ -680,3 +700,23 @@ S3 사이클 위치가 바뀌면 해당 섹터에 링크된 모든 B 맵의 B2.1
 | 버전 | 날짜 | 내용 |
 |---|---|---|
 | v1.0 | 2026-10-19 | 초안. A/B/C 맵 구조, 공통 노드 스키마와 5개 하위 스키마, 상태등 규칙, 대응 결정 매트릭스, 계산식, 투자 유형 프로파일, 라이프사이클, 검증 규칙, 예시 인스턴스 |
+| v2.0 | 2026-10-28 | **A 맵 노드 번호 개편** — 「밸류에이션 & 시나리오」(옛 A3) 를 A3 밸류에이션(재무 전망 · 평가 기준 · 평가 모델 · 신뢰도 · 밸류 근거) 과 A4 시나리오(한눈에 · Bear/Base/Bull · 기대수익률 · 손익비 · 확률가중 매력도) 로 나눔. 옛 A4~A8 은 A5~A9. 설계 v5~v7 에서 생긴 노드(A2.4 성립 조건 · A3.1 재무 전망 · A3.2~A3.4 평가 · A4.1 한눈에 · A4.7 매력도 · A5.5 증거 계획 · A5.6 판단 수정 규칙) 를 표에 반영. 저장된 1.0 맵은 읽을 때 자동 변환(`models/migrate.py`), `mindmap migrate` 로 한꺼번에 저장. 대응표는 아래 |
+
+**노드 번호 대응표 (v1.0 → v2.0)** — A0 · A1 · A2 는 그대로.
+
+| 옛 | 새 | 내용 |
+|---|---|---|
+| A3.7 (.1~.4) | A3.1 (.1~.4) | 재무 전망 (결과 지표) |
+| A3.8 | A3.2 | 평가 기준 |
+| A3.9 | A3.3 | 평가 모델 |
+| A3.11 | A3.4 | 모델 신뢰도 · 갱신 이력 |
+| A3.6 (.1~.4) | A3.5 (.1~.4) | 밸류 근거 |
+| A3.0 | A4.1 | 시나리오 한눈에 |
+| A3.1 / A3.2 / A3.3 | A4.2 / A4.3 / A4.4 | Bear / Base / Bull |
+| A3.4 / A3.5 | A4.5 / A4.6 | 기대수익률 / 손익비 |
+| A3.10 | A4.7 | 확률가중 투자 매력도 |
+| A4.x | A5.x | 리스크 & 무효화 조건 (Kill A5.4 · 증거 계획 A5.5 · 판단 수정 규칙 A5.6) |
+| A5.x | A6.x | 촉매 & 타임라인 |
+| A6.x | A7.x | 실행 계획 (판단 A7.5) |
+| A7.x | A8.x | 모니터링 & 복기 (체크포인트 A8.1 · 업데이트 로그 A8.2) |
+| A8.x | A9.x | 근거 자료 |

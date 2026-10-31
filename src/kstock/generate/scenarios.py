@@ -3,7 +3,7 @@
 우선순위 (위에서부터 하나만):
 1. 리포트가 Bull/Base/Bear(낙관/중립/비관) 케이스와 목표가를 명시 → 그대로 구조화 (출처: 증권사). 여러 리포트가 제시하면 증권사별 후보.
 2. 리포트별 가치평가 산식(valuation_method · 배수 · 기준 EPS/BPS) 이 읽히면 **그 리포트 안의 값만으로** 재계산한 '자체 시나리오 후보'.
-3. 목표가만 있음 → A3.6.4 분포·상승여력만. A3.1~3 은 공란(pending).
+3. 목표가만 있음 → A3.5.4 분포·상승여력만. A4.2~4 은 공란(pending).
 4. 근거 부족 → 공란.
 확률은 어떤 경우에도 자동으로 넣지 않는다. 목표가 분포→시나리오 폴백·min(EPS)×min(PER) 교차 조합·Bear 하한은 없다.
 """
@@ -166,7 +166,7 @@ def candidates_from(facts: ReportFacts, text: str) -> list[ScenarioCandidate]:
 
 # --------------------------------------------------------------------------- 맵에 넣기
 def fill_scenarios_v3(m: NewMap, d: ReportDigest, texts: dict[str, str], *, today: date, p0: float | None) -> tuple[list[str], list[dict]]:
-    """A3.1~3: 리포트 제시 케이스가 있으면 채우고(확률 없음), 아니면 **비워 둔다**(pending). 후보는 meta 로 돌려준다.
+    """A4.2~4: 리포트 제시 케이스가 있으면 채우고(확률 없음), 아니면 **비워 둔다**(pending). 후보는 meta 로 돌려준다.
     texts: path.name → 정규화 텍스트. 돌려주는 것: (메모, 후보 dict 목록)."""
     notes: list[str] = []
     cands: list[ScenarioCandidate] = []
@@ -182,7 +182,7 @@ def fill_scenarios_v3(m: NewMap, d: ReportDigest, texts: dict[str, str], *, toda
             if c.broker == latest.broker and c.name and c.name not in by_name:
                 by_name[c.name] = c
     filled = 0
-    for nid, name in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, name in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         n = m[nid]
         c = by_name.get(name)
         if c is not None:
@@ -194,19 +194,19 @@ def fill_scenarios_v3(m: NewMap, d: ReportDigest, texts: dict[str, str], *, toda
             n.scenario = None
             n.value = None
             n.tags = sorted(set(n.tags) | {PENDING_TAG})
-            n.question = (n.question + " — 자동 초안은 시나리오를 만들지 않는다: 콘솔 「시나리오 후보 넣기」 로 증권사 자체 후보를 고르거나 직접 입력").strip(" —")
+            n.question = (n.question + " — 비어 있음 (자동 초안은 시나리오를 만들지 않는다): A4.1 「시나리오 한눈에」 를 보고 콘솔 「C」(증권사 후보) · 「V」(가정·PER) 로 넣는다").strip(" —")
     if filled == 3:
         notes.append(f"시나리오: {by_name['Base'].broker} 리포트가 제시한 Bull/Base/Bear 케이스를 그대로 (확률은 미입력)")
     elif filled:
         notes.append(f"시나리오: 리포트 제시 케이스 {filled}개만 채움 — 나머지는 공란")
     else:
-        notes.append("시나리오: 리포트에 Bull/Base/Bear 제시가 없어 A3.1~3 을 비워 둔다 (증권사 자체 후보 "
+        notes.append("시나리오: 리포트에 Bull/Base/Bear 제시가 없어 A4.2~4 을 비워 둔다 (증권사 자체 후보 "
                      f"{sum(1 for c in cands if c.kind != '리포트 제시')}개는 meta.draft.scenario_candidates)")
     # 확률·ER·RR 은 사람 몫
-    m["A3.4"].set(None, as_of=today)
-    m["A3.5"].set(None, as_of=today)
-    m["A3.4"].tags = sorted(set(m["A3.4"].tags) | {PENDING_TAG})
-    m["A3.5"].tags = sorted(set(m["A3.5"].tags) | {PENDING_TAG})
+    m["A4.5"].set(None, as_of=today)
+    m["A4.6"].set(None, as_of=today)
+    m["A4.5"].tags = sorted(set(m["A4.5"].tags) | {PENDING_TAG})
+    m["A4.6"].tags = sorted(set(m["A4.6"].tags) | {PENDING_TAG})
     return notes, [asdict(c) for c in cands]
 
 
@@ -215,7 +215,7 @@ def apply_candidate(m: NewMap, cand: dict, name: str, *, today: date) -> Scenari
     c = ScenarioCandidate(**{k: v for k, v in cand.items() if k in ScenarioCandidate.__dataclass_fields__})
     if isinstance(c.report_date, str):
         c.report_date = date.fromisoformat(c.report_date)
-    nid = {"Bear": "A3.1", "Base": "A3.2", "Bull": "A3.3"}[name]
+    nid = {"Bear": "A4.2", "Base": "A4.3", "Bull": "A4.4"}[name]
     n = m[nid]
     sc = c.to_scenario(name)
     reinterp = c.is_reinterpretation(name)
@@ -243,16 +243,16 @@ def apply_example_probs(m: NewMap, *, today: date, probs: dict[str, float] | Non
     """「예시 확률 입력」 — 통계적 근거 없는 미검증 가정임을 history 에 남기고 넣는다. 세 시나리오가 다 있어야 한다."""
     probs = probs or EXAMPLE_PROBS
     done: list[str] = []
-    for nid, name in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, name in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         n = m[nid]
         if n.scenario is None:
             raise ValueError(f"{name} 시나리오가 비어 있어 확률을 넣을 수 없다")
-    for nid, name in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, name in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         n = m[nid]
         n.scenario.probability = probs[name]
         n.history.append(HistoryPoint(as_of=today, value=probs[name], source=Source(name="예시 확률 — 통계적 근거 없는 미검증 가정 (사용자 입력)", retrieved_at=today)))
         done.append(f"{name} {probs[name]:.2f}")
-    for nid in ("A3.4", "A3.5"):
+    for nid in ("A4.5", "A4.6"):
         m[nid].tags = sorted(set(m[nid].tags) - {PENDING_TAG})
     return done
 

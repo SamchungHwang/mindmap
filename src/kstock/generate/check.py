@@ -1,6 +1,6 @@
 """교차 검증 (자동 생성 계획 §3c) — 자동 초안이 스스로 모순되지 않게 고치고, 사람이 봐야 할 곳에 깃발을 세운다.
 
-틀렸다는 뜻이 아니라 **사람이 봐야 한다**는 뜻의 `warn` 태그를 노드에 단다. 판단(A6.5)은 항상 WATCH 로 되돌린다.
+틀렸다는 뜻이 아니라 **사람이 봐야 한다**는 뜻의 `warn` 태그를 노드에 단다. 판단(A7.5)은 항상 WATCH 로 되돌린다.
 """
 
 from __future__ import annotations
@@ -35,23 +35,23 @@ def cross_check(m: NewMap, d: ReportDigest | None, *, today: date) -> list[str]:
                     x.probability = round(x.probability / s, 3)
                 tot = sum(x.probability for x in sc.values())
                 sc["Base"].probability = round(sc["Base"].probability + (1.0 - tot), 3)
-                flags.append(f"A3: 확률 합 {s:.2f} → 1.0 정규화")
+                flags.append(f"A4: 확률 합 {s:.2f} → 1.0 정규화")
             else:
-                _warn(m, "A3", f"확률 합 {s:.2f} — 사람이 다시 쓴다", flags)
+                _warn(m, "A4", f"확률 합 {s:.2f} — 사람이 다시 쓴다", flags)
         # 순서
         b, ba, bu = sc["Bear"].target_price, sc["Base"].target_price, sc["Bull"].target_price
         if not (b < ba < bu):
-            _warn(m, "A3", f"목표가 순서 위반 Bear {b:,.0f} / Base {ba:,.0f} / Bull {bu:,.0f}", flags)
+            _warn(m, "A4", f"목표가 순서 위반 Bear {b:,.0f} / Base {ba:,.0f} / Bull {bu:,.0f}", flags)
         if p0 is not None:
             if b > p0:
-                _warn(m, "A3.1", f"Bear 목표가 {b:,.0f} 가 현재가 {p0:,.0f} 위 — 하락 시나리오가 없다", flags)
+                _warn(m, "A4.2", f"Bear 목표가 {b:,.0f} 가 현재가 {p0:,.0f} 위 — 하락 시나리오가 없다", flags)
             if bu < p0:
-                _warn(m, "A3.3", f"Bull 목표가 {bu:,.0f} 가 현재가 {p0:,.0f} 아래 — 상승 여지가 없다", flags)
+                _warn(m, "A4.4", f"Bull 목표가 {bu:,.0f} 가 현재가 {p0:,.0f} 아래 — 상승 여지가 없다", flags)
         # 컨센서스 범위
         if d is not None and d.n_tp:
             lo, hi = d.tp_min * 0.7, d.tp_max * 1.2
             if not (lo <= ba <= hi):
-                _warn(m, "A3.2", f"Base 목표가 {ba:,.0f} 가 컨센서스 범위 [{lo:,.0f}, {hi:,.0f}] 밖", flags)
+                _warn(m, "A4.3", f"Base 목표가 {ba:,.0f} 가 컨센서스 범위 [{lo:,.0f}, {hi:,.0f}] 밖", flags)
     # 드라이버: current 는 출처 필수, my_estimate 는 '초안' 표기
     for n in m.drivers():
         dr = n.driver
@@ -75,10 +75,10 @@ def cross_check(m: NewMap, d: ReportDigest | None, *, today: date) -> list[str]:
                 m["A2.1"].question = (q + " | 컨센서스 편향: 매도·중립 의견 0건 (매수 일색) — 리포트만으로는 반대 논리를 볼 수 없다").strip(" |")
             flags.append("A2.1: 컨센서스 편향 — 리포트 의견이 매수 일색")
     # 판단은 항상 WATCH
-    if m.value("A6.5") != "WATCH":
-        m["A6.5"].set("WATCH", as_of=today, status=NodeStatus.unverified)
-        flags.append("A6.5: 자동 초안의 판단은 WATCH 로 고정 (BUY 는 사람만)")
-    mark_draft(m["A6.5"])
+    if m.value("A7.5") != "WATCH":
+        m["A7.5"].set("WATCH", as_of=today, status=NodeStatus.unverified)
+        flags.append("A7.5: 자동 초안의 판단은 WATCH 로 고정 (BUY 는 사람만)")
+    mark_draft(m["A7.5"])
     return flags
 
 

@@ -12,7 +12,7 @@ class Settings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    # A6.1 비중 제안식
+    # A7.1 비중 제안식
     w_base: float = 0.05
     w_max: float = 0.15
     f_conf: dict[str, float] = Field(default_factory=lambda: {"H": 1.5, "M": 1.0, "L": 0.5})
@@ -50,8 +50,8 @@ class Profile(BaseModel):
 
     invest_type: InvestType
     driver_examples: list[str]
-    w_flow_tech: float  # A5.2 수급/기술 weight
-    w_evidence: float  # A8 근거 자료 weight
+    w_flow_tech: float  # A6.2 수급/기술 weight
+    w_evidence: float  # A9 근거 자료 weight
     review_cadence: str
     stale_days: int
     dd_threshold: float

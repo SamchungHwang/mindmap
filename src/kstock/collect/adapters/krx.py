@@ -9,7 +9,7 @@
 3. 증권사 Open API (kis.py) 로 대체.
 
 밸류 밴드 백분위(band_percentile) 는 PER 시계열(get_market_fundamental_by_date) 에서
-현재 PER 의 백분위를 계산해 채운다 (A3.6.1 / B3.6 입력).
+현재 PER 의 백분위를 계산해 채운다 (A3.5.1 / B3.6 입력).
 """
 
 from __future__ import annotations

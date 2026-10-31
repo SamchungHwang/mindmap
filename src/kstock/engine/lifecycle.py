@@ -53,7 +53,7 @@ class NewMapEval:
 
 def evaluate_new_map(m: NewMap, *, settings: Settings | None = None, today: date | None = None,
                      enforce_gate: bool = True) -> NewMapEval:
-    """A3.4 / A3.5 / A6.1(suggested) / A7.1 을 계산해 노드에 쓰고, rr_min 게이트를 적용한다."""
+    """A4.5 / A4.6 / A7.1(suggested) / A8.1 을 계산해 노드에 쓰고, rr_min 게이트를 적용한다."""
     settings = settings or Settings()
     today = today or date.today()
     prof = get_profile(m.profile)
@@ -63,31 +63,44 @@ def evaluate_new_map(m: NewMap, *, settings: Settings | None = None, today: date
     if p0 and len(sc) == 3:
         try:
             res.expected_return = calc.expected_return(sc, p0)
-            m["A3.4"].set(round(res.expected_return, 4), as_of=today)
+            m["A4.5"].set(round(res.expected_return, 4), as_of=today)
         except calc.CalcError as e:
             res.notes.append(f"ER 계산 불가: {e}")
         try:
             res.risk_reward = calc.risk_reward(sc, p0, prof.rr_upside)
-            m["A3.5"].set(None if res.risk_reward is None else round(res.risk_reward, 2), as_of=today)
+            m["A4.6"].set(None if res.risk_reward is None else round(res.risk_reward, 2), as_of=today)
         except calc.CalcError as e:
             res.notes.append(f"RR 계산 불가: {e}")
     conf = m.value("A0.3")
     if res.risk_reward is not None or res.expected_return is not None:
         res.suggested_weight = calc.suggested_weight(conf, res.risk_reward, settings)
-        cur = m["A6.1"].value if isinstance(m["A6.1"].value, dict) else {}
+        cur = m["A7.1"].value if isinstance(m["A7.1"].value, dict) else {}
         cur = {**cur, "suggested": round(res.suggested_weight, 4)}
-        m["A6.1"].value = cur
+        m["A7.1"].value = cur
     # rr_min 게이트
     if res.risk_reward is not None:
         res.rr_gate_passed = res.risk_reward >= prof.rr_min
         if enforce_gate and not res.rr_gate_passed and m.decision == Decision.BUY:
-            m["A6.5"].set(Decision.WATCH.value, as_of=today)
+            m["A7.5"].set(Decision.WATCH.value, as_of=today)
             res.notes.append(f"손익비 {res.risk_reward:.2f} < rr_min {prof.rr_min} → BUY 불허, WATCH 강제")
-    # A7.1 체크포인트
+    # 설계 v7 §3.6: 판단 상태 플래그 — 신규 BUY 보류(필수 조건 위반 검증됨 ∨ 재검토 중) 이면 BUY 를 WATCH 로 (판단값은 사람이 바꾼다; 보류 중엔 BUY 로 저장되지 않음)
+    flags = m.meta.get("flags") or {}
+    if enforce_gate and (flags.get("hold_new_buy") or flags.get("review")) and m.decision == Decision.BUY:
+        m["A7.5"].set(Decision.WATCH.value, as_of=today)
+        res.notes.append("신규 BUY 보류 플래그(필수 조건 위반 검증 또는 재검토 중) → BUY 불허, WATCH 강제")
+    # A8.1 체크포인트
     dates: list[date | None] = [n.driver.next_check for n in m.drivers() if n.driver]
-    dates += [e.date for e in m.catalysts()]
+    # 2026-10-31: A8.1 은 일정표의 복사본이 아니라 **판단을 고쳐야 하는 사건**의 목록 — 중요도 H 거나 바꾸는 노드가 있는 것만.
+    # 체크포인트는 이벤트의 next_check 가 있으면 그것 (기간 사건은 기간 끝)
+    from ..generate.catalysts import event_matters
+
+    dates += [e.checkpoint() for e in m.catalysts() if event_matters(e)]
     res.checkpoints = calc.checkpoints(dates)
-    m["A7.1"].set([d.isoformat() for d in res.checkpoints], as_of=today)
+    m["A8.1"].set([d.isoformat() for d in res.checkpoints], as_of=today)
+    from ..generate.catalysts import checkpoint_lines
+
+    lines = checkpoint_lines(m, today=today)
+    m["A8.1"].question = ("날짜 · 사건 — 검증할 것 → 후속 조치 [바꾸는 노드]\n" + "\n".join(lines)) if lines else ""
     m.touch(today)
     return res
 
@@ -95,7 +108,7 @@ def evaluate_new_map(m: NewMap, *, settings: Settings | None = None, today: date
 # --------------------------------------------------------------------------- A → B 스냅숏
 def snapshot_to_holding(a: NewMap, position: Position, *, today: date | None = None,
                         market: MarketState | None = None) -> HoldingMap:
-    """매수 체결 시 A0 / A1(current→at_entry) / A3 / A4.4 / A6.1 / A8.2·A8.3 링크를 B1 에 복사한다 (§7)."""
+    """매수 체결 시 A0 / A1(current→at_entry) / A4 / A5.4 / A7.1 / A9.2·A9.3 링크를 B1 에 복사한다 (§7)."""
     today = today or position.entry_date
     assert a.ticker and a.name
     b = hold_map_skeleton(a.ticker, a.name, a.profile, today, n_drivers=max(3, len(a.drivers())))
@@ -125,8 +138,8 @@ def snapshot_to_holding(a: NewMap, position: Position, *, today: date | None = N
     sc = a.scenarios()
     b["B1.3"].set({k: {"probability": v.probability, "target_price": v.target_price,
                        "horizon_months": v.horizon_months} for k, v in sc.items()},
-                  as_of=today, source=Source(name="A3 snapshot", retrieved_at=today))
-    # B3 초기값 = A3 (재추정 전까지)
+                  as_of=today, source=Source(name="A4 snapshot", retrieved_at=today))
+    # B3 초기값 = A4 (재추정 전까지)
     for k, nid in (("Bear", "B3.1"), ("Base", "B3.2"), ("Bull", "B3.3")):
         if k in sc:
             b[nid].scenario = sc[k].model_copy(deep=True)
@@ -137,7 +150,7 @@ def snapshot_to_holding(a: NewMap, position: Position, *, today: date | None = N
         rr.escalate_to = rr.escalate_to or Light.RED
         b.add(Node(id=f"B1.4.{j}", map=MapKind.HOLD, parent="B1.4", label=f"무효화 조건 {j}",
                    node_type="rule", value_type="text", rule=rr, as_of=today))
-    # B7 사전 약속 ← A6.3 / A6.4 + 비중 밴드 규칙 기본 1개
+    # B7 사전 약속 ← A7.3 / A7.4 + 비중 밴드 규칙 기본 1개
     j = 0
     for r in a.exec_rules():
         j += 1
@@ -152,7 +165,7 @@ def snapshot_to_holding(a: NewMap, position: Position, *, today: date | None = N
                          note="템플릿 §4.4 비중 밴드 — 자동 생성")))
     # B1.5 / B1.6
     b["B1.5"].set(ReconstructionQuality.기록.value, as_of=today)
-    links = [lk for nid in ("A8.2", "A8.3") if nid in a for lk in a[nid].links]
+    links = [lk for nid in ("A9.2", "A9.3") if nid in a for lk in a[nid].links]
     b["B1.6"].links = links
     b["B1.6"].set(links or None, as_of=today)
     b["B8.1"].set(get_profile(a.profile).review_cadence, as_of=today)

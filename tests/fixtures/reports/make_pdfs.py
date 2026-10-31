@@ -46,7 +46,7 @@ def main() -> int:
         for t in txts:
             page.set_content(to_html(t.read_text(encoding="utf-8")))
             out = t.with_suffix(".pdf")
-            page.pdf(path=str(out), format="A4", print_background=True)
+            page.pdf(path=str(out), format="A5", print_background=True)
             print(f"{t.name} → {out.name} ({out.stat().st_size:,} bytes)")
         browser.close()
     return 0

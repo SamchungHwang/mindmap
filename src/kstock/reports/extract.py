@@ -91,7 +91,8 @@ ROW_LABELS: list[tuple[str, str]] = [
     # 조정(일회성 제거) 영업이익은 보고 영업이익과 같은 셀에 섞지 않는다 (설계 v4 V4) — 먼저 매치시킨다
     ("op_adj", r"조정\s*영업이익|영업이익\s*\(조정\)|Adjusted\s*OP|Adj\.?\s*OP"),
     ("op", r"영업이익(?!률)"),
-    ("np", r"지배주주\s*(?:지분\s*)?순이익|순이익\s*\(지배\)|당기순이익\s*\(지배(?:주주)?\)|당기순이익|순이익|지배순이익"),
+    # 「순이익률」 행은 순이익이 아니다 — 2026-10-31 삼성전자(신한) 표에서 순이익률 11.5 가 순이익 115억으로 들어가 EPS 정규화가 깨졌다
+    ("np", r"지배주주\s*(?:지분\s*)?순이익(?!\s*률|률)|순이익\s*\(지배\)|당기순이익\s*\(지배(?:주주)?\)|당기순이익(?!\s*률|률)|순이익(?!\s*률|률|\s*마진|\s*증가|\s*성장)|지배순이익(?!\s*률|률)"),
     ("ebitda", r"EBITDA(?!\s*(?:마진|margin|Margin))"),
     ("opm", r"영업이익률|OPM|OP\s*margin"),
     ("eps", r"EPS(?!\s*(?:증감|성장|증가|growth))"),
@@ -127,7 +128,9 @@ KIND_WORDS: dict[str, list[str]] = {
     "risk": ["리스크", "우려", "불확실", "둔화", "하락", "하향 조정", "지연", "경쟁", "부담", "악화", "감소", "변동성", "규제", "관세",
              "환율", "적자", "충당금", "소송", "공급 과잉", "피크아웃", "역성장", "희석", "손실"],
     "catalyst": ["예정", "발표", "출시", "공시", "승인", "계약", "착공", "가동", "컨퍼런스", "실적 발표", "잠정실적", "확정실적",
-                 "주주총회", "상장", "인증", "수주 발표", "학회", "입찰", "선정", "론칭", "양산 시작", "정책"],
+                 "주주총회", "상장", "인증", "수주 발표", "학회", "입찰", "선정", "론칭", "양산 시작", "정책",
+                 # 2026-10-31 두산에너빌리티: 수주·발주·계약 전환·증설 결정·FID·출하 — 사건의 말들
+                 "결정", "증설", "발주", "체결", "전환", "FID", "투자결정", "인허가", "출하", "수주 목표", "본계약"],
     "valuation": ["PER", "PBR", "EV/EBITDA", "밸류에이션", "목표주가 산정", "Target", "할인", "프리미엄", "적용", "배", "SOTP", "DCF",
                   "역사적", "밴드", "멀티플", "P/E", "P/B"],
     "shareholder": ["배당", "자사주", "주주환원", "소각", "지배구조", "밸류업", "배당성향", "환원율"],
@@ -136,11 +139,11 @@ KIND_WORDS: dict[str, list[str]] = {
 # 표지·표·데이터 박스·등급 정의처럼 '문장' 이 아닌 줄 — 논거/리스크 후보에서 뺀다
 NOT_PROSE = re.compile(
     r"투자\s*의견|목표\s*주가|적정\s*주가|현재\s*주가|상승\s*여력|시가\s*총액|발행\s*주식|외국인\s*지분|주주\s*구성|배당수익률\s*\(|"
-    r"\[?\s*(?:표|그림|도표|Figure|Table|Chart)\s*\d|자료\s*[:：]|출처\s*[:：]|Source\s*[:：]|\bI\b\s*기업분석|Company\s*(?:Analysis|Brief|Report)|"
+    r"(?<![가-힣])\[?\s*(?:표|그림|도표|Figure|Table|Chart)\s*\d|자료\s*[:：]|출처\s*[:：]|Source\s*[:：]|\bI\b\s*기업분석|Company\s*(?:Analysis|Brief|Report)|"
     r"시장수익률\s*대비|%p\s*(?:이상|이하|~)|Marketperform|Underperform|Not\s*Rated|\(유지\)|\(상향\)|\(하향\)|\(신규\)|"
     r"^\s*(?:매수|BUY|Buy|HOLD|Hold|중립|매도)\b|실적\s*추정\s*$|Preview\s|Review\s|리서치센터|리서치본부", re.I)
 RISK_HEADING = re.compile(r"^\s*(?:(?:주요\s*|핵심\s*)?리스크\s*(?:요인|요소)?|Risk\s*factors?|Risks?|(?:투자\s*)?위험\s*요인)\s*[:：]?\s*", re.I)
-TIME_WORDS = re.compile(r"\d{1,2}\s*월|[1-4]\s*분기|[1-4]Q\s*\d{2}|상반기|하반기|연내|연말|연초|20\d{2}\s*년|분기\s*말|내년|올해|이달|다음\s*달|[1-4]Q")
+TIME_WORDS = re.compile(r"\d{1,2}\s*월|[1-4]\s*분기|[1-4]Q\s*\d{2}|상반기|하반기|연내|연말|연초|20\d{2}\s*년|분기\s*말|내년|올해|이달|다음\s*달|[1-4]Q|연간\s*(?:신규\s*)?(?:수주\s*)?목표|'?\d{2}년")
 
 
 @dataclass
@@ -151,6 +154,65 @@ class Sentence:
 
     def key(self) -> str:
         return re.sub(r"[\s\d,\.%()]+", "", self.text)[:60]
+
+
+@dataclass
+class QAItem:
+    """설명회 Q&A 한 항목 (2026-10-31 두산에너빌리티 검토) — 「Q16. 제목 / - 답 / - 답」. 답은 회사 발언이라 촉매의 진행 단계·선행조건이 여기 있다.
+    문장 분리기는 끝맺음(…다.) 이 없는 글머리표를 전부 버려서 따로 읽는다."""
+
+    no: int
+    question: str
+    answers: list[str]
+    page: int
+
+    @property
+    def text(self) -> str:
+        """사건 추출용 한 문장 — 「제목 — 답 · 답」."""
+        return f"{self.question} — " + " · ".join(self.answers) if self.answers else self.question
+
+
+QA_HEAD = re.compile(r"(?:설명회|컨퍼런스\s*콜|실적\s*발표|IR)\s*Q\s*&\s*A|^\s*Q\s*&\s*A\s*$|질의\s*응답", re.M | re.I)
+QA_ITEM = re.compile(r"^\s*Q\s*(\d{1,2})\s*[.)]\s*(.+?)\s*$", re.M)
+QA_ANSWER = re.compile(r"^\s*[-–—•▶■◆·]\s*(.+?)\s*$")
+
+
+def extract_qa(text: str) -> list[QAItem]:
+    """설명회 Q&A 블록을 항목으로. Q 머리가 셋 미만이면 Q&A 가 아니라고 본다. 쪽은 \\f(페이지 구분) 로 센다."""
+    head = QA_HEAD.search(text)
+    start = head.start() if head else 0
+    items: list[QAItem] = []
+    lines = text[start:].split("\n")
+    offset = start
+    cur: QAItem | None = None
+    gap = 0
+    for ln in lines:
+        page = text.count("\f", 0, offset) + 1
+        offset += len(ln) + 1
+        mq = QA_ITEM.match(ln)
+        if mq and len(mq.group(2)) >= 4:
+            cur = QAItem(int(mq.group(1)), " ".join(mq.group(2).split()), [], page)
+            items.append(cur)
+            gap = 0
+            continue
+        ma = QA_ANSWER.match(ln) if cur is not None else None
+        if ma and cur is not None:
+            a = " ".join(ma.group(1).split())
+            if len(a) >= 4:
+                cur.answers.append(a)
+            gap = 0
+            continue
+        if cur is not None:
+            s = ln.strip()
+            if s and len(s) > 45 and not QA_HEAD.search(s):
+                gap += 1
+                if gap >= 3:          # 본문이 다시 시작됐다
+                    break
+            if DISCLAIMER.search(s) and ("Compliance" in s or "컴플라이언스" in s):
+                break
+    if len(items) < 3:
+        return []
+    return items
 
 
 @dataclass
@@ -189,6 +251,8 @@ class ReportFacts:
     # 설계 v5 R4: 사업부 표 — segment → metric(revenue|op|opm|share) → col → 값 (금액 억원, 비율 %). 전사 추정치 표와 섞지 않는다
     segments: dict[str, dict[str, dict[str, float]]] = field(default_factory=dict)
     segments_unit: str | None = None
+    # 2026-10-31 두산에너빌리티: 설명회 Q&A 항목 — 회사 발언(계약 단계·선행조건) 의 원천
+    qa: list[QAItem] = field(default_factory=list)
 
     @property
     def label(self) -> str:
@@ -977,6 +1041,7 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
     except Exception as e:  # noqa: BLE001 — 사업부 표는 보조 정보: 실패해도 리포트는 쓴다
         f.warnings.append(f"{doc.name}: 사업부 표 추출 실패 — {type(e).__name__}: {e}")
     f.sentences = extract_sentences(text, name=f.name)
+    f.qa = extract_qa(text)
     if f.target_price is None and f.opinion != "NR":
         f.warnings.append(f"{doc.name}: 목표주가를 찾지 못했다")
     if f.current_price is None:
@@ -988,4 +1053,4 @@ def extract_facts(doc: ReportDoc, *, hint_ticker: str | None = None, today: date
 
 __all__ = ["ReportFacts", "Sentence", "extract_facts", "find_ticker", "find_date", "find_broker", "find_opinion",
            "find_target_price", "find_current_price", "find_upside", "find_52w", "find_tp_history", "find_shares_out", "parse_estimate_tables",
-           "extract_sentences", "paragraphs", "normalize_opinion", "parse_date", "METRIC_LABEL", "RATIO_METRICS", "KIND_WORDS"]
+           "extract_sentences", "extract_qa", "QAItem", "paragraphs", "normalize_opinion", "parse_date", "METRIC_LABEL", "RATIO_METRICS", "KIND_WORDS"]

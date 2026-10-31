@@ -30,7 +30,7 @@ ops.draft_from_reports / propose_changes / apply_changes  ◀── console 「�
                                                                       │
                                               generate.issues ◀───────┘ ClaimSet(verified 만) → 테마(driver_id) → 메커니즘 → 공통/이견/독립/미해결
                                                                       │
-   generate.rules(숫자 노드 · 사람 몫은 pending) + generate.scenarios(리포트 제시 케이스만) + generate.mapping(쟁점 → A0/A1/A2.1/A3.6/A4/A5/A8.4)
+   generate.rules(숫자 노드 · 사람 몫은 pending) + generate.scenarios(리포트 제시 케이스만) + generate.mapping(쟁점 → A0/A1/A2.1/A3.5/A5/A6/A9.4)
                                                                       │
                                           generate.check(교차검증 · warn) → engine.validate(오류 vs 미확정) → DraftResult
                                                                       │
@@ -52,7 +52,7 @@ ops.draft_from_reports / propose_changes / apply_changes  ◀── console 「�
   (전부 `draft` 태그), 사람 몫(내 추정 · 시나리오 확률 · Kill · 내재 가정 A2.x) 은 비워 `pending` 태그를 단다 — 빈 칸은 오류가
   아니라 **미확정** 이다. `claims` → `validate_claims` 로 검증된 Claim 만 `issues` 가 쟁점으로 묶고 `mapping` 이 노드에 옮긴다
   (모든 노드가 인용 span 으로 리포트 원문까지 추적된다). `scenarios` 는 리포트가 명시한 케이스만 쓰고 증권사 간 조합·분포 폴백은
-  하지 않는다. `check` 가 모순을 고치고 사람이 볼 곳에 `warn` 태그를 단다. 판단(A6.5)은 항상 WATCH. 옛 `llm_fill` 그룹 채움은
+  하지 않는다. `check` 가 모순을 고치고 사람이 볼 곳에 `warn` 태그를 단다. 판단(A7.5)은 항상 WATCH. 옛 `llm_fill` 그룹 채움은
   `llm_groups=True` 일 때만 (시나리오 그룹 제외).
 - `generate.changes` 는 기존 맵과 새 초안을 비교해 `ChangeSet` 을 만들고, 사람이 승인한 항목만 적용한다. 적용 전 맵을
   `maps/versions/` 에 보존하고 `meta.version` 을 올린다. 사람이 손댄 노드(`user_touched`) 는 자동 적용하지 않는다.
@@ -118,10 +118,17 @@ weight_state, driver[<id>].current|at_entry|consensus|my_estimate|direction`, �
 | 민감도 템플릿 추가 | `engine/sensitivity.py::compute_sensitivity` 의 템플릿 분기 + `TEMPLATE_BY_VARIABLE` · `DEFAULT_DELTA` |
 | 원인 변수 셀의 변수·측정 판정 | `generate/cause.py::VARIABLE_WORDS` · `MEASURE_WORDS` (Claim metric 이름·명제 단어) |
 | 리포트 기반 제안값 종류 추가 | `generate/suggest.py` (`build_suggestions` 의 `_consensus/_issue_minority/_conditional/_price_band`, `KIND_LABEL`) — `field` 는 노드 필드 경로, 폼은 `render/native.py` 의 `renderSuggestions` |
-| 평가 기준·모델 (설계 v6) | `engine/valuation.py` — `Criteria.from_map`(A3.8 키), `common_tail`(t · N · PER — 민감도·시나리오·평가 모델이 같이 쓴다), `compute_valuation`(PER·정상화·SOTP·역산), `SEGMENT_CONTAINS`(사업부 포함 관계), `NORMALIZE_YEARS` |
+| 평가 기준·모델 (설계 v6) | `engine/valuation.py` — `Criteria.from_map`(A3.2 키), `common_tail`(t · N · PER — 민감도·시나리오·평가 모델이 같이 쓴다), `compute_valuation`(PER·정상화·SOTP·역산), `SEGMENT_CONTAINS`(사업부 포함 관계), `NORMALIZE_YEARS` |
 | 시나리오 통합 모델 · Bear 템플릿 | `engine/scenario_model.py` — `SegState.delta`(사업부 식), `evaluate_scenario`, `BEAR_TEMPLATES[<섹터>]`(라벨만) |
 | 확률가중 매력도 · 신뢰도 규칙 | `engine/attractiveness.py` — `compute_attractiveness`(배당 모드), `compute_confidence`(경고 규칙·등급), `compute_valuation_all`(묶음 — draft·편집 저장·CLI 가 부른다) |
 | 밸류 계산기 화면 | `render/native.py` 의 `buildCalc`/`calcOps`/`renderCalcResult` (계산은 `/preview`) · `edit_options(...)["valuation"]` 머리말 |
+| 성립 조건 — 가정 표 · 역산(한 변수 닫힌 식 · 두 변수 조합) · 필요 경로 (설계 v7 T5·T6) | `engine/path.py` — `assumption_table`, `solve_one`(`RANGE` 변수별 허용 범위 · `NOT_INVERTIBLE`), `solve_pair`(`GRID_DEFAULT`), `build_required_path`(① Claim 분기 셀 ② 사업부 표 분기 열 ③ 등비 보간), `write_conditions` → `meta.draft.conditions` · A2.4 |
+| 관측값 계약 · 같은 자 규칙 · 신호등 · 띠/경계 제안 · 증거 일정 (v7 T4·T7) | `models/sub.py` `Ruler`·`Observation`·`PathPoint`·`RequiredPath`·`Driver.thesis_role/observations/required/band/bound_*` → `engine/evidence.py` `observe`, `comparable`, `light_for`(🟢🟡🔴⚪ 규칙 · `cadence_days` 노후 기준), `propose_bounds`, `evidence_plan`(A5.5) · `evidence_schedule`(A8.1) · `propose_roles` |
+| 판단 수정 규칙 · 이벤트 · 플래그 · 알림 (v7 T8) | `engine/revision.py` `add_rule`(A5.6.x), `rule_problems`, `evaluate_rules`(감지→검증→제안, `meta.draft.rule_events`), `approve_event`, `compute_flags`(`meta.flags`), `alerts`; BUY 보류는 `engine/lifecycle.py`(WATCH 강제) · `engine/validate.py`(A7.5 오류) · 묶음 실행 `engine/decision.py::compute_v7_all` |
+| Claim 품질 통계 · 비교 · 게이트 (v7 T3) | `reports/claim_stats.py` (`is_core`, `claim_stats`, `claim_compare`, `claim_gate` — 문턱 `GATE_VERIFIED`·`GATE_RECALL`) → `generate/draft.py`(`meta.draft.claim_gate`, `draft_status`) |
+| HTML 「성립 조건」 패널 | `render/conditions.py::conditions_html`(서버가 HTML 생성) → `render/native.py` `OPTS.conditions` · `#cond`/`#condbtn` |
+| 일괄 실행 · 지식 내보내기 (v7 T10) | `generate/batch.py::run_batch` · `generate/knowledge.py::export_knowledge` (CLI `batch` · `export-knowledge`) |
+| 노드 번호 바꾸기 (스키마 버전) | `models/migrate.py` — `ID_MAP_2_0`(옛 → 새 접두), `migrate_map_data`(읽을 때 `load_map` 이 부른다: id · parent · links · formula · meta 키), CLI `migrate`. 새 번호를 또 바꾸려면 표를 하나 더 두고 `SCHEMA_VERSION` 을 올린다 |
 | HTML 노드 편집 (고칠 수 있는 필드 · 연산 종류) | `generate/edits.py` (`ALLOWED_FIELDS`, `apply_edit_ops` 의 set/add/delete, `edit_schemas` 가 폼 필드를 만든다) · 화면은 `render/native.py` 의 `_EDIT_KEYS`/편집 JS · 저장 경로는 `render/server.py` (`/preview`, `/save`) |
 
 ## 저장 형식

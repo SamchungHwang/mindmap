@@ -1,4 +1,4 @@
-"""변경안 (설계 v3 P5): 기존 맵 + 새 리포트 → ChangeSet → 승인분만 적용 · 원본 버전 보존 · 사용자 수정 노드 불변 · A7.2 로그."""
+"""변경안 (설계 v3 P5): 기존 맵 + 새 리포트 → ChangeSet → 승인분만 적용 · 원본 버전 보존 · 사용자 수정 노드 불변 · A8.2 로그."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class TestChangeSet(unittest.TestCase):
             others = [c.change_id for c in cs.changes if c.change_id not in (est.change_id, tp.change_id)]
             # v4 V7: 입력 집합 id · 함께 바뀌는 노드 · 부분 승인 경고
             self.assertTrue(cs.input_snapshot_id)
-            self.assertIn("A3.6.4", est.affects)                               # A1 추정 변화 → 목표가 분포가 함께 바뀐다
+            self.assertIn("A3.5.4", est.affects)                               # A1 추정 변화 → 목표가 분포가 함께 바뀐다
             self.assertIn("↔ 함께", table)
             done = ops.apply_changes(m, cs, {est.change_id: "approve", tp.change_id: "approve", **{cid: "reject" for cid in others}})
             self.assertEqual(len(done), 2)
@@ -85,7 +85,7 @@ class TestChangeSet(unittest.TestCase):
             self.assertEqual(m["A0"].value, "내 논제: HBM4 판가 2배 — 12개월 400,000")       # 사용자 수정 보존
             self.assertEqual(m[est.node_id].driver.consensus.value, est.after["consensus"])
             self.assertTrue(any("변경안" in str(h.source) for h in m[est.node_id].history))
-            self.assertTrue(isinstance(m["A7.2"].value, list) and m["A7.2"].value[-1]["version"] == 2)
+            self.assertTrue(isinstance(m["A8.2"].value, list) and m["A8.2"].value[-1]["version"] == 2)
             vers = list(store.versions_dir.glob("*.v1.json"))
             self.assertEqual(len(vers), 1)                                      # 원본 보존
             old = json.loads(vers[0].read_text(encoding="utf-8"))
@@ -130,12 +130,12 @@ class TestChangeSet(unittest.TestCase):
             # 다른 입력으로 만든 변경안은 거절
             with self.assertRaises(ChangeError):
                 apply_changes(base.model_copy(deep=True), cs, today=TODAY, expected_input_snapshot_id="deadbeef00")
-            # 정상 적용 — 부분 승인 ⚑ 가 A7.2 로그에 남는다, 버전 파일은 .tmp 가 남지 않는다
+            # 정상 적용 — 부분 승인 ⚑ 가 A8.2 로그에 남는다, 버전 파일은 .tmp 가 남지 않는다
             m = base.model_copy(deep=True)
             vdir = Path(t) / "versions"
             done = apply_changes(m, cs, today=TODAY, versions_dir=vdir, expected_input_snapshot_id=cs.input_snapshot_id)
             self.assertEqual(len(done), 1)
-            self.assertIn("부분 승인", m["A7.2"].value[-1]["text"])
+            self.assertIn("부분 승인", m["A8.2"].value[-1]["text"])
             self.assertEqual([p.suffix for p in vdir.iterdir()], [".json"])
             # 적용 결과가 검증 오류를 내면 원본은 그대로 (복사본에만 적용됐다가 버려진다)
             from kstock.models import Change, MapKind, Node

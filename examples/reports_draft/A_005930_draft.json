@@ -6,7 +6,7 @@
   "profile": "growth",
   "created_at": "2026-10-20",
   "updated_at": "2026-10-20",
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "nodes": {
     "A0": {
       "id": "A0",
@@ -177,7 +177,11 @@
         },
         "check_indicator": "분기 실적 발표 (잠정 → 확정) · 컨센서스 추이",
         "next_check": "2027-01-08",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "A1.2": {
@@ -225,7 +229,11 @@
         },
         "check_indicator": "분기 실적 발표 · 월별 수출 데이터",
         "next_check": "2027-01-08",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "A1.3": {
@@ -274,7 +282,11 @@
         },
         "check_indicator": "컨센서스 EPS 리비전 (월 1회)",
         "next_check": "2027-01-08",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "A2": {
@@ -356,8 +368,8 @@
       "id": "A3",
       "map": "NEW",
       "parent": "A0",
-      "label": "밸류에이션 & 시나리오",
-      "question": "확률·목표가로 숫자화된 세 시나리오",
+      "label": "밸류에이션",
+      "question": "값이 얼마인가 — 결과 지표 전망 · 평가 기준(사람) · 평가 모델(코드) · 모델 신뢰도 · 밸류 근거",
       "node_type": "question",
       "value_type": "text",
       "status": "unverified",
@@ -366,130 +378,8 @@
       "tags": [],
       "meta_only": false
     },
-    "A3.1": {
-      "id": "A3.1",
-      "map": "NEW",
-      "parent": "A3",
-      "label": "Bear",
-      "question": "무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가)",
-      "node_type": "estimate",
-      "value_type": "price",
-      "as_of": "2026-10-20",
-      "status": "estimated",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "scenario": {
-        "name": "Bear",
-        "assumptions": [
-          "증권사 최저 목표가 350,000×0.9 / 52주 저가 189,200 중 낮은 값",
-          "중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이익 추정치 하향…",
-          "현재가 258,000 기준"
-        ],
-        "probability": 0.3,
-        "target_price": 189200.0,
-        "horizon_months": 12,
-        "valuation_method": "컨센서스 분포 하단 앵커 (초안)"
-      }
-    },
-    "A3.2": {
-      "id": "A3.2",
-      "map": "NEW",
-      "parent": "A3",
-      "label": "Base",
-      "question": "논제가 그대로 실현되면 (가정·확률·목표가)",
-      "node_type": "estimate",
-      "value_type": "price",
-      "as_of": "2026-10-20",
-      "status": "estimated",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "scenario": {
-        "name": "Base",
-        "assumptions": [
-          "증권사 목표가 하위 1/3 분위 (3건)",
-          "2027E 영업이익 컨센서스 413.3조원",
-          "2027E 컨센서스 PER 5.3배 · EPS 49,500원",
-          "현재가 258,000 기준"
-        ],
-        "probability": 0.45,
-        "target_price": 435800.0,
-        "horizon_months": 12,
-        "valuation_method": "컨센서스 분포 하위 1/3 앵커 (초안)"
-      }
-    },
-    "A3.3": {
-      "id": "A3.3",
-      "map": "NEW",
-      "parent": "A3",
-      "label": "Bull",
-      "question": "무엇이 추가로 잘되면 (가정·확률·목표가)",
-      "node_type": "estimate",
-      "value_type": "price",
-      "as_of": "2026-10-20",
-      "status": "estimated",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "scenario": {
-        "name": "Bull",
-        "assumptions": [
-          "증권사 평균 목표가 (476,667)",
-          "HBM4는 4분기부터 주요 고객사 공급이 본격화되어 4Q26 HBM 점유율은 40%까지 상승할 것으로 기대한다.",
-          "현재가 258,000 기준"
-        ],
-        "probability": 0.25,
-        "target_price": 476700.0,
-        "horizon_months": 12,
-        "valuation_method": "컨센서스 평균 앵커 (초안)"
-      }
-    },
-    "A3.4": {
-      "id": "A3.4",
-      "map": "NEW",
-      "parent": "A3",
-      "label": "기대수익률",
-      "question": "",
-      "node_type": "computed",
-      "value": 0.442,
-      "value_type": "percent",
-      "as_of": "2026-10-20",
-      "status": "confirmed",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "formula": "sum(p_i * (TP_i / P0 - 1))",
-      "meta_only": false
-    },
     "A3.5": {
       "id": "A3.5",
-      "map": "NEW",
-      "parent": "A3",
-      "label": "손익비",
-      "question": "",
-      "node_type": "computed",
-      "value": 2.58,
-      "value_type": "number",
-      "as_of": "2026-10-20",
-      "status": "confirmed",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "formula": "((TP_base - P0) / P0) / ((P0 - TP_bear) / P0)",
-      "meta_only": false
-    },
-    "A3.6": {
-      "id": "A3.6",
       "map": "NEW",
       "parent": "A3",
       "label": "밸류 근거",
@@ -502,10 +392,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A3.6.1": {
-      "id": "A3.6.1",
+    "A3.5.1": {
+      "id": "A3.5.1",
       "map": "NEW",
-      "parent": "A3.6",
+      "parent": "A3.5",
       "label": "역사 밴드 위치",
       "question": "현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?",
       "node_type": "fact",
@@ -517,10 +407,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A3.6.2": {
-      "id": "A3.6.2",
+    "A3.5.2": {
+      "id": "A3.5.2",
       "map": "NEW",
-      "parent": "A3.6",
+      "parent": "A3.5",
       "label": "피어 비교",
       "question": "피어 대비 프리미엄/디스카운트와 그 정당성은?",
       "node_type": "fact",
@@ -540,10 +430,10 @@
       ],
       "meta_only": false
     },
-    "A3.6.3": {
-      "id": "A3.6.3",
+    "A3.5.3": {
+      "id": "A3.5.3",
       "map": "NEW",
-      "parent": "A3.6",
+      "parent": "A3.5",
       "label": "EPS 리비전 방향",
       "question": "최근 3개월 컨센서스 EPS 방향",
       "node_type": "fact",
@@ -572,6 +462,154 @@
       "id": "A4",
       "map": "NEW",
       "parent": "A0",
+      "label": "시나리오",
+      "question": "확률·목표가로 숫자화된 세 갈래 — 드라이버 가정 묶음이 통합 모델을 거쳐 목표가가 된다 (가정·확률은 사람)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A4.2": {
+      "id": "A4.2",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "Bear",
+      "question": "무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bear",
+        "assumptions": [
+          "증권사 최저 목표가 350,000×0.9 / 52주 저가 189,200 중 낮은 값",
+          "중국 CXMT의 DDR5 양산 성공 시 범용 DRAM 가 격 하락 압력이 커질 수 있으며, 미국 관세 정책의 불확실성과 환율 하락은 2027년 이익 추정치 하향…",
+          "현재가 258,000 기준"
+        ],
+        "probability": 0.3,
+        "target_price": 189200.0,
+        "horizon_months": 12,
+        "valuation_method": "컨센서스 분포 하단 앵커 (초안)",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "A4.3": {
+      "id": "A4.3",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "Base",
+      "question": "논제가 그대로 실현되면 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "scenario": {
+        "name": "Base",
+        "assumptions": [
+          "증권사 목표가 하위 1/3 분위 (3건)",
+          "2027E 영업이익 컨센서스 413.3조원",
+          "2027E 컨센서스 PER 5.3배 · EPS 49,500원",
+          "현재가 258,000 기준"
+        ],
+        "probability": 0.45,
+        "target_price": 435800.0,
+        "horizon_months": 12,
+        "valuation_method": "컨센서스 분포 하위 1/3 앵커 (초안)",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "A4.4": {
+      "id": "A4.4",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "Bull",
+      "question": "무엇이 추가로 잘되면 (가정·확률·목표가)",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-20",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bull",
+        "assumptions": [
+          "증권사 평균 목표가 (476,667)",
+          "HBM4는 4분기부터 주요 고객사 공급이 본격화되어 4Q26 HBM 점유율은 40%까지 상승할 것으로 기대한다.",
+          "현재가 258,000 기준"
+        ],
+        "probability": 0.25,
+        "target_price": 476700.0,
+        "horizon_months": 12,
+        "valuation_method": "컨센서스 평균 앵커 (초안)",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "A4.5": {
+      "id": "A4.5",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "기대수익률",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.442,
+      "value_type": "percent",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sum(p_i * (TP_i / P0 - 1))",
+      "meta_only": false
+    },
+    "A4.6": {
+      "id": "A4.6",
+      "map": "NEW",
+      "parent": "A4",
+      "label": "손익비",
+      "question": "",
+      "node_type": "computed",
+      "value": 2.58,
+      "value_type": "number",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "((TP_base - P0) / P0) / ((P0 - TP_bear) / P0)",
+      "meta_only": false
+    },
+    "A5": {
+      "id": "A5",
+      "map": "NEW",
+      "parent": "A0",
       "label": "리스크 & 무효화 조건",
       "question": "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나",
       "node_type": "question",
@@ -582,10 +620,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A4.1": {
-      "id": "A4.1",
+    "A5.1": {
+      "id": "A5.1",
       "map": "NEW",
-      "parent": "A4",
+      "parent": "A5",
       "label": "하락 리스크 1",
       "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
       "node_type": "estimate",
@@ -609,10 +647,10 @@
       ],
       "meta_only": false
     },
-    "A4.2": {
-      "id": "A4.2",
+    "A5.2": {
+      "id": "A5.2",
       "map": "NEW",
-      "parent": "A4",
+      "parent": "A5",
       "label": "하락 리스크 2",
       "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
       "node_type": "estimate",
@@ -636,10 +674,10 @@
       ],
       "meta_only": false
     },
-    "A4.3": {
-      "id": "A4.3",
+    "A5.3": {
+      "id": "A5.3",
       "map": "NEW",
-      "parent": "A4",
+      "parent": "A5",
       "label": "하락 리스크 3",
       "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}",
       "node_type": "estimate",
@@ -663,10 +701,10 @@
       ],
       "meta_only": false
     },
-    "A4.4": {
-      "id": "A4.4",
+    "A5.4": {
+      "id": "A5.4",
       "map": "NEW",
-      "parent": "A4",
+      "parent": "A5",
       "label": "Kill criteria",
       "question": "어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나? (가격이 아닌 사실 기준)",
       "node_type": "question",
@@ -677,10 +715,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A4.4.1": {
-      "id": "A4.4.1",
+    "A5.4.1": {
+      "id": "A5.4.1",
       "map": "NEW",
-      "parent": "A4.4",
+      "parent": "A5.4",
       "label": "무효화 조건 1",
       "question": "사실 기준 조건식 → exit",
       "node_type": "rule",
@@ -699,13 +737,16 @@
         "action": "exit",
         "escalate_to": "RED",
         "status": "armed",
-        "note": "분기 영업이익 (4Q26) 이 지금 수준(107.40조원, 컨센서스 64.00) 에서 20% 악화(미달)되면 논제 폐기 — 다음 확인일 2027-01-08 실적으로 판정. 초안 — 논제의 주인이 확정할 것 (임계값)"
+        "note": "분기 영업이익 (4Q26) 이 지금 수준(107.40조원, 컨센서스 64.00) 에서 20% 악화(미달)되면 논제 폐기 — 다음 확인일 2027-01-08 실적으로 판정. 초안 — 논제의 주인이 확정할 것 (임계값)",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
       }
     },
-    "A4.5": {
-      "id": "A4.5",
+    "A5.5": {
+      "id": "A5.5",
       "map": "NEW",
-      "parent": "A4",
+      "parent": "A5",
       "label": "조기 경보 지표",
       "question": "그 사실을 미리 알려주는 지표는? 어디서, 얼마나 자주 확인?",
       "node_type": "fact",
@@ -725,8 +766,8 @@
       ],
       "meta_only": false
     },
-    "A5": {
-      "id": "A5",
+    "A6": {
+      "id": "A6",
       "map": "NEW",
       "parent": "A0",
       "label": "촉매 & 타임라인",
@@ -739,10 +780,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A5.1": {
-      "id": "A5.1",
+    "A6.1": {
+      "id": "A6.1",
       "map": "NEW",
-      "parent": "A5",
+      "parent": "A6",
       "label": "촉매 이벤트",
       "question": "날짜가 박힌 사건만 (실적발표·정책·신제품·락업·계약)",
       "node_type": "question",
@@ -753,407 +794,10 @@
       "tags": [],
       "meta_only": false
     },
-    "A5.2": {
-      "id": "A5.2",
+    "A6.1.1": {
+      "id": "A6.1.1",
       "map": "NEW",
-      "parent": "A5",
-      "label": "수급/기술",
-      "question": "진입 타이밍용 — 프로파일 가중치",
-      "node_type": "question",
-      "value_type": "text",
-      "status": "unverified",
-      "weight": 0.2,
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A5.2.1": {
-      "id": "A5.2.1",
-      "map": "NEW",
-      "parent": "A5.2",
-      "label": "추세",
-      "question": "",
-      "node_type": "fact",
-      "value_type": "enum",
-      "enum_options": [
-        "상승",
-        "횡보",
-        "하락"
-      ],
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A5.2.2": {
-      "id": "A5.2.2",
-      "map": "NEW",
-      "parent": "A5.2",
-      "label": "거래량 (20일 평균 대비)",
-      "question": "",
-      "node_type": "fact",
-      "value_type": "number",
-      "unit": "배",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A5.2.3": {
-      "id": "A5.2.3",
-      "map": "NEW",
-      "parent": "A5.2",
-      "label": "외국인/기관 순매수 (20일 누적)",
-      "question": "",
-      "node_type": "fact",
-      "value_type": "number",
-      "unit": "억원",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A5.2.4": {
-      "id": "A5.2.4",
-      "map": "NEW",
-      "parent": "A5.2",
-      "label": "공매도/신용잔고 (유통주식 대비)",
-      "question": "",
-      "node_type": "fact",
-      "value_type": "percent",
-      "unit": "%",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A6": {
-      "id": "A6",
-      "map": "NEW",
-      "parent": "A0",
-      "label": "실행 계획",
-      "question": "비중·진입·손절·익절·판단",
-      "node_type": "question",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A6.1": {
-      "id": "A6.1",
-      "map": "NEW",
-      "parent": "A6",
-      "label": "목표 비중",
-      "question": "제안식 → 확정. {suggested, confirmed, reason}",
-      "node_type": "judgment",
-      "value": {
-        "suggested": 0.0646
-      },
-      "value_type": "percent",
-      "unit": "%",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A6.2": {
-      "id": "A6.2",
-      "map": "NEW",
-      "parent": "A6",
-      "label": "진입 계획",
-      "question": "어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}",
-      "node_type": "judgment",
-      "value_type": "range",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A6.3": {
-      "id": "A6.3",
-      "map": "NEW",
-      "parent": "A6",
-      "label": "손절 규칙",
-      "question": "가격 기준 하나 + 사실 기준 하나",
-      "node_type": "rule",
-      "value_type": "text",
-      "as_of": "2026-10-20",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "rule": {
-        "trigger_type": "price",
-        "condition": "drawdown > 0.25",
-        "action": "review",
-        "escalate_to": "YELLOW",
-        "status": "armed",
-        "note": "고점 대비 −25% 면 논제 재검토 — 기본값 (초안 — 논제의 주인이 확정할 것)"
-      }
-    },
-    "A6.4": {
-      "id": "A6.4",
-      "map": "NEW",
-      "parent": "A6",
-      "label": "익절/축소 규칙",
-      "question": "",
-      "node_type": "rule",
-      "value_type": "text",
-      "as_of": "2026-10-20",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false,
-      "rule": {
-        "trigger_type": "price",
-        "condition": "price > 435800",
-        "action": "trim",
-        "size": "50%",
-        "status": "armed",
-        "note": "Base 목표가 도달 시 절반 축소 — 기본값"
-      }
-    },
-    "A6.5": {
-      "id": "A6.5",
-      "map": "NEW",
-      "parent": "A6",
-      "label": "판단",
-      "question": "BUY / WATCH / PASS",
-      "node_type": "judgment",
-      "value": "WATCH",
-      "value_type": "enum",
-      "enum_options": [
-        "BUY",
-        "WATCH",
-        "PASS"
-      ],
-      "as_of": "2026-10-20",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false
-    },
-    "A7": {
-      "id": "A7",
-      "map": "NEW",
-      "parent": "A0",
-      "label": "모니터링 & 복기",
-      "question": "",
-      "node_type": "question",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A7.1": {
-      "id": "A7.1",
-      "map": "NEW",
-      "parent": "A7",
-      "label": "체크포인트",
-      "question": "",
-      "node_type": "computed",
-      "value": [
-        "2026-10-30",
-        "2027-01-08",
-        "2027-01-15",
-        "2027-02-14"
-      ],
-      "value_type": "date",
-      "as_of": "2026-10-20",
-      "status": "confirmed",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "formula": "sorted(A1.x.next_check ∪ A5.1.x.date)",
-      "meta_only": false
-    },
-    "A7.2": {
-      "id": "A7.2",
-      "map": "NEW",
-      "parent": "A7",
-      "label": "업데이트 로그",
-      "question": "",
-      "node_type": "event",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A7.3": {
-      "id": "A7.3",
-      "map": "NEW",
-      "parent": "A7",
-      "label": "사후 복기",
-      "question": "매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이",
-      "node_type": "judgment",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8": {
-      "id": "A8",
-      "map": "NEW",
-      "parent": "A0",
-      "label": "근거 자료",
-      "question": "리포트: 하나증권 · 2026-10-12 · TP 480,000 · BUY (hana_005930_20261012.pdf) / KB증권 · 2026-10-12 · TP 600,000 · BUY (kb_005930_20261012.pdf) / 키움증권 · 2026-10-07 · TP 350,000 · BUY (kiwoom_005930_20261007.pdf)",
-      "node_type": "question",
-      "value_type": "text",
-      "status": "unverified",
-      "weight": 0.6,
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8.1": {
-      "id": "A8.1",
-      "map": "NEW",
-      "parent": "A8",
-      "label": "기업",
-      "question": "리포트 3건에서 규칙으로 뽑은 문장 — 원문 확인 필요",
-      "node_type": "question",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8.1.1": {
-      "id": "A8.1.1",
-      "map": "NEW",
-      "parent": "A8.1",
-      "label": "비즈니스 모델",
-      "question": "무엇을 팔아 어떻게 돈을 버나?",
-      "node_type": "fact",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8.1.2": {
-      "id": "A8.1.2",
-      "map": "NEW",
-      "parent": "A8.1",
-      "label": "경쟁우위",
-      "question": "마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?",
-      "node_type": "fact",
-      "value_type": "text",
-      "status": "unverified",
-      "links": [],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8.1.3": {
-      "id": "A8.1.3",
-      "map": "NEW",
-      "parent": "A8.1",
-      "label": "경영진 / 지배구조 / 주주환원",
-      "question": "자본배분 이력, 대주주 리스크, 배당·자사주",
-      "node_type": "fact",
-      "value": "촉매: 10월 30일 3Q26 확정실적 발표와 컨퍼런스콜에서 2027 년 CAPEX 가이던스와 주주환원 정책이 발표될 예정이다.",
-      "value_type": "text",
-      "source": {
-        "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
-        "url": "examples/reports_draft",
-        "retrieved_at": "2026-10-12"
-      },
-      "as_of": "2026-10-20",
-      "status": "confirmed",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false
-    },
-    "A8.1.4": {
-      "id": "A8.1.4",
-      "map": "NEW",
-      "parent": "A8.1",
-      "label": "재무 (성장·수익·현금·건전성)",
-      "question": "매출/이익 성장률, 마진, FCF, 부채비율",
-      "node_type": "fact",
-      "value": "2025A 매출 318.5조원 · 영업이익 38.6조원 (OPM 12.1%) / 2027E 컨센서스 매출 725.0조원 · 영업이익 413.3조원 (+971%) / 2027E PER 5.3배 · PBR 1.23배 · ROE 27.6% — 리포트 3건 평균 (표 원단위 십억원×3)",
-      "value_type": "text",
-      "source": {
-        "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
-        "url": "examples/reports_draft",
-        "retrieved_at": "2026-10-12"
-      },
-      "as_of": "2026-10-20",
-      "status": "confirmed",
-      "links": [],
-      "history": [],
-      "tags": [
-        "draft"
-      ],
-      "meta_only": false
-    },
-    "A8.2": {
-      "id": "A8.2",
-      "map": "NEW",
-      "parent": "A8",
-      "label": "산업 → 섹터 맵",
-      "question": "S.<시장>-<섹터> 링크",
-      "node_type": "link",
-      "value_type": "ref",
-      "status": "unverified",
-      "links": [
-        "S.KR-SEMI"
-      ],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A8.3": {
-      "id": "A8.3",
-      "map": "NEW",
-      "parent": "A8",
-      "label": "매크로 → 매크로 맵",
-      "question": "M0 링크",
-      "node_type": "link",
-      "value_type": "ref",
-      "status": "unverified",
-      "links": [
-        "M0"
-      ],
-      "history": [],
-      "tags": [],
-      "meta_only": false
-    },
-    "A5.1.1": {
-      "id": "A5.1.1",
-      "map": "NEW",
-      "parent": "A5.1",
+      "parent": "A6.1",
       "label": "촉매: 10월 30일 3Q26 확정실적 발표와 컨퍼런…",
       "question": "",
       "node_type": "event",
@@ -1180,10 +824,10 @@
         }
       }
     },
-    "A5.1.2": {
-      "id": "A5.1.2",
+    "A6.1.2": {
+      "id": "A6.1.2",
       "map": "NEW",
-      "parent": "A5.1",
+      "parent": "A6.1",
       "label": "4Q26 잠정실적 발표 (예정일 추정)",
       "question": "",
       "node_type": "event",
@@ -1212,10 +856,10 @@
         }
       }
     },
-    "A5.1.3": {
-      "id": "A5.1.3",
+    "A6.1.3": {
+      "id": "A6.1.3",
       "map": "NEW",
-      "parent": "A5.1",
+      "parent": "A6.1",
       "label": "2027년 1월 HBM4 공급 계약 단가 확정이 예정…",
       "question": "",
       "node_type": "event",
@@ -1242,10 +886,10 @@
         }
       }
     },
-    "A5.1.4": {
-      "id": "A5.1.4",
+    "A6.1.4": {
+      "id": "A6.1.4",
       "map": "NEW",
-      "parent": "A5.1",
+      "parent": "A6.1",
       "label": "차기 주주환원 정 책은 FCF의 50%를 초과할 가능…",
       "question": "",
       "node_type": "event",
@@ -1272,10 +916,10 @@
         }
       }
     },
-    "A5.1.5": {
-      "id": "A5.1.5",
+    "A6.1.5": {
+      "id": "A6.1.5",
       "map": "NEW",
-      "parent": "A5.1",
+      "parent": "A6.1",
       "label": "4Q26 확정실적·사업보고서 (예정일 추정)",
       "question": "",
       "node_type": "event",
@@ -1303,6 +947,409 @@
           "retrieved_at": "2026-10-20"
         }
       }
+    },
+    "A6.2": {
+      "id": "A6.2",
+      "map": "NEW",
+      "parent": "A6",
+      "label": "수급/기술",
+      "question": "진입 타이밍용 — 프로파일 가중치",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.2,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2.1": {
+      "id": "A6.2.1",
+      "map": "NEW",
+      "parent": "A6.2",
+      "label": "추세",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "enum",
+      "enum_options": [
+        "상승",
+        "횡보",
+        "하락"
+      ],
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2.2": {
+      "id": "A6.2.2",
+      "map": "NEW",
+      "parent": "A6.2",
+      "label": "거래량 (20일 평균 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "number",
+      "unit": "배",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2.3": {
+      "id": "A6.2.3",
+      "map": "NEW",
+      "parent": "A6.2",
+      "label": "외국인/기관 순매수 (20일 누적)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "number",
+      "unit": "억원",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A6.2.4": {
+      "id": "A6.2.4",
+      "map": "NEW",
+      "parent": "A6.2",
+      "label": "공매도/신용잔고 (유통주식 대비)",
+      "question": "",
+      "node_type": "fact",
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7": {
+      "id": "A7",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "실행 계획",
+      "question": "비중·진입·손절·익절·판단",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.1": {
+      "id": "A7.1",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "목표 비중",
+      "question": "제안식 → 확정. {suggested, confirmed, reason}",
+      "node_type": "judgment",
+      "value": {
+        "suggested": 0.0646
+      },
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.2": {
+      "id": "A7.2",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "진입 계획",
+      "question": "어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}",
+      "node_type": "judgment",
+      "value_type": "range",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A7.3": {
+      "id": "A7.3",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "손절 규칙",
+      "question": "가격 기준 하나 + 사실 기준 하나",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "drawdown > 0.25",
+        "action": "review",
+        "escalate_to": "YELLOW",
+        "status": "armed",
+        "note": "고점 대비 −25% 면 논제 재검토 — 기본값 (초안 — 논제의 주인이 확정할 것)",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "A7.4": {
+      "id": "A7.4",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "익절/축소 규칙",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "price > 435800",
+        "action": "trim",
+        "size": "50%",
+        "status": "armed",
+        "note": "Base 목표가 도달 시 절반 축소 — 기본값",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "A7.5": {
+      "id": "A7.5",
+      "map": "NEW",
+      "parent": "A7",
+      "label": "판단",
+      "question": "BUY / WATCH / PASS",
+      "node_type": "judgment",
+      "value": "WATCH",
+      "value_type": "enum",
+      "enum_options": [
+        "BUY",
+        "WATCH",
+        "PASS"
+      ],
+      "as_of": "2026-10-20",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A8": {
+      "id": "A8",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "모니터링 & 복기",
+      "question": "",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.1": {
+      "id": "A8.1",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "체크포인트",
+      "question": "",
+      "node_type": "computed",
+      "value": [
+        "2026-10-30",
+        "2027-01-08",
+        "2027-01-15",
+        "2027-02-14"
+      ],
+      "value_type": "date",
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sorted(A1.x.next_check ∪ A6.1.x.date)",
+      "meta_only": false
+    },
+    "A8.2": {
+      "id": "A8.2",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "업데이트 로그",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A8.3": {
+      "id": "A8.3",
+      "map": "NEW",
+      "parent": "A8",
+      "label": "사후 복기",
+      "question": "매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9": {
+      "id": "A9",
+      "map": "NEW",
+      "parent": "A0",
+      "label": "근거 자료",
+      "question": "리포트: 하나증권 · 2026-10-12 · TP 480,000 · BUY (hana_005930_20261012.pdf) / KB증권 · 2026-10-12 · TP 600,000 · BUY (kb_005930_20261012.pdf) / 키움증권 · 2026-10-07 · TP 350,000 · BUY (kiwoom_005930_20261007.pdf)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "weight": 0.6,
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9.1": {
+      "id": "A9.1",
+      "map": "NEW",
+      "parent": "A9",
+      "label": "기업",
+      "question": "리포트 3건에서 규칙으로 뽑은 문장 — 원문 확인 필요",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9.1.1": {
+      "id": "A9.1.1",
+      "map": "NEW",
+      "parent": "A9.1",
+      "label": "비즈니스 모델",
+      "question": "무엇을 팔아 어떻게 돈을 버나?",
+      "node_type": "fact",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9.1.2": {
+      "id": "A9.1.2",
+      "map": "NEW",
+      "parent": "A9.1",
+      "label": "경쟁우위",
+      "question": "마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?",
+      "node_type": "fact",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9.1.3": {
+      "id": "A9.1.3",
+      "map": "NEW",
+      "parent": "A9.1",
+      "label": "경영진 / 지배구조 / 주주환원",
+      "question": "자본배분 이력, 대주주 리스크, 배당·자사주",
+      "node_type": "fact",
+      "value": "촉매: 10월 30일 3Q26 확정실적 발표와 컨퍼런스콜에서 2027 년 CAPEX 가이던스와 주주환원 정책이 발표될 예정이다.",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
+        "url": "examples/reports_draft",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A9.1.4": {
+      "id": "A9.1.4",
+      "map": "NEW",
+      "parent": "A9.1",
+      "label": "재무 (성장·수익·현금·건전성)",
+      "question": "매출/이익 성장률, 마진, FCF, 부채비율",
+      "node_type": "fact",
+      "value": "2025A 매출 318.5조원 · 영업이익 38.6조원 (OPM 12.1%) / 2027E 컨센서스 매출 725.0조원 · 영업이익 413.3조원 (+971%) / 2027E PER 5.3배 · PBR 1.23배 · ROE 27.6% — 리포트 3건 평균 (표 원단위 십억원×3)",
+      "value_type": "text",
+      "source": {
+        "name": "증권사 리포트 3건 (KB증권, 키움증권, 하나증권)",
+        "url": "examples/reports_draft",
+        "retrieved_at": "2026-10-12"
+      },
+      "as_of": "2026-10-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [
+        "draft"
+      ],
+      "meta_only": false
+    },
+    "A9.2": {
+      "id": "A9.2",
+      "map": "NEW",
+      "parent": "A9",
+      "label": "산업 → 섹터 맵",
+      "question": "S.<시장>-<섹터> 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "S.KR-SEMI"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "A9.3": {
+      "id": "A9.3",
+      "map": "NEW",
+      "parent": "A9",
+      "label": "매크로 → 매크로 맵",
+      "question": "M0 링크",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [
+        "M0"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
     }
   },
   "meta": {

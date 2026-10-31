@@ -1,4 +1,4 @@
-"""컨센서스 소스 (스텁). EPS 리비전 방향(A3.6.3) · 12M forward EPS(B2.2 분해) · 목표주가 평균.
+"""컨센서스 소스 (스텁). EPS 리비전 방향(A3.5.3) · 12M forward EPS(B2.2 분해) · 목표주가 평균.
 
 한국 시장 선택지
 - FnGuide (유료 API / 컴퍼니가이드 페이지 스크래핑: https://comp.fnguide.com/SVO2/ASP/SVD_Main.asp?pGB=1&gicode=A<ticker>)

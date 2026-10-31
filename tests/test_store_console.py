@@ -128,16 +128,16 @@ class TestConsole(unittest.TestCase):
             "CAPEX(조원)", "조원", "20", "", "", "24", "증설", "IR", "", "y",
             # A2
             "HBM 점유율 50% 유지, PER 8배", "증설 완료 시 점유율 60%, 마진 48%", "1",
-            # A3 Bear/Base/Bull: 확률, 목표가, 가정, 기간, 방법
+            # A4 Bear/Base/Bull: 확률, 목표가, 가정, 기간, 방법
             "0.25", "170000", "HBM 가격 하락", "", "",
             "0.5", "260000", "점유율 60%, PER 9배", "", "PER 9배 × 2027E EPS",
             "0.25", "320000", "경쟁사 지연", "", "",
             "50", "1",                       # 밴드 백분위, 리비전 up
-            # A4 리스크 1, 2(건너뜀), 3(건너뜀)
+            # A5 리스크 1, 2(건너뜀), 3(건너뜀)
             "HBM 가격 경쟁", "0.3", "-25", "", "",
             # 무효화 조건: 드라이버 1 번, <, 40 ; 설명 ; 조기 경보
             "1", "1", "40", "점유율 40% 아래면 논제 폐기", "월별 수출 데이터",
-            # A6: 확정 비중(기본값), 사유, 진입 하단/상단, 분할, 손절 dd, 익절 가격(없음), 판단 BUY
+            # A7: 확정 비중(기본값), 사유, 진입 하단/상단, 분할, 손절 dd, 익절 가격(없음), 판단 BUY
             "", "신규", "180000", "210000", "", "", "", "1",
             "0",                              # A 메뉴 → 뒤로
             # ---- 스냅숏
@@ -165,7 +165,7 @@ class TestConsole(unittest.TestCase):
         self.assertEqual(len(a.drivers()), 3)
         self.assertEqual(a["A1.1"].label, "HBM 점유율")
         self.assertAlmostEqual(a.scenarios()["Base"].target_price, 260000)
-        self.assertEqual(a["A4.4.1"].rule.condition, "driver[A1.1].current < 40")
+        self.assertEqual(a["A5.4.1"].rule.condition, "driver[A1.1].current < 40")
         self.assertEqual(a.decision.value, "BUY")
         self.assertIn("손익비 2.00", text)
         # B: 스냅숏 + 시장 상태 + 평가

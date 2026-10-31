@@ -338,7 +338,12 @@ class Console:
             ("L", "LLM 연결 확인 (ANTHROPIC_API_KEY 동작 — 인증·모델·작은 호출 1회)", self.new_llm_check),
             ("C", "시나리오 후보 넣기 (증권사 자체 후보 → Bear/Base/Bull, 확률은 비움)", self.new_scenario_candidate),
             ("P", "예시 확률 입력 (30/45/25 — 통계적 근거 없는 미검증 가정)", self.new_example_probs),
-            ("V", "평가 모델·시나리오 (A3.8 기준 → PER·정상화·SOTP·역산 → 확률가중 매력도·신뢰도; SOTP 멀티플 입력)", self.new_valuation),
+            ("V", "평가 모델·시나리오 (A3.2 기준 → PER·정상화·SOTP·역산 → 확률가중 매력도·신뢰도; SOTP 멀티플 입력)", self.new_valuation),
+            ("E", "회계 기준 표 (증권사별 순이익·주식 수 기준 → 정규화 EPS = 지배 순이익 ÷ 공시 보통주; v7 T1)", self.new_basis),
+            ("D", "성립 조건 (A2.4: 가정 표 · 역산 표 — 한 변수 해·두 변수 조합 · 날짜별 필요 경로; v7 — Q 는 종료 키라 D)", self.new_conditions),
+            ("O", "관측값 입력 (데이터 계약 8칸 — 사람·수집기·에이전트 JSON; 같은 자만 신호등에; v7)", self.new_observe),
+            ("G", "증거 계획·신호등·규칙 (A5.5·A8.1·A5.6: 역할·띠·경계 확정, 규칙 추가, 제안 승인, 알림; v7)", self.new_evidence),
+            ("T", "Claim 품질 (단계별 통계 · 기준 캐시 대비 비교 · 품질 게이트; v7 T3)", self.new_claim_quality),
             ("K", "Kill 후보 확정 (리포트 조건부 리스크 → 관측 지표·갱신 주기·행동을 채워 Rule)", self.new_kill_candidate),
             ("I", "쟁점 표 (공통 견해·핵심 이견·독립 주장·미해결)", self.new_issues),
             ("R", "Claim 검토 대기함 (승인/반려)", self.new_review_queue),
@@ -390,8 +395,8 @@ class Console:
         n = self.ask_int("핵심 드라이버 슬롯 수 (3~5)", 3) or 3
         m = new_map_skeleton(it.ticker, it.name, inv, self.today, n_drivers=max(3, min(5, n)))
         if it.sector:
-            m["A8.2"].links = [f"S.{it.sector}"]
-        m["A8.3"].links = ["M0"]
+            m["A9.2"].links = [f"S.{it.sector}"]
+        m["A9.3"].links = ["M0"]
         p = self.store.save_map(m)
         self.say(f"  ✓ A 맵 생성: {m.map_id} → {p}")
         if self.ask_yes("지금 바로 채울까요?", True):
@@ -427,7 +432,7 @@ class Console:
         use_llm = self.ask_yes("LLM(Claim 추출·검증·쟁점 판정) 을 쓸까요?", llm_available())
         fetch = self.ask_yes("현재가를 작성 시점 기준으로 네이버에서 조회할까요?", True)
         replace = self.ask_yes("새로 만들까요? (y: 기존 A 맵 초안·Claim 저장본을 보관 폴더로 옮기고 전부 다시 / n: 기존에 더하기 — 변경안)", True)
-        prefill = self.ask_yes("제안값(내 추정=컨센 등) 을 값 칸에 미리 채울까요? (n: HTML 편집 폼의 「채우기」 로만)", False)
+        prefill = self.ask_yes("제안값(내 추정=컨센 등) 을 값 칸에 미리 채울까요? (n: HTML 편집 폼의 「채우기」 로만)", True)
         f = {"ticker": ticker, "name": name, "invest_type": inv, "use_llm": use_llm, "save": True, "fetch_price": fetch,
              "mode": "replace" if replace else "incremental", "prefill_suggestions": prefill}
         if not replace:
@@ -503,7 +508,7 @@ class Console:
         ops = self._ops()
         labels = ops.kill_candidate_labels(m)
         if not labels:
-            self.say("  Kill 후보가 없습니다 (리포트에 조건부 리스크 Claim 이 없음) — A4.4.x 는 직접 적을 것")
+            self.say("  Kill 후보가 없습니다 (리포트에 조건부 리스크 Claim 이 없음) — A5.4.x 는 직접 적을 것")
             return
         self.say("  Kill 후보 — 리포트의 조건부 리스크. '수익성 개선 지연' 은 '논제 붕괴' 가 아니므로 자동으로 넣지 않는다:")
         for ln in labels:
@@ -537,6 +542,147 @@ class Console:
             self.say(f"  ! {e}")
         self._drain(ops)
         self._print_new_eval(m)
+
+    # ------------------------------------------------------------------ 설계 v7
+    def new_conditions(self) -> None:
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        price = self.ask_float("기준 가격 (비우면 현재가; 두 변수 조합·한 변수 해의 목표)", None)
+        for ln in ops.conditions_text(m, price=price).split("\n"):
+            self.say("  " + ln)
+        x = self.ask("두 변수 조합의 x 드라이버를 바꾸려면 노드 id (예: A1.2, 비우면 그대로)", None)
+        if x:
+            for ln in ops.conditions_text(m, price=price, pair_x=x, recompute=False).split("\n"):
+                self.say("  " + ln)
+        self.store.save_map(m)
+
+    def _pick_driver(self, m: NewMap) -> str | None:
+        opts = [(n.id, f"{n.id} {n.label.split(' (')[0]} [{(n.driver.thesis_role if n.driver else None) or '역할 없음'}]") for n in m.drivers() if n.driver and n.driver.role != "result"]
+        if not opts:
+            self.say("  원인 드라이버가 없다")
+            return None
+        return self.ask_choice("드라이버", opts)
+
+    def new_observe(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        mode = self.ask_choice("입력 방법", [("manual", "직접 입력 (8칸)"), ("file", "JSON 파일 (수집기·에이전트 출력)")], "manual")
+        if mode == "file":
+            path = self.ask("JSON 경로", None, required=True)
+            try:
+                for ln in ops.observe_file(m, path).split("\n"):
+                    self.say("  " + ln)
+            except (OpsError, OSError, ValueError) as e:
+                self.say(f"  ! {e}")
+            return
+        nid = self._pick_driver(m)
+        if not nid:
+            return
+        d = m[nid].driver
+        assert d is not None
+        rp = d.required
+        if rp is not None:
+            self.say(f"  필요 경로의 자: {rp.ruler.label()} · 점 {' · '.join(p.at + ' ' + str(p.value) for p in rp.points[:6])}")
+        else:
+            self.say("  필요 경로가 없다 — 관측값은 저장되지만 신호등은 ⚪ 로 남는다 (Q 로 경로를 만들거나 편집 폼에서 경로를 넣는다)")
+        raw = {"metric_id": self.ask("지표 id", rp.ruler.metric_id if rp else None, required=True),
+               "period": self.ask("기간 (월 2026-10 · 분기 26Q4 · 연 2027)", None, required=True),
+               "value_type": self.ask_choice("값의 종류", [("abs", "절대값"), ("pct", "증감률"), ("cum", "누적"), ("state", "상태")], rp.ruler.value_type if rp else "abs"),
+               "basis": self.ask_choice("기준", [("none", "없음"), ("qoq", "QoQ"), ("yoy", "YoY"), ("vs_consensus", "컨센 대비")], rp.ruler.basis if rp else "none"),
+               "value": self.ask("값 (숫자 또는 상태 문자열)", None, required=True),
+               "as_of": self.ask_date("관측일", self.today), "compare_at": self.ask("비교 시점 (필요 경로의 점)", rp.points[0].at if rp and rp.points else None, required=True),
+               "source": self.ask("출처", None, required=True),
+               "verification": self.ask_choice("검증 등급", [("confirmed", "확인됨 (공시·공식 통계·회사 발표)"), ("reported", "보도/추정"), ("forecast", "전망")], "confirmed")}
+        raw["as_of"] = raw["as_of"].isoformat() if raw["as_of"] else None
+        try:
+            for ln in ops.observe(m, nid, raw).split("\n"):
+                self.say("  " + ln)
+        except OpsError as e:
+            self.say(f"  ! {e}")
+
+    def new_evidence(self) -> None:
+        from .ops import OpsError
+
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        ops = self._ops()
+        for ln in ops.evidence_text(m).split("\n"):
+            self.say("  " + ln)
+        self.store.save_map(m)
+        while True:
+            act = self.ask_choice("다음", [("role", "역할·띠·경계 확정"), ("rule", "판단 수정 규칙 추가"), ("decide", "제안 승인/거절"), ("flag", "플래그 해제 (review)"), ("back", "뒤로")], "back")
+            try:
+                if act == "role":
+                    nid = self._pick_driver(m)
+                    if not nid:
+                        continue
+                    role = self.ask_choice("논제 역할", [("required", "필수 조건"), ("core", "핵심 수익 변수"), ("secondary", "보조 변수")], m[nid].driver.thesis_role or "secondary")
+                    band = self.ask_float("허용 띠 (± 자의 단위, 비우면 그대로)", None)
+                    bb = self.ask("Bear 경계 (숫자 또는 상태, 비우면 그대로)", None)
+                    bu = self.ask("Bull 경계 (비우면 그대로)", None)
+
+                    def _num(x):  # noqa: ANN001, ANN202
+                        try:
+                            return float(str(x).replace(",", "")) if x not in (None, "") else None
+                        except ValueError:
+                            return x
+                    self.say("  " + ops.set_driver_fields(m, nid, thesis_role=role, band=band, bound_bear=_num(bb), bound_bull=_num(bu)))
+                elif act == "rule":
+                    nid = self._pick_driver(m)
+                    if not nid:
+                        continue
+                    d = m[nid].driver
+                    grade = self.ask_choice("등급", [("shift", "확률 이동 제안"), ("review", "논제 재검토 (필수면 신규 BUY 보류)"), ("warn", "경고")],
+                                            {"required": "review", "core": "shift", "secondary": "warn"}.get(d.thesis_role or "", "warn"))
+                    thr = self.ask("경계값 (숫자 또는 상태)", str(d.bound_bear) if d.bound_bear is not None else None, required=True)
+                    try:
+                        thr_v: float | str = float(thr.replace(",", ""))
+                    except ValueError:
+                        thr_v = thr
+                    pers = self.ask_int("지속성 (연속 n회)", 2) or 2
+                    pp = self.ask_float("확률 이동 %p (shift 일 때)", 10.0) if grade == "shift" else None
+                    self.say("  " + ops.add_rule(m, driver_id=nid, grade=grade, threshold=thr_v, persistence=pers, pct_points=pp))
+                elif act == "decide":
+                    evs = [e for e in ((m.meta.get("draft") or {}).get("rule_events") or []) if e.get("status") == "proposed"]
+                    if not evs:
+                        self.say("  승인 대기 제안 없음")
+                        continue
+                    eid = self.ask_choice("제안", [(e["id"], f"{e['id']} {e['rule_label']} — {(e.get('proposal') or {}).get('kind')}") for e in evs])
+                    if not eid:
+                        continue
+                    ok = self.ask_yes("승인할까요? (n = 거절)", True)
+                    pp = None
+                    ev = next(e for e in evs if e["id"] == eid)
+                    if ok and (ev.get("proposal") or {}).get("kind") == "shift":
+                        pp = self.ask_float("이동 %p (제안값을 고칠 수 있다)", float((ev.get("proposal") or {}).get("pct_points") or 10))
+                    self.say("  " + ops.decide_event(m, eid, accept=ok, pct_points=pp, note=self.ask("메모", "") or ""))
+                elif act == "flag":
+                    self.say("  " + ops.clear_flag(m, "review"))
+                else:
+                    return
+            except OpsError as e:
+                self.say(f"  ! {e}")
+
+    def new_claim_quality(self) -> None:
+        ops = self._ops()
+        d = self.ask("ClaimSet 폴더 (비우면 저장소 data/claims)", None)
+        ref = self.ask("기준 폴더 (예: data/claims_llm — 비우면 비교 생략)", None)
+        for ln in ops.claim_quality_text(d or None, ref or None).split("\n"):
+            self.say("  " + ln)
+
+    def new_basis(self) -> None:
+        m = self._pick_map(MapKind.NEW)
+        if not isinstance(m, NewMap):
+            return
+        for ln in self._ops().basis_text(m).split("\n"):
+            self.say("  " + ln)
 
     def new_valuation(self) -> None:
         from .ops import OpsError
@@ -612,7 +758,7 @@ class Console:
         m = self._pick_map(MapKind.NEW)
         if not isinstance(m, NewMap):
             return
-        nid = self.ask("노드 id (예: A2.1.1, A4.1)")
+        nid = self.ask("노드 id (예: A2.1.1, A5.1)")
         if not nid or nid not in m:
             self.say("  ! 그런 노드가 없습니다")
             return
@@ -672,7 +818,7 @@ class Console:
         self.hr(f"채우기 — {m.name} ({m.map_id})")
         sec = self.ask_choice("섹션", [
             ("0", "전체 순서대로"), ("1", "논제 (A0)"), ("2", "핵심 드라이버 (A1)"), ("3", "컨센서스 vs 내 뷰 (A2)"),
-            ("4", "밸류·시나리오 (A3)"), ("5", "리스크·무효화 조건 (A4)"), ("6", "실행 계획 (A6)"),
+            ("4", "밸류에이션·시나리오 (A3·A4)"), ("5", "리스크·무효화 조건 (A5)"), ("6", "실행 계획 (A7)"),
         ], "0")
         fn = {"0": self._fill_all, "1": self._fill_thesis, "2": self._fill_drivers, "3": self._fill_view,
               "4": self._fill_scenarios, "5": self._fill_risks, "6": self._fill_exec}.get(sec or "0", self._fill_all)
@@ -762,8 +908,8 @@ class Console:
             self._save_and_check(m, evaluate=False)
 
     def _fill_scenarios(self, m: NewMap, save: bool = True) -> None:
-        self.hr("A3 시나리오 — 확률 합 = 1.0, 목표가 Bear < Base < Bull")
-        for nid, nm, dp in (("A3.1", "Bear", 0.25), ("A3.2", "Base", 0.50), ("A3.3", "Bull", 0.25)):
+        self.hr("A4 시나리오 — 확률 합 = 1.0, 목표가 Bear < Base < Bull")
+        for nid, nm, dp in (("A4.2", "Bear", 0.25), ("A4.3", "Base", 0.50), ("A4.4", "Bull", 0.25)):
             cur = m[nid].scenario
             self.say(f"\n  [{nm}]")
             prob = self.ask_float("확률 (0~1)", cur.probability if cur else dp)
@@ -777,19 +923,19 @@ class Console:
                                        assumptions=[a.strip() for a in (assumptions or "").replace(";", ",").split(",") if a.strip()],
                                        horizon_months=horizon, valuation_method=method or "")
             m[nid].as_of = self.today
-        band = self.ask_float("현재 멀티플의 역사 밴드 백분위 (0~100)", m.value("A3.6.1"))
+        band = self.ask_float("현재 멀티플의 역사 밴드 백분위 (0~100)", m.value("A3.5.1"))
         if band is not None:
-            m["A3.6.1"].set(band, as_of=self.today, source=Source(name="밸류 밴드", retrieved_at=self.today))
+            m["A3.5.1"].set(band, as_of=self.today, source=Source(name="밸류 밴드", retrieved_at=self.today))
         self.say("최근 3개월 EPS 리비전 방향:")
-        rv = self.ask_choice("선택", [("up", "up"), ("flat", "flat"), ("down", "down")], m.value("A3.6.3") or "flat")
+        rv = self.ask_choice("선택", [("up", "up"), ("flat", "flat"), ("down", "down")], m.value("A3.5.3") or "flat")
         if rv:
-            m["A3.6.3"].set(rv, as_of=self.today, source=Source(name="컨센서스", retrieved_at=self.today))
+            m["A3.5.3"].set(rv, as_of=self.today, source=Source(name="컨센서스", retrieved_at=self.today))
         if save:
             self._save_and_check(m)
 
     def _fill_risks(self, m: NewMap, save: bool = True) -> None:
-        self.hr("A4 리스크 & 무효화 조건 (Kill criteria)")
-        for nid in ("A4.1", "A4.2", "A4.3"):
+        self.hr("A5 리스크 & 무효화 조건 (Kill criteria)")
+        for nid in ("A5.1", "A5.2", "A5.3"):
             cur = m.value(nid) if isinstance(m.value(nid), dict) else {}
             text = self.ask(f"{m[nid].label}: 무엇이 잘못될 수 있나 (Enter 면 건너뜀)", cur.get("text"))
             if not text:
@@ -798,14 +944,14 @@ class Console:
             imp = self.ask_float("발생 시 주가 영향 % (예 -25)", cur.get("impact_pct", -20))
             m[nid].set({"probability": prob, "impact_pct": imp, "text": text}, as_of=self.today)
         self.say("\n  무효화 조건 — '이 사실이 확인되면 손실 크기와 무관하게 논제를 버린다' (가격 아닌 사실 기준)")
-        cond = self._build_condition(m, m["A4.4.1"].rule.condition if m["A4.4.1"].rule else None)
+        cond = self._build_condition(m, m["A5.4.1"].rule.condition if m["A5.4.1"].rule else None)
         if cond:
-            m["A4.4.1"].rule = Rule(trigger_type="fact", condition=cond, action=Action.exit, escalate_to="RED",
-                                    note=self.ask("설명 (한 줄)", m["A4.4.1"].rule.note if m["A4.4.1"].rule else None))
-            m["A4.4.1"].as_of = self.today
-        ew = self.ask("조기 경보 지표 (무엇을, 어디서, 얼마나 자주)", m.value("A4.5"))
+            m["A5.4.1"].rule = Rule(trigger_type="fact", condition=cond, action=Action.exit, escalate_to="RED",
+                                    note=self.ask("설명 (한 줄)", m["A5.4.1"].rule.note if m["A5.4.1"].rule else None))
+            m["A5.4.1"].as_of = self.today
+        ew = self.ask("조기 경보 지표 (무엇을, 어디서, 얼마나 자주)", m.value("A5.5"))
         if ew:
-            m["A4.5"].set(ew, as_of=self.today, source=Source(name="직접 입력", retrieved_at=self.today))
+            m["A5.5"].set(ew, as_of=self.today, source=Source(name="직접 입력", retrieved_at=self.today))
         if save:
             self._save_and_check(m)
 
@@ -829,32 +975,32 @@ class Console:
         return raw
 
     def _fill_exec(self, m: NewMap, save: bool = True) -> None:
-        self.hr("A6 실행 계획")
+        self.hr("A7 실행 계획")
         evaluate_new_map(m, today=self.today, enforce_gate=False)
-        sug = (m["A6.1"].value or {}).get("suggested") if isinstance(m["A6.1"].value, dict) else None
+        sug = (m["A7.1"].value or {}).get("suggested") if isinstance(m["A7.1"].value, dict) else None
         if sug is not None:
             self.say(f"  제안 비중 {sug:.2%}  (= w_base × f_conf × f_rr)")
         conf = self.ask_float("확정 비중 % (예 5)", None if sug is None else round(sug * 100, 2), scale=0.01)
         if conf is not None:
-            reason = self.ask("비중 확정 사유", (m["A6.1"].value or {}).get("reason") if isinstance(m["A6.1"].value, dict) else None)
-            m["A6.1"].value = {**(m["A6.1"].value or {}), "confirmed": round(conf, 4), "reason": reason}
-        cur = m.value("A6.2") if isinstance(m.value("A6.2"), dict) else {}
+            reason = self.ask("비중 확정 사유", (m["A7.1"].value or {}).get("reason") if isinstance(m["A7.1"].value, dict) else None)
+            m["A7.1"].value = {**(m["A7.1"].value or {}), "confirmed": round(conf, 4), "reason": reason}
+        cur = m.value("A7.2") if isinstance(m.value("A7.2"), dict) else {}
         lo = self.ask_float("진입 가격대 하단", (cur.get("price_range") or [None, None])[0])
         hi = self.ask_float("진입 가격대 상단", (cur.get("price_range") or [None, None])[1])
         tr = self.ask_int("분할 횟수", cur.get("tranches", 3))
         if lo and hi:
-            m["A6.2"].set({"price_range": [lo, hi], "tranches": tr or 1}, as_of=self.today)
+            m["A7.2"].set({"price_range": [lo, hi], "tranches": tr or 1}, as_of=self.today)
         dd = self.ask_float("손절(재검토) 기준: 고점 대비 하락률 % (예 25)", 25.0, scale=0.01)
         if dd is not None:
-            m["A6.3"].rule = Rule(trigger_type="price", condition=f"drawdown > {dd:g}", action=Action.review, escalate_to="YELLOW")
+            m["A7.3"].rule = Rule(trigger_type="price", condition=f"drawdown > {dd:g}", action=Action.review, escalate_to="YELLOW")
         tp = self.ask_float("익절/축소 기준 가격 (없으면 Enter)", None)
         if tp:
             size = self.ask("축소 비율 (예 50%)", "50%")
-            m["A6.4"].rule = Rule(trigger_type="price", condition=f"price > {tp:g}", action=Action.trim, size=size)
+            m["A7.4"].rule = Rule(trigger_type="price", condition=f"price > {tp:g}", action=Action.trim, size=size)
         self.say("판단:")
-        dec = self.ask_choice("선택", [("BUY", "BUY 매수"), ("WATCH", "WATCH 관찰"), ("PASS", "PASS 패스")], m.value("A6.5") or "WATCH")
+        dec = self.ask_choice("선택", [("BUY", "BUY 매수"), ("WATCH", "WATCH 관찰"), ("PASS", "PASS 패스")], m.value("A7.5") or "WATCH")
         if dec:
-            m["A6.5"].set(dec, as_of=self.today)
+            m["A7.5"].set(dec, as_of=self.today)
         if save:
             self._save_and_check(m)
             self._print_new_eval(m)
@@ -896,14 +1042,14 @@ class Console:
         entry_date = self.ask_date("체결일", self.today) or self.today
         price = self.ask_float("체결가 (원)", m.current_price, required=True)
         qty = self.ask_float("수량 (주)", required=True)
-        conf = (m["A6.1"].value or {}).get("confirmed") if isinstance(m["A6.1"].value, dict) else None
+        conf = (m["A7.1"].value or {}).get("confirmed") if isinstance(m["A7.1"].value, dict) else None
         w = self.ask_float("목표 비중 % (예 5)", None if conf is None else round(conf * 100, 2), required=True, scale=0.01)
         eps = self.ask_float("매수 시점 12M forward EPS (주가 분해용, 없으면 Enter)")
         pos = Position(entry_date=entry_date, entry_price=price or 0, quantity=qty or 0, w_target=w or 0, eps_fwd_entry=eps)
         b = snapshot_to_holding(m, pos, today=entry_date)
         self.store.save_map(b)
         if m.decision is None or m.decision.value != "BUY":
-            m["A6.5"].set("BUY", as_of=entry_date)
+            m["A7.5"].set("BUY", as_of=entry_date)
             self.store.save_map(m)
         self.say(f"  ✓ B 맵 생성: {b.map_id}  (스냅숏 해시 {b.snapshot_hash}, 규칙 {len(b.rules())}개)")
         self.say("  다음: 메인 3) 보유 종목 맵 → 2) 시장 상태 갱신 → 6) 평가")

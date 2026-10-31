@@ -23,7 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +71,7 @@ def cmd_new(a: argparse.Namespace) -> int:
     out = Path(a.output or f"maps/A_{a.ticker}.json")
     m.save(out)
     print(f"A 맵 스켈레톤 생성: {out}  (노드 {len(m.nodes)}개, 프로파일 {a.type})")
-    print("다음: A0 논제 → A1 드라이버(current/my_estimate) → A3 시나리오(확률 합 1) → A4.4 Kill criteria → A6.5 판단")
+    print("다음: A0 논제 → A1 드라이버(current/my_estimate) → A4 시나리오(확률 합 1) → A5.4 Kill criteria → A7.5 판단")
     return 0
 
 
@@ -90,7 +90,7 @@ def cmd_eval(a: argparse.Namespace) -> int:
         print(f"기대수익률 {res.expected_return:+.1%}" if res.expected_return is not None else "기대수익률 계산 불가")
         print(f"손익비 {res.risk_reward:.2f}" if res.risk_reward is not None else "손익비 계산 불가(하락위험 0)")
         if res.suggested_weight is not None:
-            print(f"제안 비중 {res.suggested_weight:.2%}  (A6.1 에 confirmed 를 적어 확정)")
+            print(f"제안 비중 {res.suggested_weight:.2%}  (A7.1 에 confirmed 를 적어 확정)")
         print(f"rr_min 게이트: {'통과' if res.rr_gate_passed else '미통과'}  판단: {m.decision.value if m.decision else '-'}")
         for n in res.notes:
             print(" !", n)
@@ -122,10 +122,10 @@ def cmd_snapshot(a: argparse.Namespace) -> int:
         return _print_issues(issues)
     w_target = a.w_target
     if w_target is None:
-        v = m["A6.1"].value if "A6.1" in m else None
+        v = m["A7.1"].value if "A7.1" in m else None
         w_target = (v or {}).get("confirmed") if isinstance(v, dict) else None
     if w_target is None:
-        print("--w-target 또는 A6.1.confirmed 가 필요합니다")
+        print("--w-target 또는 A7.1.confirmed 가 필요합니다")
         return 2
     pos = Position(entry_date=today, entry_price=a.entry_price, quantity=a.qty, w_target=w_target,
                    eps_fwd_entry=a.eps_fwd)
@@ -220,7 +220,8 @@ def cmd_draft(a: argparse.Namespace) -> int:
                 r = ops.draft_from_reports(paths, {"ticker": a.ticker, "name": a.name, "invest_type": a.type, "use_llm": a.llm,
                                                    "llm_kind": a.llm_kind, "save": not a.no_save, "fetch_price": not a.no_fetch,
                                                    "claims": a.claims if a.claims != "auto" else None, "issue_check": not a.no_issue_check,
-                                                   "mode": a.mode, "prefill_suggestions": a.prefill_suggestions},
+                                                   "mode": a.mode, "prefill_suggestions": a.prefill_suggestions,
+                                                   "claims_ref": a.claims_ref, "claim_gate": not a.no_claim_gate, "llm_events": a.llm_events},
                                            progress=progress)
             except OpsError as e:
                 print(f"오류: {e}")
@@ -244,7 +245,8 @@ def cmd_draft(a: argparse.Namespace) -> int:
         r = draft_from_reports(paths, ticker=a.ticker, name=a.name, invest_type=a.type or "growth", today=today, symbols=default_book(),
                                filler=filler, research_db=research_db_path(), progress=progress, fetch_price=not a.no_fetch,
                                claims=a.claims, claims_dir=Path(a.claims_dir) if a.claims_dir else None, issue_check=not a.no_issue_check,
-                               prefill_suggestions=a.prefill_suggestions)
+                               prefill_suggestions=a.prefill_suggestions, claims_ref=Path(a.claims_ref) if a.claims_ref else None,
+                               claim_gate_on=not a.no_claim_gate, llm_events=a.llm_events)
     except DraftError as e:
         print(f"오류: {e}")
         return 2
@@ -690,16 +692,16 @@ def _parse_kv(items: list[str] | None) -> dict[str, Any]:
 
 
 def cmd_valuation(a: argparse.Namespace) -> int:
-    """평가 모델 (설계 v6 A3.8/A3.9) — 기준·PER·주식 수·순현금·SOTP 멀티플을 A3.8 에 넣고 PER·정상화·SOTP·역산을 계산한다."""
+    """평가 모델 (설계 v6 A3.2/A3.3) — 기준·PER·주식 수·순현금·SOTP 멀티플을 A3.2 에 넣고 PER·정상화·SOTP·역산을 계산한다."""
     from .engine.attractiveness import attractiveness_line, compute_valuation_all, confidence_line
-    from .engine.valuation import Criteria, ensure_valuation_nodes, valuation_table
+    from .engine.valuation import Criteria, basis_table, ensure_valuation_nodes, valuation_table
     from .models import ValuationModel
 
     target, store = _edit_target(a)
     try:
         m = target.load()
         ensure_valuation_nodes(m)
-        crit = dict(m["A3.8"].value) if isinstance(m["A3.8"].value, dict) else {}
+        crit = dict(m["A3.2"].value) if isinstance(m["A3.2"].value, dict) else {}
         changed = False
         if a.eps_basis:
             crit["eps_basis"] = a.eps_basis
@@ -723,18 +725,23 @@ def cmd_valuation(a: argparse.Namespace) -> int:
             crit = {}
             changed = True
         if changed:
-            m["A3.8"].value = crit or None
-            m["A3.8"].as_of = _today(a.date)
-            m["A3.8"].tags = sorted(set(m["A3.8"].tags) | {"user"})
+            m["A3.2"].value = crit or None
+            m["A3.2"].as_of = _today(a.date)
+            m["A3.2"].tags = sorted(set(m["A3.2"].tags) | {"user"})
         notes = compute_valuation_all(m, today=_today(a.date))
         vm = ValuationModel.model_validate((m.meta.get("draft") or {}).get("valuation") or {})
         c = Criteria.from_map(m)
-        print(f"{m.map_id} 평가 기준(A3.8): EPS 기준 {c.eps_basis} · 연도 {c.eps_year or '표 기준'} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares if c.shares else '유도/공시'}"
+        print(f"{m.map_id} 평가 기준(A3.2): EPS 기준 {c.eps_basis} · 연도 {c.eps_year or '표 기준'} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares if c.shares else '유도/공시'}"
               f" · 순현금 {c.net_cash if c.net_cash is not None else '표'} · 배당 {c.dividend_in_return} · SOTP 멀티플 {c.sotp_multiples or '없음'}")
+        print(basis_table((m.meta.get("draft") or {}).get("financials") or {}))
         print(valuation_table(vm, m.current_price))
         att = (m.meta.get("draft") or {}).get("attractiveness") or {}
-        print("매력도(A3.10): " + attractiveness_line(att))
-        print("신뢰도(A3.11): " + confidence_line((m.meta.get("draft") or {}).get("confidence") or {}, len((m.meta.get("draft") or {}).get("valuation_log") or [])))
+        print("매력도(A4.7): " + attractiveness_line(att))
+        print("신뢰도(A3.4): " + confidence_line((m.meta.get("draft") or {}).get("confidence") or {}, len((m.meta.get("draft") or {}).get("valuation_log") or [])))
+        if "A4.1" in m and m["A4.1"].value:
+            print("시나리오 한눈에(A4.1):")
+            for ln in str(m["A4.1"].value).split("\n"):
+                print("  " + ln)
         for n in notes:
             if "⚠" in n or "미계산" in n:
                 print("  " + n[:240])
@@ -839,8 +846,8 @@ def cmd_scenario(a: argparse.Namespace) -> int:
                 for x in sc.model.missing:
                     print(f"      미계산 — 필요: {x}")
         print("  " + attractiveness_line((m.meta.get("draft") or {}).get("attractiveness") or {}))
-        if m["A3.4"].value is not None:
-            print(f"  A3.4 기대수익률 {m['A3.4'].value:+.1%} · A3.5 손익비 {m['A3.5'].value}")
+        if m["A4.5"].value is not None:
+            print(f"  A4.5 기대수익률 {m['A4.5'].value:+.1%} · A4.6 손익비 {m['A4.6'].value}")
         for x in ev.notes:
             print("  " + x)
         for n in notes:
@@ -860,7 +867,16 @@ def cmd_scenario(a: argparse.Namespace) -> int:
 
 def cmd_implied(a: argparse.Namespace) -> int:
     """역산 (설계 v6 §3.4) — 현재가(또는 --price) 가 내재하는 EPS 와 가격 드라이버 경로를 PER 몇 개에 대해 표로."""
-    from .engine.valuation import common_tail, drop_contained, price_driver_segments, segment_values
+    from .engine.valuation import (
+        PER_SOURCE,
+        common_tail,
+        drop_contained,
+        implied_table,
+        implied_table_lines,
+        price_driver_segments,
+        segment_values,
+    )
+    from .models import ValuationModel
 
     target, store = _edit_target(a)
     try:
@@ -879,17 +895,461 @@ def cmd_implied(a: argparse.Namespace) -> int:
     segs, _ = drop_contained(price_driver_segments(m))
     rev = segment_values(m, tail.year, "revenue")
     base_rev = sum(rev[s][0] for s in segs if s in rev)
-    pers = [float(x) for x in (a.per or "").replace("/", ",").split(",") if x.strip()] or [x for x in (tail.per, 4.5, 3.5, p0 / tail.eps) if x]
+    extra = [float(x) for x in (a.per or "").replace("/", ",").split(",") if x.strip()]
     print(f"{m.map_id} 역산 — 가격 {p0:,.0f} · {tail.year} 컨센 EPS {tail.eps:,.0f} · OP {tail.op / 1e4:,.1f}조 · t {tail.t:.3f}"
           + (f" · 가격 드라이버 매출 {'+'.join(s for s in segs if s in rev)} {base_rev / 1e4:,.1f}조" if base_rev else ""))
-    print(f"  {'적용 PER':>8} {'내재 EPS':>10} {'vs 컨센':>8} {'내재 OP(조)':>11} {'ASP 경로':>9}")
-    for per in pers:
-        eps_i = p0 / per
-        op_req = eps_i / tail.eps * tail.np / (1.0 - tail.t) if tail.np else None
-        path = ((op_req - tail.op) / base_rev * 100.0) if (op_req is not None and base_rev) else None
-        print(f"  {per:>8.2f} {eps_i:>10,.0f} {eps_i / tail.eps - 1:>+8.0%} {(op_req or 0) / 1e4:>11,.0f} " + (f"{path:>+8.0f}%" if path is not None else "        -"))
-    print("  (ASP 경로 = 가격 드라이버 사업부 매출 대비, 전가율 k=1.0 · 다른 변수 고정 — 시장이 내재하는 변수 경로의 1차 근사)")
+    vm = ValuationModel(per=tail.per, per_source=PER_SOURCE.get(tail.per_source, tail.per_source),
+                        implied_status="anchored" if tail.per_source in ("user", "criteria") else "assumption_dependent",
+                        implied_table=implied_table(m, tail, p0, extra=extra))
+    for ln in implied_table_lines(vm, p0):
+        print(ln)
+    print("  (모든 줄이 '다른 변수 고정' 의 수학적 해 — 어느 줄도 시장의 기대가 아니다. 가정 묶음은 `mindmap scenario`, 두 변수 조합표는 v7 T6)")
     return 0
+
+
+# ---------------------------------------------------------------------------- 설계 v7 (T3~T10)
+def _v7_ops(a: argparse.Namespace):  # noqa: ANN202
+    """맵 파일 또는 저장소 맵 → (ops, map, target, store). 파일이면 임시 저장소 없이 FileTarget 으로 저장한다."""
+    from .ops import Ops
+    from .store import Store
+
+    target, store = _edit_target(a)
+    m = target.load()
+    if store is None:
+        store = Store(a.db) if Path(a.db).parent.is_dir() else None
+    ops = Ops(store, today=_today(getattr(a, "date", None))) if store is not None else None
+    return ops, m, target, store
+
+
+class _FileSaver:
+    """Ops.store 대용 — 파일 맵일 때 save_map 을 FileTarget.save 로."""
+
+    def __init__(self, target, store):  # noqa: ANN001
+        self._t, self._s = target, store
+        self.claims_dir = getattr(store, "claims_dir", Path("data/claims"))
+
+    def save_map(self, m):  # noqa: ANN001
+        self._t.save(m)
+        self._t.render(m) if hasattr(self._t, "render") else None
+
+    def __getattr__(self, k):  # noqa: ANN001, ANN204
+        return getattr(self._s, k)
+
+
+def _ops_for(a: argparse.Namespace):  # noqa: ANN202
+    from .ops import Ops
+    from .store import Store
+
+    target, store = _edit_target(a)
+    m = target.load()
+    real_store = store if store is not None else Store(a.db)
+    ops = Ops(_FileSaver(target, real_store), today=_today(getattr(a, "date", None)))
+    return ops, m, target, real_store
+
+
+def cmd_claims_stats(a: argparse.Namespace) -> int:
+    """Claim 품질 통계 (설계 v7 T3) — ① 인용 ② 숫자 ③ 의미 단계별 통과/실패, 검토 사유, 추출기별. --ref 가 있으면 비교와 게이트도."""
+    from .reports.claim_stats import (
+        claim_compare,
+        claim_gate,
+        claim_stats,
+        compare_text,
+        gate_line,
+        stats_text,
+    )
+    from .reports.claims import load_claimsets
+
+    sets = load_claimsets(Path(a.dir), report_ids=a.report_ids or None)
+    if not sets:
+        print(f"ClaimSet 없음: {a.dir}")
+        return 2
+    print(stats_text(claim_stats(sets)))
+    ref = load_claimsets(Path(a.ref), report_ids=[cs.report_id for cs in sets]) if a.ref else []
+    if ref:
+        print()
+        print(compare_text(claim_compare(ref, sets)))
+    print()
+    g = claim_gate(sets, reference=ref or None)
+    print(gate_line(g))
+    if a.json:
+        import json as _json
+
+        Path(a.json).write_text(_json.dumps({"stats": claim_stats(sets).to_dict(), "compare": claim_compare(ref, sets) if ref else None, "gate": g}, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"JSON: {a.json}")
+    return 0 if g.get("status") != "needs_claim_review" else 1
+
+
+def cmd_claims_compare(a: argparse.Namespace) -> int:
+    """두 ClaimSet 폴더 비교 (설계 v7 T3) — 기준(예: Claude 캐시) 대비 원인 KPI 셀 재현율 · 방향 일치 · 핵심 테마 누락 · 인용 겹침."""
+    from .reports.claim_stats import claim_compare, compare_text
+    from .reports.claims import load_claimsets
+
+    ref, cmp = load_claimsets(Path(a.ref)), load_claimsets(Path(a.dir))
+    if not ref or not cmp:
+        print(f"ClaimSet 없음 — 기준 {len(ref)} · 비교 {len(cmp)}")
+        return 2
+    c = claim_compare(ref, cmp)
+    print(compare_text(c))
+    if a.json:
+        import json as _json
+
+        Path(a.json).write_text(_json.dumps(c, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"JSON: {a.json}")
+    return 0
+
+
+def cmd_observe(a: argparse.Namespace) -> int:
+    """관측값 입력 (설계 v7 T4) — 데이터 계약 8칸. --from-file 로 수집기·에이전트의 JSON 을 한 번에."""
+    from .ops import OpsError
+
+    ops, m, target, store = _ops_for(a)
+    try:
+        if a.from_file:
+            print(ops.observe_file(m, a.from_file, entered_by=a.entered_by or "collector"))
+        else:
+            if not a.node or a.value is None:
+                print("node 와 --value 가 필요하다 (또는 --from-file)")
+                return 2
+            raw = {"metric_id": a.metric, "period": a.period, "value_type": a.type, "basis": a.basis, "value": a.value, "as_of": a.as_of or _today(a.date).isoformat(),
+                   "compare_at": a.compare_at, "source": a.source, "verification": a.verified, "note": a.note}
+            print(ops.observe(m, a.node, raw, entered_by=a.entered_by or "user"))
+    except OpsError as e:
+        print(f"오류: {e}")
+        return 2
+    finally:
+        store.close()
+    return 0
+
+
+def cmd_path(a: argparse.Namespace) -> int:
+    """성립 조건 (설계 v7 T5·T6) — 가정 표 · 역산 표(한 변수 해 · 두 변수 조합) · 날짜별 필요 경로 → A2.4."""
+    ops, m, target, store = _ops_for(a)
+    try:
+        print(ops.conditions_text(m, price=a.price))
+        if a.pair:
+            print()
+            print(ops.conditions_text(m, price=a.price, pair_x=a.pair, recompute=False))
+        if a.save:
+            target.save(m)
+            print(f"저장: {m.map_id}")
+    finally:
+        store.close()
+    return 0
+
+
+def cmd_evidence(a: argparse.Namespace) -> int:
+    """증거 계획 (설계 v7 T7·T8) — 신호등 · 증거 일정 · 판단 수정 규칙 · 알림. --role/--band/--bear/--bull 로 드라이버 값을 확정."""
+    from .ops import OpsError
+
+    ops, m, target, store = _ops_for(a)
+    try:
+        if a.node and (a.role or a.band is not None or a.bear is not None or a.bull is not None):
+            def _num(x):  # noqa: ANN001, ANN202
+                try:
+                    return float(str(x).replace(",", "")) if x not in (None, "") else None
+                except ValueError:
+                    return x
+            print(ops.set_driver_fields(m, a.node, thesis_role=a.role, band=a.band, bound_bear=_num(a.bear), bound_bull=_num(a.bull)))
+        print(ops.evidence_text(m))
+        if a.save or a.node:
+            target.save(m)
+            print(f"저장: {m.map_id}")
+    except OpsError as e:
+        print(f"오류: {e}")
+        return 2
+    finally:
+        store.close()
+    return 0
+
+
+def cmd_rule(a: argparse.Namespace) -> int:
+    """판단 수정 규칙 (설계 v7 T8) — add: 드라이버·등급·경계값·지속성·%p / list / decide: 제안 승인·거절 / clear: 플래그 해제."""
+    from .engine.revision import rules_text
+    from .ops import OpsError
+
+    ops, m, target, store = _ops_for(a)
+    try:
+        if a.action == "add":
+            if not (a.driver and a.grade and a.threshold is not None):
+                print("add 는 --driver --grade --threshold 가 필요하다")
+                return 2
+            try:
+                thr: float | str = float(str(a.threshold).replace(",", ""))
+            except ValueError:
+                thr = a.threshold
+            print(ops.add_rule(m, driver_id=a.driver, grade=a.grade, threshold=thr, persistence=a.persistence, side=a.side, pct_points=a.pct))
+        elif a.action == "decide":
+            if not a.event:
+                print("decide 는 --event 가 필요하다 (--reject 면 거절)")
+                return 2
+            print(ops.decide_event(m, a.event, accept=not a.reject, pct_points=a.pct, note=a.note or ""))
+        elif a.action == "clear":
+            print(ops.clear_flag(m, a.flag or "review"))
+        print(rules_text(m))
+    except OpsError as e:
+        print(f"오류: {e}")
+        return 2
+    finally:
+        store.close()
+    return 0
+
+
+def _catalyst_rows(m) -> list[str]:  # noqa: ANN001
+    from .render.format import event_label, event_line
+
+    rows = []
+    for n in m.children("A6.1"):
+        if n.event is None:
+            continue
+        e = n.event
+        rows.append(f"{n.id:<8} {event_label(e):<28} {event_line(e)}")
+        if e.precheck:
+            rows.append(f"{'':<8}   사전 확인: {' · '.join(e.precheck)[:100]}")
+        if e.rule:
+            rows.append(f"{'':<8}   판단 규칙: {e.rule[:100]}")
+    return rows or ["(A6.1 이 비어 있다)"]
+
+
+def cmd_catalysts(a: argparse.Namespace) -> int:
+    """촉매 & 타임라인 (A6.1) — 보기 · 공시확정 촉매 보충(--dart) · 지난 촉매의 D+1/D+5 수익률 채우기(--outcomes). (2026-10-30)"""
+    from .generate.draft import fill_event_outcomes
+    from .ops import OpsError
+    from .symbols import research_db_path
+
+    ops, m, target, store = _ops_for(a)
+    try:
+        today = _today(getattr(a, "date", None))
+        changed = False
+        db = None
+        rdb = Path(a.research_db) if a.research_db else research_db_path(store)
+        if rdb is not None and rdb.exists():
+            from .collect.adapters.research_db import ResearchDb
+
+            db = ResearchDb(rdb)
+        if a.dart:
+            from .generate.draft import _fill_dart_events
+
+            if db is None:
+                print("리서치 DB 가 없어 공시 목록을 못 읽는다 (--research-db)")
+            else:
+                for line in _fill_dart_events(m, m.ticker, db, today=today, research_db=rdb):
+                    print("  " + line)
+                from .generate.catalysts import link_catalysts
+
+                for line in link_catalysts(m):
+                    print("  연결: " + line)
+                changed = True
+        if a.outcomes:
+            if db is None:
+                print("리서치 DB 가 없어 수익률을 못 잰다 (--research-db)")
+            else:
+                notes = fill_event_outcomes(m, db, today=today)
+                print("\n".join("  " + x for x in notes) if notes else "  채울 지난 촉매가 없다 (날짜가 안 지났거나 시세가 아직)")
+                changed = changed or bool(notes)
+        print("\n".join(_catalyst_rows(m)))
+        if changed and (a.save or a.dart or a.outcomes):
+            from .engine import evaluate_new_map
+
+            evaluate_new_map(m, today=today, enforce_gate=True)   # A8.1 체크포인트 다시
+            target.save(m)
+            print(f"저장: {m.map_id}")
+    except OpsError as e:
+        print(f"오류: {e}")
+        return 2
+    finally:
+        store.close()
+    return 0
+
+
+def cmd_dart_events(a: argparse.Namespace) -> int:
+    """종목 하나의 공시확정 촉매 미리보기 — 리서치 DB 공시 목록 + OpenDART 본문 (2026-10-30). 맵을 건드리지 않는다."""
+    from .collect.adapters.dart import OpenDart, dart_api_key, dart_cache_dir, dart_events
+    from .collect.adapters.research_db import ResearchDb
+    from .render.format import event_label, event_line
+    from .symbols import normalize_code, research_db_path
+
+    today = _today(a.date)
+    code = normalize_code(a.ticker) or a.ticker
+    rdb = Path(a.research_db) if a.research_db else research_db_path()
+    db = ResearchDb(rdb) if rdb is not None and rdb.exists() else None
+    key = dart_api_key(rdb)
+    cache = dart_cache_dir()
+    dart = OpenDart(key, cache_dir=cache) if key else None
+    print(f"종목 {code} · 리서치 DB {'있음 (' + str(rdb) + ')' if db else '없음'} · DART 키 {'있음' if key else '없음'} · 기준일 {today}")
+    if db is not None:
+        hist = db.earnings_dates(code, as_of=today)
+        print("과거 잠정실적 공시일: " + (", ".join(d.isoformat() for d in hist) if hist else "(없음)"))
+        from .generate.catalysts import earnings_calendar
+
+        for e in earnings_calendar(today, hist):
+            print(f"  추정  {e.date}  {e.label}  ← {e.basis}")
+    r = dart_events(code, today=today, db=db, dart=dart, lookback_days=a.days)
+    print(f"공시 {r.items_seen}건 봄 ({r.source or '-'}) · 확정 촉매 {len(r.events)}건" + (f" · OpenDART 호출 {dart.calls}회" if dart else ""))
+    for e in r.events:
+        print(f"  {event_label(e):<28} {event_line(e)}")
+        print(f"{'':<30} 출처 {e.source.name} {e.source.url}")
+    for x in r.notes:
+        print("  · " + x)
+    return 0 if r.events or not r.notes else 1
+
+
+def cmd_dart_check(a: argparse.Namespace) -> int:
+    """공시 파서 적중률 — 종목별로 IR 안내·유상증자·주총 공시 본문을 전부 파서에 넣어 읽힌 건·부분·실패를 센다 (2026-10-31 3차 검토).
+    날짜가 지난 공시도 센다 (적중률은 과거로 재는 것). 맵을 건드리지 않는다. 종료 코드: 부분·실패가 하나라도 있으면 1."""
+    from .collect.adapters.dart import (
+        OpenDart,
+        check_items,
+        check_summary,
+        dart_api_key,
+        dart_cache_dir,
+        items_from_db_rows,
+        kind_of,
+    )
+    from .collect.adapters.research_db import ResearchDb
+    from .symbols import normalize_code, research_db_path
+
+    today = _today(a.date)
+    rdb = Path(a.research_db) if a.research_db else research_db_path()
+    if rdb is None or not rdb.exists():
+        print("리서치 DB 가 없어 공시 목록을 못 읽는다 (--research-db)")
+        return 2
+    db = ResearchDb(rdb)
+    key = dart_api_key(rdb)
+    cache = dart_cache_dir()
+    dart = OpenDart(key, cache_dir=cache) if key else None
+    if dart is None and not a.cached_only:
+        print("DART_API_KEY 없음 — 캐시에 있는 본문만 본다 (--cached-only 와 같다)")
+
+    def text_of(rcept_no: str) -> str:
+        p = cache / f"{rcept_no}.txt"
+        if p.is_file():
+            return p.read_text(encoding="utf-8")
+        if a.cached_only or dart is None:
+            raise FileNotFoundError(f"캐시 없음 {p.name}")
+        return dart.document_text(rcept_no)
+
+    since = today - timedelta(days=a.days)
+    total = {"watched": 0, "ok": 0, "partial": 0, "none": 0, "no_text": 0}
+    bad = 0
+    for raw in a.tickers:
+        code = normalize_code(raw) or raw
+        try:
+            items = items_from_db_rows(db.disclosures(code, since=since))
+        except Exception as e:  # noqa: BLE001
+            print(f"{code}: 공시 목록 실패 ({type(e).__name__}: {str(e)[:60]})")
+            bad += 1
+            continue
+        watched = [it for it in items if kind_of(it.report_nm)]
+        rows = check_items(watched, text_of)
+        s = check_summary(rows)
+        for k in total:
+            total[k] += s[k]
+        rate = f"{s['ok']}/{s['watched']}" if s["watched"] else "—"
+        print(f"{code}: 공시 {len(items)}건 중 읽을 것 {s['watched']}건 · OK {rate} · 부분 {s['partial']} · 날짜 못 읽음 {s['none']} · 본문 없음 {s['no_text']}")
+        for r in rows:
+            if a.all or not r.ok:
+                print("  " + r.line())
+        bad += s["partial"] + s["none"] + s["no_text"]
+    if len(a.tickers) > 1:
+        print(f"합계: 읽을 것 {total['watched']}건 · OK {total['ok']} · 부분 {total['partial']} · 날짜 못 읽음 {total['none']} · 본문 없음 {total['no_text']}"
+              + (f" · OpenDART 호출 {dart.calls}회" if dart else ""))
+    return 1 if bad else 0
+
+
+def cmd_alerts(a: argparse.Namespace) -> int:
+    """알림 텍스트 (설계 v7 T8 / v6 §10 D2) — 규칙 이벤트 · 증거 일정 도래 · 관측값 노후 · 🔴/🟡. 전송은 에이전트 몫."""
+    from .engine.decision import compute_v7_all
+    from .engine.revision import alerts
+
+    target, store = _edit_target(a)
+    try:
+        m = target.load()
+        compute_v7_all(m, today=_today(a.date))
+        lines = alerts(m, today=_today(a.date), horizon_days=a.days)
+        head = f"{m.map_id} {m.name or ''} 알림 {len(lines)}건 ({_today(a.date)})"
+        if a.json:
+            import json as _json
+
+            print(_json.dumps({"map_id": m.map_id, "date": _today(a.date).isoformat(), "alerts": lines, "flags": m.meta.get("flags") or {}}, ensure_ascii=False, indent=2))
+        else:
+            print(head)
+            for ln in lines:
+                print("  " + ln)
+            if not lines:
+                print("  없음")
+    finally:
+        if store is not None:
+            store.close()
+    return 0 if not lines else 1
+
+
+def cmd_batch(a: argparse.Namespace) -> int:
+    """일괄 실행 (설계 v7 T10 / v6 §10 D1) — 리포트 폴더(종목별 하위 폴더) 마다 맵이 없으면 draft, 있으면 변경안(changes) → 요약 한 장."""
+    from .generate.batch import run_batch
+
+    res = run_batch(Path(a.reports_dir), maps_dir=Path(a.maps_dir), db=a.db if a.db else None, today=_today(a.date), claims=a.claims,
+                    llm=a.llm, llm_kind=a.llm_kind, apply_changes=False, summary_path=Path(a.summary) if a.summary else None, json_path=Path(a.json) if a.json else None)
+    print(res["text"])
+    return 0 if res["ok"] else 1
+
+
+def cmd_migrate(a: argparse.Namespace) -> int:
+    """스키마 2.0 노드 번호로 저장 — 저장소의 모든 맵(또는 준 파일들) 을 읽어(읽을 때 변환된다) 다시 쓰고, 버전 폴더의 원본은 그대로 둔다. --render 면 HTML 도 다시."""
+    import json as _json
+
+    from .models import load_map
+    from .models.migrate import SCHEMA_VERSION, migrate_map_data
+    from .render.native import write_html
+
+    paths: list[Path] = [Path(x) for x in (a.maps or [])]
+    store = None
+    if not paths:
+        from .store import Store
+
+        store = Store(a.db)
+        paths = [Path(r.path) for r in store.list_maps(include_closed=True)]
+    n_done = n_skip = 0
+    for p in paths:
+        try:
+            raw = _json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            print(f"건너뜀 {p}: {e}")
+            continue
+        data, changed = migrate_map_data(raw)
+        if not changed:
+            n_skip += 1
+            continue
+        m = load_map(data)
+        # 편집 저장과 같은 재계산 — 새 묶음의 계산 노드(A4.1 시나리오 한눈에 · A4.7 매력도) 가 생기고 값이 채워진다
+        from .generate.edits import finalize_after_edit
+
+        for note in finalize_after_edit(m, today=_today(getattr(a, "date", None))):
+            if "실패" in note:
+                print("  " + note)
+        if store is not None:
+            store.save_map(m)
+        else:
+            m.save(p)
+        print(f"{m.map_id}: {raw.get('schema_version') or '1.0'} → {SCHEMA_VERSION}  ({p})")
+        if a.render:
+            out = store.out_path(m.map_id.replace(":", "_") + ".html") if store is not None else p.with_suffix(".html")
+            write_html(m, out)
+            print(f"  HTML: {out}")
+        n_done += 1
+    if store is not None:
+        store.close()
+    print(f"변환 {n_done} · 이미 {SCHEMA_VERSION} {n_skip}")
+    return 0
+
+
+def cmd_export_knowledge(a: argparse.Namespace) -> int:
+    """지식 내보내기 (설계 v7 T10 / v6 §10 D3) — 맵·Claim·쟁점 → 종목별 Markdown (OpenClaw memory_search 용)."""
+    from .generate.knowledge import export_knowledge
+
+    paths = export_knowledge([Path(p) for p in a.maps], out_dir=Path(a.out), claims_dir=Path(a.claims_dir) if a.claims_dir else None)
+    for p in paths:
+        print(f"썼음: {p}")
+    return 0 if paths else 2
 
 
 def cmd_eval_drivers(a: argparse.Namespace) -> int:
@@ -1090,6 +1550,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Claim 추출 방식 — auto: --llm 이면 LLM, 아니면 규칙(저품질) / cached: --claims-dir 의 저장본만 (설계 v3)")
     s.add_argument("--claims-dir", metavar="DIR", help="ClaimSet 저장·재사용 폴더 (예: data/claims_llm; 같은 리포트는 다시 뽑지 않음). --db 를 쓰면 저장소의 data/claims")
     s.add_argument("--no-issue-check", action="store_true", help="쟁점의 기준 명제 판정(LLM) 을 생략하고 방향 통계만 (설계 v4 V3)")
+    s.add_argument("--llm-events", default="auto", choices=["auto", "on", "off"],
+                   help="층 B: LLM 이 본문 발췌에서 촉매 사건을 제안하고 규칙이 검증해 A6.1 에 합친다 — auto: --llm 이면 켬 (2026-10-31)")
+    s.add_argument("--claims-ref", metavar="DIR", help="설계 v7 T3: 기준 ClaimSet 폴더(예: Claude 캐시 data/claims_llm) — 재현율을 재서 품질 게이트에 쓴다")
+    s.add_argument("--no-claim-gate", action="store_true", help="설계 v7 T3: Claim 품질 게이트를 끈다 (기록만 남기고 초안 완료 표시를 막지 않음)")
     s.add_argument("--prefill-suggestions", action="store_true",
                    help="리포트 기반 제안값(내 추정=컨센 등) 을 값 칸에 미리 넣는다 — suggested 태그·pending 유지 (설계 v4 §6; 기본은 편집 폼의 「채우기」 로만)")
     s.add_argument("--db", help="저장소 SQLite — 주면 관심종목 등록 + 맵 저장 (콘솔과 같은 저장소)")
@@ -1171,16 +1635,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--db", default="data/db/kstock.sqlite")
     s.add_argument("--dry-run", action="store_true", help="만들기만 하고 저장하지 않음")
     s.set_defaults(fn=cmd_suggest)
-    s = sp.add_parser("sensitivity", help="원인 드라이버 민감도 — 변수 Δ% → 영업이익 → EPS → 적정주가 (설계 v5 §3; 입력 출처와 미계산 사유를 보여 준다)")
+    s = sp.add_parser("sensitivity", help="원인 드라이버 민감도 — 변수 Δ%% → 영업이익 → EPS → 적정주가 (설계 v5 §3; 입력 출처와 미계산 사유를 보여 준다)")
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")
     s.add_argument("--driver", help="A1.x 하나만 (기본: 원인 드라이버 전부)")
-    s.add_argument("--delta", type=float, help="충격 크기 (% 또는 %p; 기본 템플릿별 10 / 원가율 1)")
+    s.add_argument("--delta", type=float, help="충격 크기 (%% 또는 %%p; 기본 템플릿별 10 / 원가율 1)")
     s.add_argument("--set", nargs="*", help="사용자 입력 key=value (segment_revenue 억원 · segment_op · pass_through · tax_rate · shares · per_target · fcf · orders …)")
     s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
     s.add_argument("--date")
     s.set_defaults(fn=cmd_sensitivity)
-    s = sp.add_parser("valuation", help="평가 모델 (설계 v6 A3.8/A3.9) — EPS 기준·적용 PER·주식 수·순현금·SOTP 멀티플을 넣고 PER·정상화·SOTP·역산·매력도·신뢰도")
+    s = sp.add_parser("valuation", help="평가 모델 (설계 v6 A3.2/A3.3) — EPS 기준·적용 PER·주식 수·순현금·SOTP 멀티플을 넣고 PER·정상화·SOTP·역산·매력도·신뢰도")
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")
     s.add_argument("--eps-basis", choices=["consensus", "my_estimate", "normalized", "user"], help="기준 EPS (기본 consensus)")
@@ -1193,7 +1657,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--dividend", choices=["separate", "include", "exclude"], help="기대수익률에 배당을 어떻게 (기본 separate = 둘 다 표시)")
     s.add_argument("--sotp", nargs="*", action="extend", metavar="SEG=MULT", help="SOTP 멀티플 (사용자 입력만) 예: 메모리=6 파운드리=0 DX=8 SDC=6 Harman=10")
     s.add_argument("--stake", nargs="*", action="extend", metavar="SEG=RATIO", help="자회사 지배지분 비율 예: SDC=0.85 Harman=1.0")
-    s.add_argument("--clear", action="store_true", help="A3.8 평가 기준을 비운다 (전부 기본값)")
+    s.add_argument("--clear", action="store_true", help="A3.2 평가 기준을 비운다 (전부 기본값)")
     s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
     s.add_argument("--date")
     s.set_defaults(fn=cmd_valuation)
@@ -1201,7 +1665,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")
     s.add_argument("--set", nargs="*", action="extend", metavar="NAME.FIELD=VAL",
-                   help="Bear|Base|Bull . A1.x[:variable]=Δ% (…억원 이면 금액) | per=배 | eps_basis=consensus·my_estimate·normalized·user | eps_year=2027E | prob=0.3 | conditions=a;b | falsifier=… | clear (여러 번 가능)")
+                   help="Bear|Base|Bull . A1.x[:variable]=Δ%% (…억원 이면 금액) | per=배 | eps_basis=consensus·my_estimate·normalized·user | eps_year=2027E | prob=0.3 | conditions=a;b | falsifier=… | clear (여러 번 가능)")
     s.add_argument("--probs", help="확률 Bear/Base/Bull (예 30/45/25 — 사람의 판단; 자동 초안은 만들지 않는다)")
     s.add_argument("--save", action="store_true", help="맵에 저장하고 HTML 다시 쓰기")
     s.add_argument("--date")
@@ -1212,6 +1676,123 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--price", type=float, help="현재가 대신 쓸 가격")
     s.add_argument("--per", help="적용 PER 목록 (예 6.36/4.5/3.5; 기본 = 목표 PER·4.5·3.5·현재 Fwd PER)")
     s.set_defaults(fn=cmd_implied)
+    # ---- 설계 v7
+    s = sp.add_parser("claims-stats", help="Claim 품질 통계 (v7 T3) — 단계별 통과/실패 · 검토 사유 · 추출기별 · (--ref) 비교와 게이트")
+    s.add_argument("dir", help="ClaimSet 폴더 (예: data/claims_llm)")
+    s.add_argument("--ref", help="기준 ClaimSet 폴더 (예: Claude 캐시) — 재현율·방향 일치·테마 누락·인용 겹침")
+    s.add_argument("--report-ids", nargs="*")
+    s.add_argument("--json", help="결과 JSON 경로")
+    s.set_defaults(fn=cmd_claims_stats)
+    s = sp.add_parser("claims-compare", help="두 ClaimSet 폴더 비교 (v7 T3)")
+    s.add_argument("ref", help="기준 폴더")
+    s.add_argument("dir", help="비교 폴더")
+    s.add_argument("--json")
+    s.set_defaults(fn=cmd_claims_compare)
+    s = sp.add_parser("observe", help="관측값 입력 (v7 T4) — 8칸 데이터 계약 · --from-file 로 수집기·에이전트 JSON")
+    s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
+    s.add_argument("node", nargs="?", help="드라이버 노드 (A1.1)")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--metric", help="지표 id (필요 경로의 자와 같아야 비교된다)")
+    s.add_argument("--period", help="월 2026-10 · 분기 26Q4 · 연 2027")
+    s.add_argument("--type", default="abs", choices=["abs", "pct", "cum", "state"])
+    s.add_argument("--basis", default="none", choices=["none", "qoq", "yoy", "vs_consensus"])
+    s.add_argument("--value", help="숫자 또는 상태 문자열")
+    s.add_argument("--as-of", help="관측일 YYYY-MM-DD (기본 오늘)")
+    s.add_argument("--compare-at", help="필요 경로의 비교 시점 (26Q4)")
+    s.add_argument("--source", help="출처")
+    s.add_argument("--verified", default="confirmed", choices=["confirmed", "reported", "forecast"])
+    s.add_argument("--note")
+    s.add_argument("--entered-by", help="user · collector · agent")
+    s.add_argument("--from-file", help="JSON: [{node_id, metric_id, period, value_type, basis, value, as_of, compare_at, source, verification}] 또는 {node_id: [...]}")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_observe)
+    s = sp.add_parser("path", help="성립 조건 (v7 T5·T6) — 가정 표 · 역산 표(한 변수 해 · 두 변수 조합) · 날짜별 필요 경로 → A2.4")
+    s.add_argument("map")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--price", type=float, help="기준 가격 (기본 현재가)")
+    s.add_argument("--pair", help="두 변수 조합의 x 드라이버 (예 A1.2; 기본 핵심 수익 변수) × 적용 PER")
+    s.add_argument("--save", action="store_true")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_path)
+    s = sp.add_parser("catalysts", help="촉매 & 타임라인 (A6.1) — 보기 · --dart 공시확정 촉매 보충 · --outcomes 지난 촉매 D+1/D+5 수익률 (2026-10-30)")
+    s.add_argument("map")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--research-db", help="리서치 DB 경로 (기본: 설정·KSTOCK_RESEARCH_DB·형제 폴더)")
+    s.add_argument("--dart", action="store_true", help="IR 안내·유상증자·주총 공시 본문의 날짜를 A6.1 에 합친다 (DART_API_KEY 필요)")
+    s.add_argument("--outcomes", action="store_true", help="날짜가 지난 촉매의 D+1·D+5 수익률을 리서치 DB 시세로 채운다")
+    s.add_argument("--save", action="store_true")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_catalysts)
+    s = sp.add_parser("dart-events", help="종목의 공시확정 촉매 미리보기 (맵 없이) — 과거 잠정실적 공시일·추정 일정·공시 본문의 날짜")
+    s.add_argument("ticker")
+    s.add_argument("--research-db")
+    s.add_argument("--days", type=int, default=120, help="며칠 전 공시까지 보나 (기본 120)")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_dart_events)
+    s = sp.add_parser("dart-check", help="공시 파서 적중률 점검 — 종목마다 IR·유상증자·주총 공시 본문을 읽어 날짜가 읽히는지 센다 (2026-10-31). 맵을 건드리지 않는다")
+    s.add_argument("tickers", nargs="+", help="종목코드 (여럿)")
+    s.add_argument("--research-db")
+    s.add_argument("--days", type=int, default=365, help="며칠 전 공시까지 보나 (기본 365 — 적중률은 과거 공시로 잰다)")
+    s.add_argument("--cached-only", action="store_true", help="캐시(data/dart) 에 있는 본문만 — 네트워크를 안 탄다")
+    s.add_argument("--all", action="store_true", help="OK 인 건도 한 줄씩 보인다 (기본은 부분·실패만)")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_dart_check)
+    s = sp.add_parser("evidence", help="증거 계획 (v7 T7·T8) — 신호등 · 증거 일정 · 규칙 · 알림; --node 와 --role/--band/--bear/--bull 로 확정")
+    s.add_argument("map")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--node")
+    s.add_argument("--role", choices=["required", "core", "secondary"])
+    s.add_argument("--band", type=float)
+    s.add_argument("--bear", help="Bear 경계 (숫자 또는 상태)")
+    s.add_argument("--bull")
+    s.add_argument("--save", action="store_true")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_evidence)
+    s = sp.add_parser("rule", help="판단 수정 규칙 (v7 T8) — add / list / decide / clear")
+    s.add_argument("action", choices=["add", "list", "decide", "clear"])
+    s.add_argument("map")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--driver", help="add: 드라이버 노드 (A1.1)")
+    s.add_argument("--grade", choices=["shift", "review", "warn"])
+    s.add_argument("--threshold", help="add: 경계값 (숫자 또는 상태)")
+    s.add_argument("--side", default="bear", choices=["bear", "bull"])
+    s.add_argument("--persistence", type=int, default=2)
+    s.add_argument("--pct", type=float, help="shift 의 %%p (기본 10) / decide 때 고친 값")
+    s.add_argument("--event", help="decide: 이벤트 id (ev1)")
+    s.add_argument("--reject", action="store_true")
+    s.add_argument("--note")
+    s.add_argument("--flag", help="clear: 플래그 이름 (기본 review)")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_rule)
+    s = sp.add_parser("alerts", help="알림 텍스트 (v7 T8) — 규칙 이벤트 · 증거 일정 도래 · 관측값 노후 · 🔴/🟡 (전송은 에이전트 몫)")
+    s.add_argument("map")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--days", type=int, default=7)
+    s.add_argument("--json", action="store_true")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_alerts)
+    s = sp.add_parser("batch", help="일괄 실행 (v7 T10) — 리포트 폴더의 종목별 하위 폴더마다 draft(맵 없음) / 변경안(맵 있음) → 요약 한 장")
+    s.add_argument("--reports-dir", required=True)
+    s.add_argument("--maps-dir", default="data/maps")
+    s.add_argument("--db", default=None, help="저장소 (주면 draft 를 저장소에 저장)")
+    s.add_argument("--claims", default="auto", choices=["auto", "llm", "rules", "off", "cached"])
+    s.add_argument("--llm", action="store_true")
+    s.add_argument("--llm-kind", default="auto", choices=["auto", "claude", "local"])
+    s.add_argument("--summary", help="요약 Markdown 경로")
+    s.add_argument("--json", help="요약 JSON 경로")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_batch)
+    s = sp.add_parser("migrate", help="맵 파일을 스키마 2.0 노드 번호(A3 밸류에이션 · A4 시나리오 분리, A5~A9) 로 저장 — 읽을 때는 자동 변환되지만 파일은 이 명령으로 한꺼번에")
+    s.add_argument("maps", nargs="*", help="맵 JSON 경로들 (비우면 --db 저장소의 모든 맵)")
+    s.add_argument("--db", default="data/db/kstock.sqlite")
+    s.add_argument("--render", action="store_true", help="HTML 도 다시 쓴다")
+    s.add_argument("--date")
+    s.set_defaults(fn=cmd_migrate)
+    s = sp.add_parser("export-knowledge", help="지식 내보내기 (v7 T10) — 맵(+Claim·쟁점) → 종목별 Markdown (OpenClaw memory_search 용)")
+    s.add_argument("maps", nargs="+", help="맵 JSON 경로들")
+    s.add_argument("--out", default="knowledge")
+    s.add_argument("--claims-dir")
+    s.set_defaults(fn=cmd_export_knowledge)
     s = sp.add_parser("eval-drivers", help="원인 드라이버 정답표(tests/golden/drivers) 대비 A1 재현·순서·결과 지표 혼입·수치·민감도 (설계 v5)")
     s.add_argument("map", help="맵 JSON 경로 또는 저장소의 맵 id")
     s.add_argument("--db", default="data/db/kstock.sqlite")

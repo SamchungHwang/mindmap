@@ -1,14 +1,14 @@
 """리포트 정보로 만든 **제안값** (설계 v4 §6 / V13) — 사람 몫 노드의 빈 칸 옆에 근거와 함께 보여 주고, 사용자가 「채우기」 로 받아들여야 값이 된다.
 
-초안이 비워 두는 노드 가운데 리포트가 근거를 줄 수 있는 것만 만든다 (확률·Kill·A6.5 판단에는 제안을 만들지 않는다):
+초안이 비워 두는 노드 가운데 리포트가 근거를 줄 수 있는 것만 만든다 (확률·Kill·A7.5 판단에는 제안을 만들지 않는다):
 
     kind                노드 · 필드                       값                                  근거
     consensus_median    A1.x driver.my_estimate.value     컨센서스 (맵의 컨센 값 = 증권사 평균)   V4 셀 집계 (증권사별 값을 label 에)
     issue_minority      A2.2 value                        핵심 이견의 소수 의견 명제 + 인용        V3 쟁점 표 (display=핵심 이견)
-    conditional_claim   A4.1~3 value (비어 있을 때만)       조건부 리스크 Claim 의 조건문 + 인용       V6 kill_candidates
-    price_band          A6.2 value {price_range}          Bear 앵커 ~ 현재가                      A3.6.4 분포 · A0.4
+    conditional_claim   A5.1~3 value (비어 있을 때만)       조건부 리스크 Claim 의 조건문 + 인용       V6 kill_candidates
+    price_band          A7.2 value {price_range}          Bear 앵커 ~ 현재가                      A3.5.4 분포 · A0.4
 
-A2.3(시장이 틀린 이유) 은 열거형(시간축/정보/심리/구조) 이라 제안을 만들지 않는다 — 목표가 리비전 관측은 A3.6.3 에 이미 있다.
+A2.3(시장이 틀린 이유) 은 열거형(시간축/정보/심리/구조) 이라 제안을 만들지 않는다 — 목표가 리비전 관측은 A3.5.3 에 이미 있다.
 
 저장 위치 `meta.draft.suggestions = {node_id: [{field, value, label, basis, kind, report_ids, quote?, accepted_at?, prefilled?}]}`.
 `field` 는 노드 필드 경로 ("value" | "driver.my_estimate.value"); HTML 편집 폼이 입력 칸 이름으로 바꿔 쓴다.
@@ -38,6 +38,15 @@ def _fmt(v: Any, unit: str | None = None) -> str:
     return str(v)
 
 
+def _fmt_amount(v: Any, unit: str | None) -> str:
+    """금액·비율은 공통 포맷터(`kstock.units.fmt_amount`) 로 — 억원 원천이 1조를 넘으면 조원으로 보인다. 그 밖의 단위는 예전 표기."""
+    from ..units import UNIT_TO_EOK, fmt_amount
+
+    if isinstance(v, (int, float)) and ((unit or "") in UNIT_TO_EOK or unit in ("%", "%p", "원", "주")):
+        return fmt_amount(float(v), unit)
+    return _fmt(v, unit)
+
+
 def _sugg(node_id: str, field: str, value: Any, *, label: str, basis: str, kind: str, report_ids: list[str] | None = None,
           quote: str | None = None) -> dict[str, Any]:
     return {"node_id": node_id, "field": field, "value": value, "label": label, "basis": basis, "kind": kind,
@@ -57,7 +66,7 @@ def _consensus(m: NewMap) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     meta_drivers = (m.meta.get("draft") or {}).get("drivers") or {}
     by_broker_rid = _report_ids_by_broker(m)
-    nodes = list(m.drivers()) + ([n for n in m.children("A3.7") if n.driver is not None] if "A3.7" in m else [])   # 원인(A1) + 결과(A3.7)
+    nodes = list(m.drivers()) + ([n for n in m.children("A3.1") if n.driver is not None] if "A3.1" in m else [])   # 원인(A1) + 결과(A3.1)
     for n in nodes:
         d = n.driver
         if d is None or d.my_estimate.value is not None or d.consensus.value is None:
@@ -65,8 +74,11 @@ def _consensus(m: NewMap) -> list[dict[str, Any]]:
         info = meta_drivers.get(n.id) or {}
         by_broker: dict[str, float] = info.get("by_broker") or {}
         unit = n.unit or ""
-        parts = [f"{b} {_fmt(v, unit)}" for b, v in by_broker.items()]
-        label = f"컨센 {_fmt(d.consensus.value, unit)}" + (f" ({' · '.join(parts)})" if parts else "")
+        # 증권사별 값의 단위는 meta 가 말해 준다 (`by_broker_unit`). 없는 옛 맵: 노드가 조원인데 값이 1,000 을 넘으면 억원 원천이다
+        # (2026-10-31 실측 「하나증권 77,599조원」 — 억원 값에 노드 단위를 붙였다. 1,000조원 넘는 한국 기업 수치는 없다)
+        bunit = info.get("by_broker_unit") or ("억원" if unit == "조원" and any(abs(v) >= 1000 for v in by_broker.values()) else unit)
+        parts = [f"{b} {_fmt_amount(v, bunit)}" for b, v in by_broker.items()]
+        label = f"컨센 {_fmt_amount(d.consensus.value, unit)}" + (f" ({' · '.join(parts)})" if parts else "")
         out.append(_sugg(n.id, "driver.my_estimate.value", d.consensus.value, label=label, basis=d.consensus.rationale or "컨센서스",
                          kind="consensus_median", report_ids=[by_broker_rid[b] for b in by_broker if b in by_broker_rid]))
     return out
@@ -107,7 +119,7 @@ def _issue_minority(m: NewMap, issue_set: Any, claimsets: list[Any]) -> list[dic
 def _conditional(m: NewMap) -> list[dict[str, Any]]:
     cands = (m.meta.get("draft") or {}).get("kill_candidates") or []
     out: list[dict[str, Any]] = []
-    slots = [nid for nid in ("A4.1", "A4.2", "A4.3") if nid in m and m[nid].value in (None, "")]
+    slots = [nid for nid in ("A5.1", "A5.2", "A5.3") if nid in m and m[nid].value in (None, "")]
     for nid, c in zip(slots, cands, strict=False):
         cond = c.get("condition") or ""
         if not cond:
@@ -119,7 +131,7 @@ def _conditional(m: NewMap) -> list[dict[str, Any]]:
 
 
 def _price_band(m: NewMap, anchors: dict[str, float] | None) -> list[dict[str, Any]]:
-    if "A6.2" not in m or m["A6.2"].value not in (None, ""):
+    if "A7.2" not in m or m["A7.2"].value not in (None, ""):
         return []
     p0 = m.current_price
     if not p0:
@@ -135,7 +147,7 @@ def _price_band(m: NewMap, anchors: dict[str, float] | None) -> list[dict[str, A
         lo, basis = round(p0 * 0.9), "현재가 −10% (현재가 아래 앵커 없음)"
     lo = round(lo, -2) if lo >= 10000 else round(lo)
     value = {"price_range": f"{lo:,.0f}~{p0:,.0f}", "tranches": None}
-    return [_sugg("A6.2", "value", value, label=f"{lo:,.0f}~{p0:,.0f}원 ({basis} ~ 현재가) · 분할 횟수는 직접", basis=f"{basis} · A0.4 현재가 {p0:,.0f}",
+    return [_sugg("A7.2", "value", value, label=f"{lo:,.0f}~{p0:,.0f}원 ({basis} ~ 현재가) · 분할 횟수는 직접", basis=f"{basis} · A0.4 현재가 {p0:,.0f}",
                   kind="price_band")]
 
 

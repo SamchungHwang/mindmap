@@ -52,7 +52,7 @@ INSTRUCTIONS: dict[str, str] = {
     "scenarios": "Bear/Base/Bull 의 가정·확률·목표가를 쓴다. 앵커는 컨센서스 분포에서 나왔다.",
     "risks": "하락 리스크 3개와 사실 기준 무효화 조건(Kill), 조기 경보 지표를 쓴다. 가격이 아니라 사실(드라이버 값) 기준이어야 한다.",
     "catalysts": "날짜가 박힌 촉매 이벤트를 쓴다. 자료에 날짜가 있는 것, 그리고 통상 실적 일정(추정은 estimated=true).",
-    "evidence": "근거 자료 A8.1 (기업) 을 자료에서 요약한다.",
+    "evidence": "근거 자료 A9.1 (기업) 을 자료에서 요약한다.",
 }
 
 
@@ -66,7 +66,7 @@ def map_state(m: NewMap) -> str:
         lines.append(f"- {n.id} {n.label} [{n.unit or ''}]: 현재 {d.current.value} ({d.current.rationale or ''}) / 컨센 {d.consensus.value} / 내 추정 {d.my_estimate.value}")
     for nm, sc in m.scenarios().items():
         lines.append(f"- {nm}: p={sc.probability} TP={sc.target_price:,.0f} · {'; '.join(sc.assumptions[:3])}")
-    for nid in ("A2.1", "A2.2", "A4.1", "A4.2", "A4.3", "A8.1.4"):
+    for nid in ("A2.1", "A2.2", "A5.1", "A5.2", "A5.3", "A9.1.4"):
         v = m.value(nid)
         if v:
             lines.append(f"- {nid} {m[nid].label}: {v if not isinstance(v, dict) else v.get('text')}")

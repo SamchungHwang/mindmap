@@ -42,6 +42,20 @@ class DbReport:
     earnings_date: date | None = None   # (있으면) 해당 종목의 최신 실적 공시일
 
 
+@dataclass(frozen=True)
+class DbDisclosure:
+    """disclosures 표의 한 행 — 이름과 접수번호만 있다. 본문 일정은 OpenDART 로 받는다."""
+
+    rcept_dt: date
+    report_nm: str
+    rcept_no: str | None = None
+    corp_code: str | None = None
+
+    @property
+    def url(self) -> str:
+        return f"https://dart.fss.or.kr/dsaf001/main.do?rcpNo={self.rcept_no}" if self.rcept_no else ""
+
+
 @dataclass
 class PriceFacts:
     as_of: date
@@ -190,6 +204,132 @@ class ResearchDb:
                     return dd
         return None
 
+    # ------------------------------------------------------------------ 공시 (2026-10-30 A6 보강)
+    def _disclosure_cols(self, conn: sqlite3.Connection) -> tuple[str, str, str, str | None, str | None] | None:
+        cols = self._columns(conn, "disclosures")
+        if not cols:
+            return None
+        dcol = next((c for c in ("rcept_dt", "disclosed_at", "date", "posted_date", "disclosure_date") if c in cols), None)
+        tcol = next((c for c in ("report_nm", "title", "subject", "name") if c in cols), None)
+        ccol = next((c for c in ("stock_code", "code", "ticker") if c in cols), None)
+        if not (dcol and tcol and ccol):
+            return None
+        return dcol, tcol, ccol, "rcept_no" if "rcept_no" in cols else None, "corp_code" if "corp_code" in cols else None
+
+    def earnings_dates(self, code: str, *, as_of: date | None = None, limit: int = 12) -> list[date]:
+        """그 회사가 **잠정실적을 공시한 날** 들 (오래된 것 → 최근). 자회사·종속회사 건은 뺀다 — 그 회사 일정이 아니다.
+
+        다음 발표일 추정의 재료다 (`generate.catalysts.earnings_calendar`). 표/열이 없으면 빈 목록."""
+        conn = self._conn()
+        try:
+            cols = self._disclosure_cols(conn)
+            if cols is None:
+                return []
+            dcol, tcol, ccol, _, _ = cols
+            rows = conn.execute(f"SELECT {dcol}, {tcol} FROM disclosures WHERE {ccol} = ? ORDER BY {dcol} DESC LIMIT 400", (code,)).fetchall()
+        except sqlite3.Error:
+            return []
+        finally:
+            conn.close()
+        out: set[date] = set()
+        for d, t in rows:
+            t = str(t or "")
+            if "잠정" not in t or "실적" not in t or any(k in t for k in ("자회사", "종속회사", "유보")):
+                continue
+            try:
+                dd = date.fromisoformat(str(d)[:10])
+            except ValueError:
+                continue
+            if as_of is None or dd <= as_of:
+                out.add(dd)
+        return sorted(out)[-limit:]
+
+    def disclosures(self, code: str, *, since: date, until: date | None = None) -> list[DbDisclosure]:
+        """기간 안의 공시 목록 (이름·접수번호·날짜). 본문은 없다 — 그것은 OpenDART 가 준다."""
+        conn = self._conn()
+        try:
+            cols = self._disclosure_cols(conn)
+            if cols is None:
+                return []
+            dcol, tcol, ccol, ncol, kcol = cols
+            sel = [dcol, tcol] + ([ncol] if ncol else []) + ([kcol] if kcol else [])
+            sql = f"SELECT {', '.join(sel)} FROM disclosures WHERE {ccol} = ? AND {dcol} >= ?"
+            params: list = [code, since.isoformat()]
+            if until is not None:
+                sql += f" AND {dcol} <= ?"
+                params.append(until.isoformat())
+            rows = conn.execute(sql + f" ORDER BY {dcol}", params).fetchall()
+        except sqlite3.Error:
+            return []
+        finally:
+            conn.close()
+        out: list[DbDisclosure] = []
+        for row in rows:
+            try:
+                dd = date.fromisoformat(str(row[0])[:10])
+            except ValueError:
+                continue
+            rc = str(row[2]) if ncol and row[2] else None
+            kc = str(row[-1]) if kcol and row[-1] else None
+            out.append(DbDisclosure(rcept_dt=dd, report_nm=str(row[1] or ""), rcept_no=rc, corp_code=kc))
+        return out
+
+    def corp_code(self, code: str) -> str | None:
+        """종목코드 → DART 고유번호. disclosures 표에 그 종목 공시가 하나라도 있으면 거기서 읽는다 (corpCode.xml 안 받아도 된다)."""
+        conn = self._conn()
+        try:
+            cols = self._disclosure_cols(conn)
+            if cols is None or cols[4] is None:
+                return None
+            _, _, ccol, _, kcol = cols
+            row = conn.execute(f"SELECT {kcol} FROM disclosures WHERE {ccol} = ? AND {kcol} IS NOT NULL LIMIT 1", (code,)).fetchone()
+        except sqlite3.Error:
+            return None
+        finally:
+            conn.close()
+        return str(row[0]) if row and row[0] else None
+
+    # ------------------------------------------------------------------ 사건 뒤 수익률 (2026-10-30 A6 보강)
+    def reaction(self, code: str, day: date, *, horizons: tuple[int, ...] = (1, 5)) -> dict[str, float | None] | None:
+        """사건일 D 의 전 거래일 종가(D-1) 대비 D+1·D+5 종가 수익률과, 같은 시장 종목 평균 대비.
+
+        D 가 휴장일이면 그다음 거래일을 D 로 본다. 자료가 D+h 까지 없으면 그 값은 None (아직이다, 0 이 아니다).
+        지수 자료가 없어 **같은 시장(KOSPI/KOSDAQ) 전 종목의 평균 수익률**을 시장으로 쓴다 — 동일가중이라
+        지수와 다를 수 있다. 결과 키: d0 · close_prev · r1 · r5 · mkt5 · vs_market_d5."""
+        conn = self._conn()
+        try:
+            rows = conn.execute("SELECT trade_date, close, market FROM prices WHERE stock_code = ? AND close IS NOT NULL "
+                                "ORDER BY trade_date", (code,)).fetchall()
+            days = [(date.fromisoformat(str(r[0])[:10]), float(r[1]), r[2]) for r in rows]
+            if not days:
+                return None
+            i0 = next((i for i, (d, _, _) in enumerate(days) if d >= day), None)
+            if i0 is None or i0 == 0:
+                return None
+            prev = days[i0 - 1]
+            out: dict[str, float | None] = {"d0": days[i0][0].isoformat(), "close_prev": prev[1], "measured_from": prev[0]}
+            need = max(horizons)
+            for h in horizons:
+                out[f"r{h}"] = (days[i0 + h][1] / prev[1] - 1) if i0 + h < len(days) and prev[1] else None
+            market = days[i0][2]
+            mkt_key = f"mkt{need}"
+            out[mkt_key] = None
+            out[f"vs_market_d{need}"] = None
+            if i0 + need < len(days) and market:
+                d_prev, d_end = prev[0].isoformat(), days[i0 + need][0].isoformat()
+                row = conn.execute(
+                    "SELECT AVG(b.close / a.close - 1) FROM prices a JOIN prices b ON b.stock_code = a.stock_code AND b.trade_date = ? "
+                    "WHERE a.trade_date = ? AND a.market = ? AND a.close > 0 AND b.close > 0", (d_end, d_prev, market)).fetchone()
+                if row and row[0] is not None:
+                    out[mkt_key] = float(row[0])
+                    r_need = out.get(f"r{need}")
+                    out[f"vs_market_d{need}"] = (r_need - float(row[0])) if r_need is not None else None
+            return out
+        except sqlite3.Error:
+            return None
+        finally:
+            conn.close()
+
     def recent_titles(self, code: str, *, days: int = 90, as_of: date | None = None, limit: int = 20) -> list[tuple[date, str | None, str]]:
         as_of = as_of or date.today()
         since = (as_of - timedelta(days=days)).isoformat()
@@ -202,4 +342,4 @@ class ResearchDb:
         return [(date.fromisoformat(str(p)[:10]), b, t) for p, b, t in rows]
 
 
-__all__ = ["ResearchDb", "DbTarget", "PriceFacts"]
+__all__ = ["ResearchDb", "DbTarget", "PriceFacts", "DbDisclosure", "DbReport"]

@@ -72,7 +72,7 @@ class TestRender(unittest.TestCase):
         ids = [c["id"] for c in tree["children"]]
         self.assertEqual(ids[0], "A0.*")          # 기본 정보 묶음
         self.assertIn("A1", ids)
-        self.assertTrue(next(c for c in tree["children"] if c["id"] == "A8")["fold"])
+        self.assertTrue(next(c for c in tree["children"] if c["id"] == "A9")["fold"])
         self.assertIn("<b>", tree["children"][0]["children"][0]["html"] + "<b>")  # 마크다운 → HTML 변환 경로
         for lay in ("radial", "right"):
             self.assertIn(f'"layout": "{lay}"', to_html(a, layout=lay))
@@ -136,13 +136,13 @@ class TestLLM(unittest.TestCase):
     def test_mock_fill(self):
         m = new_map_skeleton("000000", "X", "growth", D0)
         filler = MockFiller({"A2.1": {"value": "PER 15배 가정", "confidence": "M", "source": {"name": "리포트"}},
-                             "A3.6.3": "up", "A0.4": {"value": "58,000", "source": {"name": "KRX"}}})
-        results = fill_map(m, filler, node_ids=["A2.1", "A3.6.3", "A0.4", "A3.6.2"])
+                             "A3.5.3": "up", "A0.4": {"value": "58,000", "source": {"name": "KRX"}}})
+        results = fill_map(m, filler, node_ids=["A2.1", "A3.5.3", "A0.4", "A3.5.2"])
         self.assertEqual(m.value("A2.1"), "PER 15배 가정")
-        self.assertEqual(m.value("A3.6.3"), "up")
+        self.assertEqual(m.value("A3.5.3"), "up")
         self.assertEqual(m.value("A0.4"), 58000.0)
         self.assertEqual(m["A0.4"].status.value, "confirmed")
-        self.assertIn("needs_data", m["A3.6.2"].tags)
+        self.assertIn("needs_data", m["A3.5.2"].tags)
         self.assertEqual(len(results), 4)
 
     def test_default_targets_skip_sub_schema_and_meta(self):

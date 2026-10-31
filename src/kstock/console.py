@@ -529,7 +529,7 @@ class Console:
         self._inline(row, "시장이 틀린 이유", "why", "combo", WHY_WRONG, 8)
         r += 1
 
-        r = self._section(f, r, "A3 시나리오 — 확률 합 1.0, 목표가 Bear < Base < Bull")
+        r = self._section(f, r, "A4 시나리오 — 확률 합 1.0, 목표가 Bear < Base < Bull")
         for c, h in enumerate(("", "확률(0~1)", "목표가(원)", "핵심 가정 (쉼표)", "기간(월)", "밸류 방법")):
             ttk.Label(f, text=h, foreground=COLORS["muted"]).grid(row=r, column=c, sticky="w", padx=2)
         r += 1
@@ -549,7 +549,7 @@ class Console:
         self._inline(row, "EPS 리비전", "revision", "combo", REVISIONS, 6)
         r += 1
 
-        r = self._section(f, r, "A4 리스크 & 무효화 조건 — 어떤 '사실'이 확인되면 손실 크기와 무관하게 논제를 버리나")
+        r = self._section(f, r, "A5 리스크 & 무효화 조건 — 어떤 '사실'이 확인되면 손실 크기와 무관하게 논제를 버리나")
         for c, h in enumerate(("하락 리스크", "확률(0~1)", "영향 %")):
             ttk.Label(f, text=h, foreground=COLORS["muted"]).grid(row=r, column=c, sticky="w", padx=2)
         r += 1
@@ -576,7 +576,7 @@ class Console:
         r = self._field(f, r, "조건 설명", "kill_note", width=50)
         r = self._field(f, r, "조기 경보 지표", "early_warning", width=50)
 
-        r = self._section(f, r, "A6 실행 계획")
+        r = self._section(f, r, "A7 실행 계획")
         row = ttk.Frame(f)
         row.grid(row=r, column=0, columnspan=6, sticky="w", pady=2)
         self.a_vars["w_suggested"] = tk.StringVar()
@@ -1034,16 +1034,29 @@ class Console:
             note += "\n" + "\n".join(pk["rows"][:8]) + ("\n…" if len(pk["rows"]) > 8 else "")
         if pk["warnings"]:
             note += "\n! " + "\n! ".join(pk["warnings"][:4])
+        # 표에서 고른 종목이 있으면 그 값으로 미리 채운다 — 리포트 본문에서 코드를 못 읽는 일(스캔 PDF · 표지 양식) 이 잦다.
+        # 본문 코드가 있고 고른 종목과 다르면 리포트 쪽을 믿되 알려 준다 (다른 종목 리포트를 잘못 고른 경우).
+        ticker0, name0, inv0 = pk["ticker"], pk["name"], pk["invest_type"]
+        w = self.store.get_watch(self.selected) if self.selected else None
+        if w is not None:
+            if not ticker0:
+                ticker0, name0 = w.ticker, w.name or name0
+                inv0 = w.invest_type or inv0
+                note += f"\n종목: 표에서 고른 {w.ticker} {w.name or ''} 로 채움 (리포트 본문에서 코드를 못 읽음)"
+            elif ticker0 != w.ticker:
+                note += f"\n! 리포트 본문의 종목 {ticker0} {name0} 이 표에서 고른 {w.ticker} {w.name or ''} 과 다릅니다 — 확인하세요"
+            elif not name0:
+                name0, inv0 = w.name or name0, w.invest_type or inv0
         MODE_REPLACE = "새로 만들기 — 기존 A 맵 초안과 이 리포트들의 Claim 저장본을 보관 폴더로 옮기고 전부 다시 (기본)"
         MODE_INCR = "기존에 더하기 — 기존 A 맵은 그대로 두고 새 리포트는 변경안으로 (Claim 저장본 재사용)"
         dlg = FormDialog(self.root, "리포트로 A 맵 자동 생성 (초안)", [
-            ("ticker", "종목코드", "entry", pk["ticker"], None),
-            ("name", "종목명", "entry", pk["name"], None),
-            ("invest_type", "투자유형", "combo", pk["invest_type"], INVEST_TYPES),
+            ("ticker", "종목코드", "entry", ticker0, None),
+            ("name", "종목명", "entry", name0, None),
+            ("invest_type", "투자유형", "combo", inv0, INVEST_TYPES),
             ("mode", "생성 방식", "combo", MODE_REPLACE, [MODE_REPLACE, MODE_INCR]),
             ("fetch_price", "현재가를 작성 시점 기준으로 조회 (네이버 금융) — 끄면 리서치 DB 종가·리포트 현재주가", "check", True, None),
             ("use_llm", "LLM — Claim 추출·3단 검증·쟁점 기준 명제 판정 (.env 의 ANTHROPIC_API_KEY)", "check", llm_ok, None),
-            ("prefill_suggestions", "제안값 미리 채우기 — 내 추정=컨센 등을 값 칸에 넣음 (suggested 태그·pending 유지; 기본은 HTML 편집 폼의 「채우기」)", "check", False, None),
+            ("prefill_suggestions", "제안값 미리 채우기 — 내 추정=컨센 등을 값 칸에 넣음 (suggested 태그·pending 유지; 끄면 HTML 편집 폼의 「채우기」 로만)", "check", True, None),
             ("open_html", "끝나면 마인드맵 HTML 열기", "check", True, None),
         ], note=note)
         f = dlg.result
@@ -1129,7 +1142,7 @@ class Console:
         m = self._need("A")
         labels = self.ops.kill_candidate_labels(m)
         if not labels:
-            raise OpsError("Kill 후보가 없습니다 — 리포트에 조건부 리스크 Claim 이 없으면 A4.4.x 를 직접 적습니다")
+            raise OpsError("Kill 후보가 없습니다 — 리포트에 조건부 리스크 Claim 이 없으면 A5.4.x 를 직접 적습니다")
         fields = [("h", "자동으로는 후보까지만 만듭니다. '수익성 개선 지연' 은 '논제 붕괴' 가 아니니, 관측 지표·갱신 주기·위반 시 행동을 채운 것만 Rule 이 됩니다.", "heading", None, None),
                   ("cand", "후보", "combo", labels[0], labels),
                   ("observable", "관측 지표 (어디서 무엇을 보나)", "entry", "", None),
@@ -1202,7 +1215,7 @@ class Console:
 
     def a_source(self) -> None:
         m = self._need("A")
-        dlg = FormDialog(self.root, "노드 출처", [("nid", "노드 id (예: A2.1.1, A4.1, A8.4.1)", "entry", "A2.1.1", None)])
+        dlg = FormDialog(self.root, "노드 출처", [("nid", "노드 id (예: A2.1.1, A5.1, A9.4.1)", "entry", "A2.1.1", None)])
         if dlg.result is None:
             return
         nid = (dlg.result.get("nid") or "").strip()
@@ -1374,7 +1387,7 @@ class Console:
             ("quantity", "수량 (주)", "entry", "", None),
             ("w_target", "목표 비중 %", "entry", f["w_confirmed"], None),
             ("eps_fwd", "매수 시점 12M fwd EPS (주가 분해용, 선택)", "entry", "", None),
-        ], note="A0·A1·A3·A4.4 가 B1 에 스냅숏으로 고정됩니다 (불변). 비중 밴드 상한 규칙이 B7 에 자동으로 생깁니다.")
+        ], note="A0·A1·A4·A5.4 가 B1 에 스냅숏으로 고정됩니다 (불변). 비중 밴드 상한 규칙이 B7 에 자동으로 생깁니다.")
         if dlg.result is None:
             return
         b = self.ops.snapshot(m, dlg.result)

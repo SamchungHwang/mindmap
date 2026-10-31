@@ -1,11 +1,11 @@
-"""A3.10 확률가중 투자 매력도 · A3.11 모델 신뢰도 (설계 v6 §4.1·§4.4) 와 밸류 묶음 오케스트레이션.
+"""A4.7 확률가중 투자 매력도 · A3.4 모델 신뢰도 (설계 v6 §4.1·§4.4) 와 밸류 묶음 오케스트레이션.
 
     V         = Σ p_i · TP_i                       (확률은 사람 — 없으면 미계산)
     ER_price  = V / P0 − 1
     ER_total  = ER_price + DPS_E / P0              (사용자 결정 ⑤: 둘 다 표시 — 배당은 가격에 넣지 않고 수익률에만)
     downside  = TP_bear / P0 − 1
     MoS       = 1 − P0 / V  (그리고 1 − P0 / TP_base)
-    RR        = (TP_base − P0) / (P0 − TP_bear)    (기존 calc.risk_reward 그대로 — A3.5)
+    RR        = (TP_base − P0) / (P0 − TP_bear)    (기존 calc.risk_reward 그대로 — A4.6)
 
 신뢰도는 규칙 기반 H/M/L: 입력 커버리지 · 증권사 수 · EPS 기준 혼합 · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력 · 1곳 셀.
 """
@@ -19,12 +19,12 @@ from ..models import MindMap, NewMap
 from .valuation import Criteria, ensure_valuation_nodes, segment_values, write_valuation, year_cell
 
 
-# --------------------------------------------------------------------------- A3.10
+# --------------------------------------------------------------------------- A4.7
 def dps_estimate(m: MindMap, crit: Criteria | None = None) -> tuple[float | None, str, str | None]:
     """(DPS_E, 출처, 메모) — 사용자 > 표 중앙값(연도 = 모델 연도). 증권사 간 흩어짐이 크면 메모."""
     crit = crit or Criteria.from_map(m)
     if crit.dps is not None:
-        return crit.dps, "criteria", "A3.8 평가 기준"
+        return crit.dps, "criteria", "A3.2 평가 기준"
     fin = (m.meta.get("draft") or {}).get("financials") or {}
     year = crit.eps_year or fin.get("year")
     c = year_cell(fin, year, "dps")
@@ -41,7 +41,7 @@ def dps_estimate(m: MindMap, crit: Criteria | None = None) -> tuple[float | None
 
 
 def compute_attractiveness(m: MindMap, *, today: date | None = None) -> dict[str, Any]:
-    """A3.10 값(dict) 을 만들고 노드와 meta.draft.attractiveness 에 쓴다."""
+    """A4.7 값(dict) 을 만들고 노드와 meta.draft.attractiveness 에 쓴다."""
     today = today or date.today()
     out: dict[str, Any] = {"status": "미계산", "missing": [], "warnings": []}
     if not isinstance(m, NewMap):
@@ -91,8 +91,8 @@ def compute_attractiveness(m: MindMap, *, today: date | None = None) -> dict[str
         out["warnings"].append("DPS 전망이 없어 배당 포함 기대수익률은 비움")
     out["computed_at"] = today.isoformat()
     m.meta.setdefault("draft", {})["attractiveness"] = out
-    if "A3.10" in m:
-        n = m["A3.10"]
+    if "A4.7" in m:
+        n = m["A4.7"]
         n.value = attractiveness_line(out)
         n.as_of = today
     return out
@@ -119,7 +119,7 @@ def attractiveness_line(a: dict[str, Any] | None) -> str:
     return " · ".join(parts)
 
 
-# --------------------------------------------------------------------------- A3.11
+# --------------------------------------------------------------------------- A3.4
 def compute_confidence(m: MindMap, *, today: date | None = None) -> dict[str, Any]:
     """규칙 기반 신뢰도 H/M/L + 경고 목록. 평가 모델·시나리오·매력도가 먼저 계산돼 있어야 한다."""
     today = today or date.today()
@@ -246,8 +246,8 @@ def compute_confidence(m: MindMap, *, today: date | None = None) -> dict[str, An
     draft_meta = m.meta.setdefault("draft", {})
     draft_meta["confidence"] = out
     log = draft_meta.get("valuation_log") or []
-    if "A3.11" in m:
-        n = m["A3.11"]
+    if "A3.4" in m:
+        n = m["A3.4"]
         n.value = confidence_line(out, len(log))
         n.as_of = today
     return out
@@ -273,12 +273,15 @@ def compute_valuation_all(m: MindMap, *, today: date | None = None) -> list[str]
     ensure_valuation_nodes(m)
     notes += compute_scenarios(m, today=today)
     vm = write_valuation(m, today=today)
-    notes.append("평가 모델: " + (m["A3.9"].value if "A3.9" in m and isinstance(m["A3.9"].value, str) else vm.status))
+    notes.append("평가 모델: " + (m["A3.3"].value if "A3.3" in m and isinstance(m["A3.3"].value, str) else vm.status))
     att = compute_attractiveness(m, today=today)
     if att.get("status") == "계산됨":
         notes.append("매력도: " + attractiveness_line(att))
     conf = compute_confidence(m, today=today)
     notes.append("신뢰도: " + confidence_line(conf))
+    from .scenario_model import write_scenario_overview
+
+    write_scenario_overview(m, today=today)          # A4.1 시나리오 한눈에 — 세 갈래 요약 (매력도까지 계산된 뒤)
     return notes
 
 

@@ -1,0 +1,1333 @@
+{
+  "kind": "HOLD",
+  "map_id": "B:000000:2026-10-19",
+  "ticker": "000000",
+  "name": "가온로보틱스",
+  "profile": "growth",
+  "created_at": "2026-10-19",
+  "updated_at": "2027-01-15",
+  "schema_version": "1.0",
+  "nodes": {
+    "B0": {
+      "id": "B0",
+      "map": "HOLD",
+      "label": "가온로보틱스 보유",
+      "question": "",
+      "node_type": "computed",
+      "value": "YELLOW",
+      "value_type": "enum",
+      "enum_options": [
+        "GREEN",
+        "YELLOW",
+        "RED"
+      ],
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "status.compute_light",
+      "meta_only": false
+    },
+    "B0.1": {
+      "id": "B0.1",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "오늘 현금으로 새로 사겠는가?",
+      "question": "오늘 현금이 있다면 이 가격·이 비중에 이 종목을 새로 사겠는가?",
+      "node_type": "judgment",
+      "value": true,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B0.2": {
+      "id": "B0.2",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "보유 이유 (아니오일 때)",
+      "question": "새로 사지 않을 종목을 왜 들고 있나? 정당한 이유는 세금·유동성·촉매 임박뿐",
+      "node_type": "judgment",
+      "value_type": "enum",
+      "enum_options": [
+        "세금",
+        "유동성",
+        "촉매 임박",
+        "없음"
+      ],
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B0.3": {
+      "id": "B0.3",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "현재 비중",
+      "question": "C1.1 에서 내려받음",
+      "node_type": "fact",
+      "value": 0.072,
+      "value_type": "percent",
+      "unit": "%",
+      "source": {
+        "name": "positions",
+        "url": "",
+        "retrieved_at": "2027-01-15"
+      },
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B0.4": {
+      "id": "B0.4",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "목표 비중",
+      "question": "A7.1 스냅숏, 리밸런싱 시 갱신",
+      "node_type": "judgment",
+      "value": 0.05,
+      "value_type": "percent",
+      "unit": "%",
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B0.5": {
+      "id": "B0.5",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "평가손익 (메타데이터)",
+      "question": "판단 입력 금지 — 세금·복기용",
+      "node_type": "fact",
+      "value": 0.3103,
+      "value_type": "percent",
+      "unit": "%",
+      "source": {
+        "name": "market",
+        "url": "",
+        "retrieved_at": "2027-01-15"
+      },
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": true
+    },
+    "B1": {
+      "id": "B1",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "매수 당시 논제 복원",
+      "question": "A 맵 스냅숏 또는 재구성 (불변)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.1": {
+      "id": "B1.1",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "원래 논제",
+      "question": "A0 스냅숏",
+      "node_type": "fact",
+      "value": "가온로보틱스는 휴머노이드 액추에이터 양산 전환으로 12개월 내 OPM 8%→13%, 주가 85,000원. 시장은 아직 2027년 수주잔고 전환율을 반영하지 않음",
+      "value_type": "text",
+      "source": {
+        "name": "A map A:000000:2026-10-19",
+        "url": "",
+        "retrieved_at": "2026-10-19"
+      },
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.2": {
+      "id": "B1.2",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "당시 드라이버 값",
+      "question": "A1.x current → at_entry",
+      "node_type": "fact",
+      "value": {
+        "A1.1": {
+          "label": "영업이익률",
+          "at_entry": 8.1,
+          "my_estimate": 13.0
+        },
+        "A1.2": {
+          "label": "수주잔고",
+          "at_entry": 4200.0,
+          "my_estimate": 6000.0
+        },
+        "A1.3": {
+          "label": "양산 라인 가동률",
+          "at_entry": 55.0,
+          "my_estimate": 80.0
+        }
+      },
+      "value_type": "range",
+      "source": {
+        "name": "A1 snapshot",
+        "url": "",
+        "retrieved_at": "2026-10-19"
+      },
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.3": {
+      "id": "B1.3",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "당시 목표가/기간",
+      "question": "A4 스냅숏",
+      "node_type": "fact",
+      "value": {
+        "Bear": {
+          "probability": 0.25,
+          "target_price": 48000.0,
+          "horizon_months": 12
+        },
+        "Base": {
+          "probability": 0.5,
+          "target_price": 85000.0,
+          "horizon_months": 12
+        },
+        "Bull": {
+          "probability": 0.25,
+          "target_price": 120000.0,
+          "horizon_months": 12
+        }
+      },
+      "value_type": "range",
+      "source": {
+        "name": "A4 snapshot",
+        "url": "",
+        "retrieved_at": "2026-10-19"
+      },
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.4": {
+      "id": "B1.4",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "당시 무효화 조건",
+      "question": "A5.4 스냅숏",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.5": {
+      "id": "B1.5",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "복원 품질",
+      "question": "기록=A 맵 존재, 재구성=위자드로 사후 작성, 불가=논제 없음",
+      "node_type": "judgment",
+      "value": "기록",
+      "value_type": "enum",
+      "enum_options": [
+        "기록",
+        "재구성",
+        "불가"
+      ],
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B1.6": {
+      "id": "B1.6",
+      "map": "HOLD",
+      "parent": "B1",
+      "label": "섹터·매크로 링크",
+      "question": "A9.2 / A9.3 링크 복사 — C2 집계의 키",
+      "node_type": "link",
+      "value": [
+        "S.KR-ROBOT",
+        "M0"
+      ],
+      "value_type": "ref",
+      "as_of": "2026-10-19",
+      "status": "unverified",
+      "links": [
+        "S.KR-ROBOT",
+        "M0"
+      ],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B2": {
+      "id": "B2",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "그 이후 무엇이 바뀌었나",
+      "question": "변화량이 본체",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B2.1": {
+      "id": "B2.1",
+      "map": "HOLD",
+      "parent": "B2",
+      "label": "드라이버 (at_entry → now)",
+      "question": "at_entry 대비 now 가 내 추정에 가까워졌나 멀어졌나",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B2.2": {
+      "id": "B2.2",
+      "map": "HOLD",
+      "parent": "B2",
+      "label": "주가 변화 분해",
+      "question": "",
+      "node_type": "computed",
+      "value": {
+        "r_total": 0.3103,
+        "d_metric": 0.06,
+        "d_multiple": 0.2362,
+        "metric": "eps",
+        "interpretation": "기대감 주도 상승 — 멀티플 확장이 대부분 (고평가 경계)",
+        "consistent": true
+      },
+      "value_type": "range",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "(1+dEPS)(1+dPE)-1 = r_total",
+      "meta_only": false
+    },
+    "B2.3": {
+      "id": "B2.3",
+      "map": "HOLD",
+      "parent": "B2",
+      "label": "논제 상태",
+      "question": "강화/유효/약화/무효/변질. 변질 = 처음과 다른 이유로 들고 있음",
+      "node_type": "judgment",
+      "value": "유효",
+      "value_type": "enum",
+      "enum_options": [
+        "강화",
+        "유효",
+        "약화",
+        "무효",
+        "변질"
+      ],
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B2.4": {
+      "id": "B2.4",
+      "map": "HOLD",
+      "parent": "B2",
+      "label": "사실 로그",
+      "question": "수집기가 자동 적재 (Event[])",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3": {
+      "id": "B3",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "앞으로의 기대수익",
+      "question": "과거 손익과 무관하게",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3.1": {
+      "id": "B3.1",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "Bear",
+      "question": "재추정",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-19",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bear",
+        "assumptions": [
+          "OPM 9% 정체"
+        ],
+        "probability": 0.25,
+        "target_price": 62000.0,
+        "horizon_months": 12,
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "B3.2": {
+      "id": "B3.2",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "Base",
+      "question": "재추정",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-19",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Base",
+        "assumptions": [
+          "OPM 13%"
+        ],
+        "probability": 0.5,
+        "target_price": 85000.0,
+        "horizon_months": 12,
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "B3.3": {
+      "id": "B3.3",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "Bull",
+      "question": "재추정",
+      "node_type": "estimate",
+      "value_type": "price",
+      "as_of": "2026-10-19",
+      "status": "estimated",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "scenario": {
+        "name": "Bull",
+        "assumptions": [
+          "해외 고객"
+        ],
+        "probability": 0.25,
+        "target_price": 110000.0,
+        "horizon_months": 12,
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
+      }
+    },
+    "B3.4": {
+      "id": "B3.4",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "기대수익률",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.125,
+      "value_type": "percent",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "sum(p_i * (TP_i / P - 1))",
+      "meta_only": false
+    },
+    "B3.5": {
+      "id": "B3.5",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "손익비",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.64,
+      "value_type": "number",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "((TP_base - P) / P) / ((P - TP_bear) / P)",
+      "meta_only": false
+    },
+    "B3.6": {
+      "id": "B3.6",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "밸류 상태",
+      "question": "",
+      "node_type": "computed",
+      "value": "고평가",
+      "value_type": "enum",
+      "enum_options": [
+        "저평가",
+        "적정",
+        "고평가"
+      ],
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "band_percentile < low → 저평가; > high → 고평가",
+      "meta_only": false
+    },
+    "B3.7": {
+      "id": "B3.7",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "대안 비교",
+      "question": "현금 · 관심종목 1순위 · 섹터 대체 종목",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3.7.1": {
+      "id": "B3.7.1",
+      "map": "HOLD",
+      "parent": "B3.7",
+      "label": "현금",
+      "question": "MMF 수익률",
+      "node_type": "link",
+      "value_type": "percent",
+      "unit": "%",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3.7.2": {
+      "id": "B3.7.2",
+      "map": "HOLD",
+      "parent": "B3.7",
+      "label": "관심종목 1순위",
+      "question": "A 맵 ref + ER",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3.7.3": {
+      "id": "B3.7.3",
+      "map": "HOLD",
+      "parent": "B3.7",
+      "label": "섹터 대체 종목",
+      "question": "S6 ref + ER",
+      "node_type": "link",
+      "value_type": "ref",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B3.8": {
+      "id": "B3.8",
+      "map": "HOLD",
+      "parent": "B3",
+      "label": "상대 우위",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.095,
+      "value_type": "percent",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "ER_this - max(ER_alt)",
+      "meta_only": false
+    },
+    "B4": {
+      "id": "B4",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "포트폴리오 맥락",
+      "question": "C 에서 내려받음",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B4.1": {
+      "id": "B4.1",
+      "map": "HOLD",
+      "parent": "B4",
+      "label": "비중 상태",
+      "question": "",
+      "node_type": "computed",
+      "value": "과다",
+      "value_type": "enum",
+      "enum_options": [
+        "과소",
+        "적정",
+        "과다"
+      ],
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "|w - w_target| > min(dev_abs, dev_rel * w_target)",
+      "meta_only": false
+    },
+    "B4.2": {
+      "id": "B4.2",
+      "map": "HOLD",
+      "parent": "B4",
+      "label": "평가익이 키운 비중",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.71,
+      "value_type": "percent",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "price-driven share of weight increase",
+      "meta_only": false
+    },
+    "B4.3": {
+      "id": "B4.3",
+      "map": "HOLD",
+      "parent": "B4",
+      "label": "섹터/팩터 중복 · 상관",
+      "question": "상위 보유종목과 상관",
+      "node_type": "fact",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B4.4": {
+      "id": "B4.4",
+      "map": "HOLD",
+      "parent": "B4",
+      "label": "세금",
+      "question": "",
+      "node_type": "computed",
+      "value_type": "range",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "{realized_gain, tax_rate, tax_amount, harvest_pair}",
+      "meta_only": false
+    },
+    "B4.5": {
+      "id": "B4.5",
+      "map": "HOLD",
+      "parent": "B4",
+      "label": "유동성 (분할 매도 일수)",
+      "question": "",
+      "node_type": "computed",
+      "value": 0.2,
+      "value_type": "number",
+      "unit": "일",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "formula": "qty / (ADV * participation)",
+      "meta_only": false
+    },
+    "B5": {
+      "id": "B5",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "편향 체크 (보유자 전용)",
+      "question": "하나라도 true 면 결정 로그에 기록",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.1": {
+      "id": "B5.1",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "매입가/본전에 앵커링?",
+      "question": "",
+      "node_type": "judgment",
+      "value": false,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.2": {
+      "id": "B5.2",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "매몰비용?",
+      "question": "",
+      "node_type": "judgment",
+      "value": false,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.3": {
+      "id": "B5.3",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "처분효과 (이익 종목만 팔고 싶은가)?",
+      "question": "",
+      "node_type": "judgment",
+      "value": true,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.4": {
+      "id": "B5.4",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "보유효과 (안 갖고 있어도 이 뷰일까)?",
+      "question": "",
+      "node_type": "judgment",
+      "value": false,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.5": {
+      "id": "B5.5",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "확증편향 (좋은 뉴스만 찾는가)?",
+      "question": "",
+      "node_type": "judgment",
+      "value": false,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B5.6": {
+      "id": "B5.6",
+      "map": "HOLD",
+      "parent": "B5",
+      "label": "'본전 오면 판다'는 계획이 아님",
+      "question": "",
+      "node_type": "judgment",
+      "value": false,
+      "value_type": "bool",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B6": {
+      "id": "B6",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "대응 결정",
+      "question": "= f(논제 상태, 밸류 상태, 비중 상태). 매입가는 입력이 아님",
+      "node_type": "judgment",
+      "value": "trim",
+      "value_type": "enum",
+      "enum_options": [
+        "add",
+        "hold",
+        "trim",
+        "switch",
+        "exit",
+        "hedge"
+      ],
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B7": {
+      "id": "B7",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "사전 약속 (If-Then)",
+      "question": "사실 기준 규칙 1개 이상 필수",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8": {
+      "id": "B8",
+      "map": "HOLD",
+      "parent": "B0",
+      "label": "모니터링 & 결정 로그",
+      "question": "",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8.1": {
+      "id": "B8.1",
+      "map": "HOLD",
+      "parent": "B8",
+      "label": "정기 주기",
+      "question": "프로파일",
+      "node_type": "judgment",
+      "value": "분기",
+      "value_type": "text",
+      "as_of": "2026-10-19",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8.2": {
+      "id": "B8.2",
+      "map": "HOLD",
+      "parent": "B8",
+      "label": "이벤트 트리거",
+      "question": "가이던스 변경 · 경영진 교체 · 유상증자 · M&A · 지배구조",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8.3": {
+      "id": "B8.3",
+      "map": "HOLD",
+      "parent": "B8",
+      "label": "임계값",
+      "question": "비중 > __% · 밴드 이탈 · 드라이버 역전",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8.4": {
+      "id": "B8.4",
+      "map": "HOLD",
+      "parent": "B8",
+      "label": "결정 로그",
+      "question": "DecisionLog[] (HoldingMap.decision_log)",
+      "node_type": "question",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B8.5": {
+      "id": "B8.5",
+      "map": "HOLD",
+      "parent": "B8",
+      "label": "사후 복기",
+      "question": "exit 완료 시: 논제 적중 여부 · 틀린 가정 · 발생한 편향",
+      "node_type": "judgment",
+      "value_type": "text",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false
+    },
+    "B2.1.1": {
+      "id": "B2.1.1",
+      "map": "HOLD",
+      "parent": "B2.1",
+      "label": "영업이익률",
+      "question": "at_entry 대비 now 가 내 추정에 가까워졌나 멀어졌나",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "%",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [
+        "A1.1"
+      ],
+      "history": [
+        {
+          "as_of": "2026-08-14",
+          "value": 8.1,
+          "source": {
+            "name": "분기보고서 (2026.2Q)",
+            "url": "https://dart.fss.or.kr/",
+            "retrieved_at": "2026-10-19"
+          }
+        }
+      ],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 9.0,
+          "as_of": "2027-01-15",
+          "source": {
+            "name": "분기보고서 (2026.3Q)",
+            "url": "https://dart.fss.or.kr/",
+            "retrieved_at": "2027-01-15"
+          }
+        },
+        "consensus": {
+          "value": 10.0,
+          "as_of": "2026-10-10"
+        },
+        "my_estimate": {
+          "value": 13.0,
+          "as_of": "2026-10-19",
+          "rationale": "원가 구조 개선 + 믹스 변화"
+        },
+        "check_indicator": "분기보고서 영업이익률, 월별 수출 단가",
+        "next_check": "2027-02-14",
+        "at_entry": 8.1,
+        "direction": "강화",
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
+      }
+    },
+    "B2.1.2": {
+      "id": "B2.1.2",
+      "map": "HOLD",
+      "parent": "B2.1",
+      "label": "수주잔고",
+      "question": "at_entry 대비 now 가 내 추정에 가까워졌나 멀어졌나",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "억원",
+      "as_of": "2027-01-15",
+      "status": "confirmed",
+      "links": [
+        "A1.2"
+      ],
+      "history": [
+        {
+          "as_of": "2026-08-14",
+          "value": 4200.0,
+          "source": {
+            "name": "분기보고서 (2026.2Q)",
+            "url": "https://dart.fss.or.kr/",
+            "retrieved_at": "2026-10-19"
+          }
+        }
+      ],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 4400.0,
+          "as_of": "2027-01-15",
+          "source": {
+            "name": "분기보고서 (2026.3Q)",
+            "url": "https://dart.fss.or.kr/",
+            "retrieved_at": "2027-01-15"
+          }
+        },
+        "consensus": {
+          "value": 4500.0
+        },
+        "my_estimate": {
+          "value": 6000.0
+        },
+        "check_indicator": "IR 자료·공시",
+        "next_check": "2027-02-14",
+        "at_entry": 4200.0,
+        "direction": "강화",
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
+      }
+    },
+    "B2.1.3": {
+      "id": "B2.1.3",
+      "map": "HOLD",
+      "parent": "B2.1",
+      "label": "양산 라인 가동률",
+      "question": "at_entry 대비 now 가 내 추정에 가까워졌나 멀어졌나",
+      "node_type": "estimate",
+      "value_type": "number",
+      "unit": "%",
+      "as_of": "2027-01-15",
+      "status": "estimated",
+      "links": [
+        "A1.3"
+      ],
+      "history": [
+        {
+          "as_of": "2026-09-30",
+          "value": 55.0
+        }
+      ],
+      "tags": [],
+      "meta_only": false,
+      "driver": {
+        "current": {
+          "value": 62.0,
+          "as_of": "2027-01-15"
+        },
+        "consensus": {
+          "value": 65.0
+        },
+        "my_estimate": {
+          "value": 80.0
+        },
+        "check_indicator": "탐방·공급사 코멘트",
+        "next_check": "2027-02-14",
+        "at_entry": 55.0,
+        "direction": "강화",
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
+      }
+    },
+    "B1.4.1": {
+      "id": "B1.4.1",
+      "map": "HOLD",
+      "parent": "B1.4",
+      "label": "무효화 조건 1",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-19",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "fact",
+        "condition": "driver[A1.2].current < 3500",
+        "action": "exit",
+        "escalate_to": "RED",
+        "status": "armed",
+        "note": "수주잔고가 매수 시점보다 줄면 논제 폐기",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "B7.1": {
+      "id": "B7.1",
+      "map": "HOLD",
+      "parent": "B7",
+      "label": "사전 약속 1",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-19",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "drawdown > 0.25",
+        "action": "review",
+        "escalate_to": "YELLOW",
+        "status": "armed",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "B7.2": {
+      "id": "B7.2",
+      "map": "HOLD",
+      "parent": "B7",
+      "label": "사전 약속 2",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-19",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "price",
+        "condition": "price > 110000",
+        "action": "trim",
+        "size": "50%",
+        "status": "armed",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "B7.3": {
+      "id": "B7.3",
+      "map": "HOLD",
+      "parent": "B7",
+      "label": "비중 밴드 상한",
+      "question": "",
+      "node_type": "rule",
+      "value_type": "text",
+      "as_of": "2026-10-19",
+      "status": "unverified",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "rule": {
+        "trigger_type": "weight",
+        "condition": "w_now > 0.0650",
+        "action": "trim",
+        "size": "to_target",
+        "escalate_to": "YELLOW",
+        "status": "fired",
+        "fired_at": "2027-01-15",
+        "note": "템플릿 §4.4 비중 밴드 — 자동 생성",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
+      }
+    },
+    "B2.4.001": {
+      "id": "B2.4.001",
+      "map": "HOLD",
+      "parent": "B2.4",
+      "label": "3Q 영업이익률 9.0% — 컨센서스 소폭 하회",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "source": {
+        "name": "분기보고서 (2026.3Q)",
+        "url": "https://dart.fss.or.kr/",
+        "retrieved_at": "2027-01-15"
+      },
+      "as_of": "2027-01-10",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2027-01-10",
+        "fact": "3Q 영업이익률 9.0% — 컨센서스 소폭 하회",
+        "affects": [
+          "B2.1.1"
+        ],
+        "direction": "약화",
+        "priced_in": "부분",
+        "materiality": "M",
+        "source": {
+          "name": "분기보고서 (2026.3Q)",
+          "url": "https://dart.fss.or.kr/",
+          "retrieved_at": "2027-01-15"
+        }
+      }
+    },
+    "B2.4.002": {
+      "id": "B2.4.002",
+      "map": "HOLD",
+      "parent": "B2.4",
+      "label": "국내 대형 고객 추가 수주 200억",
+      "question": "",
+      "node_type": "event",
+      "value_type": "text",
+      "source": {
+        "name": "분기보고서 (2026.3Q)",
+        "url": "https://dart.fss.or.kr/",
+        "retrieved_at": "2027-01-15"
+      },
+      "as_of": "2026-12-20",
+      "status": "confirmed",
+      "links": [],
+      "history": [],
+      "tags": [],
+      "meta_only": false,
+      "event": {
+        "date": "2026-12-20",
+        "fact": "국내 대형 고객 추가 수주 200억",
+        "affects": [
+          "B2.1.2"
+        ],
+        "direction": "강화",
+        "priced_in": "예",
+        "materiality": "M",
+        "source": {
+          "name": "분기보고서 (2026.3Q)",
+          "url": "https://dart.fss.or.kr/",
+          "retrieved_at": "2027-01-15"
+        }
+      }
+    }
+  },
+  "meta": {
+    "thesis_notes": [
+      {
+        "date": "2027-01-15",
+        "note": "OPM 개선 속도는 느리지만 방향 유지, 수주 증가"
+      }
+    ],
+    "matrix_default": "trim",
+    "matrix_rule": "유효 × 고평가 × 과다"
+  },
+  "position": {
+    "entry_date": "2026-10-19",
+    "entry_price": 58000.0,
+    "quantity": 862.0,
+    "w_target": 0.05,
+    "eps_fwd_entry": 3200.0,
+    "peak_price": 76000.0
+  },
+  "market": {
+    "as_of": "2027-01-15",
+    "price": 76000.0,
+    "eps_fwd": 3392.0,
+    "band_percentile": 82.0,
+    "w_now": 0.072,
+    "total_assets": 1000000000.0,
+    "adv_shares": 50000.0,
+    "cash_yield": 0.03
+  },
+  "source_map_id": "A:000000:2026-10-19",
+  "snapshot_hash": "36a6eb7042775ee6",
+  "decision_log": [
+    {
+      "date": "2027-01-15",
+      "decision": "trim",
+      "size": "7.2% → 5%",
+      "reason": "멀티플 확장만으로 상승, 목표 비중 초과",
+      "price": 76000.0,
+      "thesis_state": "유효",
+      "valuation_state": "고평가",
+      "weight_state": "과다",
+      "matrix_default": "trim",
+      "override": false,
+      "bias_check": {
+        "anchoring": false,
+        "sunk_cost": false,
+        "disposition": true,
+        "endowment": false,
+        "confirmation": false,
+        "breakeven_plan": false,
+        "note": "이익 종목이라 팔기 쉬운 쪽으로 기울었는지 확인"
+      },
+      "extra": {}
+    }
+  ]
+}

@@ -132,7 +132,7 @@ class TestBasisPropagation(unittest.TestCase):
         self.assertEqual(vm.basis_status, "comparable")
         self.assertAlmostEqual(vm.price_per, 530_000.0, places=3)             # Base = 정규화 EPS × (목표가 중앙값 ÷ 정규화 EPS) 그대로
         self.assertFalse(valuation_line(vm, 262_000.0).startswith("⚠"))
-        self.assertFalse(any("A3.9" in str(i) for i in validate_new_map(m, TODAY)))
+        self.assertFalse(any("A3.3" in str(i) for i in validate_new_map(m, TODAY)))
 
     def test_not_comparable_blocks_definitive_display(self):
         m = self._map([_facts("a", np_basis="전체", shares=N_STD, eps=80_000, np_val=500_000.0),
@@ -145,7 +145,7 @@ class TestBasisPropagation(unittest.TestCase):
         self.assertTrue(valuation_line(vm, 262_000.0).startswith("⚠ 기준 불일치 — 참고값"))  # 확정 표시는 하지 않는다
         self.assertTrue(any("기준 불일치" in w for w in vm.warnings))
         issues = validate_new_map(m, TODAY)
-        self.assertTrue(any(i.level == "error" and i.node_id == "A3.9" for i in issues))
+        self.assertTrue(any(i.level == "error" and i.node_id == "A3.3" for i in issues))
         compute_valuation_all(m, today=TODAY)
         conf = m.meta["draft"]["confidence"]
         self.assertEqual(conf["grade"], "L")
@@ -160,8 +160,8 @@ class TestBasisPropagation(unittest.TestCase):
                        _facts("b", np_basis="전체", shares=N_STD, eps=82_000, np_val=510_000.0)])
         self.assertEqual(m.meta["draft"]["financials"]["basis"]["status"], "mixed")
         issues = validate_new_map(m, TODAY)
-        self.assertTrue(any(i.level == "warn" and i.node_id == "A3.9" and "1곳" in i.message for i in issues))
-        self.assertFalse(any(i.level == "error" and i.node_id == "A3.9" for i in issues))
+        self.assertTrue(any(i.level == "warn" and i.node_id == "A3.3" and "1곳" in i.message for i in issues))
+        self.assertFalse(any(i.level == "error" and i.node_id == "A3.3" for i in issues))
         m2 = self._map([_facts("a", np_basis="지배", shares=None, eps=80_000, np_val=500_000.0),
                         _facts("b", np_basis="지배", shares=None, eps=82_000, np_val=510_000.0)])
         fin2 = m2.meta["draft"]["financials"]
@@ -169,7 +169,7 @@ class TestBasisPropagation(unittest.TestCase):
         self.assertEqual(fin2["eps"]["basis"], "reported")
         tl = common_tail(m2)
         self.assertEqual(tl.shares_source, "derived")                         # 예전 규칙 그대로 (NP/EPS 유도)
-        self.assertTrue(any(i.level == "warn" and i.node_id == "A3.9" for i in validate_new_map(m2, TODAY)))
+        self.assertTrue(any(i.level == "warn" and i.node_id == "A3.3" for i in validate_new_map(m2, TODAY)))
 
     def test_old_map_without_basis_is_unchecked(self):
         m = new_map_skeleton("005930", "삼성전자", "growth", TODAY, n_drivers=3)
@@ -180,7 +180,99 @@ class TestBasisPropagation(unittest.TestCase):
         self.assertEqual((tl.basis_status, tl.shares_source), ("unchecked", "derived"))
         vm = compute_valuation(m, today=TODAY)
         self.assertEqual(vm.basis_status, "unchecked")
-        self.assertFalse(any(i.node_id == "A3.9" for i in validate_new_map(m, TODAY)))
+        self.assertFalse(any(i.node_id == "A3.3" for i in validate_new_map(m, TODAY)))
+
+
+class TestBasisConsole(unittest.TestCase):
+    """콘솔·CLI·HTML 에서 T1 결과를 본다 — basis_table / basis_summary / 계산기 머리말."""
+
+    def test_basis_table_and_html_payload(self):
+        from kstock.engine.valuation import basis_summary, basis_table
+        from kstock.render.native import edit_options
+
+        d = ReportDigest.build([_facts("IBK", np_basis="지배", shares=6_648_650_000.0, eps=70_006, np_val=465_448.0, np_ctrl=465_448.0),
+                                _facts("유진", np_basis="전체", shares=N_STD, eps=88_945, np_val=529_421.0, np_total=529_421.0),
+                                _facts("DS", np_basis="지배", shares=N_STD, eps=91_008, np_val=550_443.0, np_ctrl=537_789.0, np_total=550_443.0)],
+                               ticker="005930", today=TODAY)
+        m = new_map_skeleton("005930", "삼성전자", "growth", TODAY, n_drivers=3)
+        m["A0.4"].set(262_000.0, as_of=TODAY)
+        fin = financial_snapshot(m, d, year="2027E")
+        t = basis_table(fin)
+        self.assertIn("비교 가능", t)
+        self.assertIn("보통주+우선주?", t)                                   # 추정 기준은 ? 표시
+        self.assertIn("전체 × 지배 비율", t)
+        self.assertIn("표의 단순 평균 83,320", t)
+        self.assertIn("86,693", t)
+        self.assertIn("정규화 EPS 86,693", basis_summary(fin))
+        self.assertEqual(basis_table({}), "회계 기준 검사 없음 — 옛 맵 (리포트로 다시 만들면 생긴다)")
+        opts = edit_options(m, server=True, token="t", today=TODAY)
+        self.assertIn("정규화 EPS", opts["valuation"]["basis"])
+        self.assertEqual(opts["valuation"]["shares_out"], N_STD)
+
+
+class TestImpliedConditional(unittest.TestCase):
+    """v7 T2 — 역산의 조건부 표현: PER 출처 · 가정 의존/anchored · 여러 PER 표 · Base 순환 라벨 · CLI implied."""
+
+    def _map(self):
+        from test_v6 import _fin_map
+
+        return _fin_map()
+
+    def test_assumption_dependent_vs_anchored(self):
+        from kstock.engine.scenario_model import evaluate_scenario, scenario_line
+        from kstock.engine.valuation import implied_table_lines
+        from kstock.models import Scenario
+
+        m = self._map()
+        vm = compute_valuation(m, today=TODAY)
+        self.assertEqual(vm.implied_status, "assumption_dependent")
+        pers = [r["per"] for r in vm.implied_table]
+        self.assertEqual(pers, sorted(pers, reverse=True))
+        self.assertTrue(any(r["source"] == "midpoint" for r in vm.implied_table))           # 6.36 과 3.14 사이 중간점
+        lines = implied_table_lines(vm, 262_000.0)
+        self.assertIn("가정 의존", lines[0])
+        self.assertTrue(any("목표가 유도" in ln for ln in lines))
+        sc = Scenario(name="Base", price_source="computed")
+        sc.model = evaluate_scenario(m, sc, today=TODAY)
+        sc.target_price = sc.model.price
+        self.assertIn("순환", scenario_line(sc))                                              # 가정 없는 Base = 목표가 중앙값 재현
+        # 사용자 PER 를 넣으면 anchored — 순환 라벨도, 가정 의존 표시도 사라진다
+        m["A3.2"].value = {"per": 5.0}
+        vm2 = compute_valuation(m, today=TODAY)
+        self.assertEqual((vm2.per_source, vm2.implied_status), ("user", "anchored"))
+        line = valuation_line(vm2, 262_000.0)
+        self.assertNotIn("가정 의존", line)
+        self.assertNotIn("순환", line)
+        self.assertIn("사용자", line)
+        self.assertTrue(any(r["source"] == "broker_target_implied" for r in vm2.implied_table))   # 표에는 목표가 유도 PER 줄이 남는다
+        sc2 = Scenario(name="Base", price_source="computed", per=5.0)
+        sc2.model = evaluate_scenario(m, sc2, today=TODAY)
+        self.assertNotIn("순환", scenario_line(sc2))
+
+    def test_cli_implied_uses_shared_table(self):
+        import contextlib
+        import io
+        import json
+        import tempfile
+        from pathlib import Path
+
+        from kstock.cli import main as cli_main
+
+        m = self._map()
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "A.json"
+            m.save(p)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = cli_main(["implied", str(p), "--per", "4.5/3.5"])
+            out = buf.getvalue()
+        self.assertEqual(rc, 0)
+        self.assertIn("역산 표", out)
+        self.assertIn("4.50", out)
+        self.assertIn("지정", out)
+        self.assertNotIn("내재 EPS", out)
+        self.assertIn("시장의 기대가 아니다", out)
+        json.dumps(out)
 
 
 class TestExtractNpRows(unittest.TestCase):

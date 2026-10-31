@@ -33,7 +33,7 @@ class TestNewMap(unittest.TestCase):
 
     def test_probability_sum_error(self):
         a = build_new_map()
-        a["A3.3"].scenario = Scenario(name="Bull", probability=0.5, target_price=120000)
+        a["A4.4"].scenario = Scenario(name="Bull", probability=0.5, target_price=120000)
         errs = [i for i in validate(a, D0) if i.level == "error"]
         self.assertTrue(any("확률 합" in i.message for i in errs))
 
@@ -41,8 +41,8 @@ class TestNewMap(unittest.TestCase):
         a = build_new_map()
         a2 = load_map(json.loads(a.to_json()))
         self.assertEqual(a2["A1.1"].driver.my_estimate.value, 13.0)
-        self.assertEqual(a2["A3.2"].scenario.target_price, 85000)
-        self.assertEqual(a2["A4.4.1"].rule.condition, "driver[A1.2].current < 3500")
+        self.assertEqual(a2["A4.3"].scenario.target_price, 85000)
+        self.assertEqual(a2["A5.4.1"].rule.condition, "driver[A1.2].current < 3500")
 
 
 class TestSnapshot(unittest.TestCase):

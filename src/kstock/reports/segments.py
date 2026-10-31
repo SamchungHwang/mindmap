@@ -28,7 +28,7 @@ UNIT_TO_EOK = {"억원": 1.0, "십억원": 10.0, "조원": 10000.0, "백만원":
 BLOCK_LABELS: list[tuple[str, str]] = [
     ("opm", r"영업이익률|OPM|OP\s*margin"),
     ("op", r"영업이익(?!률)|OP(?![a-zA-Z])"),
-    ("revenue", r"매출액|매출(?!\s*비중|\s*총|\s*원가)|Revenue|Sales"),
+    ("revenue", r"매출액|영업수익|매출(?!\s*비중|\s*총|\s*원가)|Revenue|Sales"),
     ("share", r"매출\s*비중"),
 ]
 SEGMENT_ALIASES: dict[str, tuple[str, ...]] = {
@@ -43,9 +43,26 @@ SEGMENT_ALIASES: dict[str, tuple[str, ...]] = {
     "VD": ("VD / DA", "VD/CE", "VD", "CE", "VD/DA", "TV/가전"),
     "SDC": ("SDC", "Display", "디스플레이", "DP"),
     "Harman": ("Harman", "HAR", "하만"),
+    # 설계 v7 T10 — NAVER (인터넷·플랫폼)
+    "서치플랫폼": ("서치플랫폼", "서치 플랫폼", "Search Platform", "검색", "광고", "서치플랫폼(광고)", "Search"),
+    "커머스": ("커머스", "Commerce", "쇼핑", "커머스(쇼핑)"),
+    "핀테크": ("핀테크", "Fintech", "파이낸셜", "파이낸셜 플랫폼", "파이낸셜플랫폼", "네이버파이낸셜", "페이", "핀테크(페이)"),
+    "광고": ("광고", "Ads", "Advertising"),
+    "콘텐츠": ("콘텐츠", "Contents", "Content", "웹툰", "콘텐츠(웹툰)"),
+    "클라우드": ("클라우드", "Cloud", "클라우드(AI)", "네이버클라우드", "Enterprise"),
+    # 설계 v7 T10 — 두산에너빌리티 (에너지·원전·기계)
+    "에너빌리티": ("에너빌리티", "두산에너빌리티(별도)", "에너빌리티(별도)", "별도", "Enerbility", "발전", "에너지"),
+    "원자력": ("원자력", "원전", "Nuclear", "원자력(원전)", "원자력 기자재", "원자력기자재", "원전 기자재"),
+    "가스터빈": ("가스터빈", "Gas Turbine", "GT"),
+    "밥캣": ("밥캣", "두산밥캣", "Bobcat"),
+    "산업차량": ("산업차량", "두산산업차량", "Industrial Vehicle"),
+    "퓨얼셀": ("퓨얼셀", "두산퓨얼셀", "Fuel Cell", "연료전지"),
 }
+# 캡션이 '사업부별/부문별' 이고 행 이름이 짧은 한글·영문(숫자 없음) 이면 사전에 없어도 사업부로 받는다 (설계 v7 T10 — 종목마다 사전을 늘리지 않아도 되게)
+GENERIC_CAPTION = re.compile(r"사업부|부문|segment|사업별|Division", re.I)
+GENERIC_ROW = re.compile(r"^[가-힣A-Za-z][가-힣A-Za-z/&·\s]{0,11}$")
 _ALIAS_INDEX = {a.replace(" ", "").lower(): seg for seg, aliases in SEGMENT_ALIASES.items() for a in aliases}
-SKIP_ROWS = re.compile(r"^(QoQ|YoY|Q[o0]Q/Y\s*oY|증감|성장률|대형|중소형|가전/기타|NW/기타|기타|합계|계)\b", re.I)
+SKIP_ROWS = re.compile(r"^(QoQ|YoY|Q[o0]Q/Y\s*oY|증감|성장률|대형|중소형|가전/기타|NW/기타|기타|합계|계|EBITDA|EBIT|순이익|당기순이익|영업이익률|매출총이익|판관비|감가상각|세전|지배)\b", re.I)
 
 
 @dataclass
@@ -159,6 +176,9 @@ def extract_segment_tables(text: str) -> list[SegmentTable]:
                 j += 1
                 continue
             seg = _norm_segment(name)
+            if seg is None and tbl.caption and GENERIC_CAPTION.search(tbl.caption) and GENERIC_ROW.match(name.strip()) and not SKIP_ROWS.match(name):
+                seg = name.strip()           # 사전 밖 사업부 — 이름 그대로 (설계 v7 T10)
+                tbl.warnings.append(f"사전 밖 사업부 행 '{seg}' 을 이름 그대로 받음")
             if seg is None:
                 j += 1
                 continue

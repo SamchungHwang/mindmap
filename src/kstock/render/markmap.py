@@ -1,7 +1,7 @@
 """markmap 렌더러 — 노드 트리 → Markdown(markmap 문법) → 단일 HTML (CDN autoloader).
 
 - 1단계 가지는 `##`, 그 아래는 들여쓴 `-` 목록.
-- 기본 접힘: A8 근거 자료, B2.4 사실 로그, C1.1 holdings, C6.1 로그 (`<!-- markmap: fold -->`).
+- 기본 접힘: A9 근거 자료, B2.4 사실 로그, C1.1 holdings, C6.1 로그 (`<!-- markmap: fold -->`).
 - 요약 뷰(summary=True, 보유 맵): B0 · B2.3 · B6 · 다음 확인일만.
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 from ..models import HoldingMap, MindMap, Node
 from .format import node_line, root_title
 
-FOLD_BY_DEFAULT = {"A8", "B2.4", "C1.1", "C6.1", "A7.2", "B8.4"}
+FOLD_BY_DEFAULT = {"A9", "B2.4", "C1.1", "C6.1", "A8.2", "B8.4"}
 FOLD_MARK = " <!-- markmap: fold -->"
 
 MARKMAP_AUTOLOADER = "https://cdn.jsdelivr.net/npm/markmap-autoloader@0.18"

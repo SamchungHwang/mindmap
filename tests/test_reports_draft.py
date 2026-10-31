@@ -205,9 +205,17 @@ class TestDigest(unittest.TestCase):
         self.assertEqual(a3, {"Bear": 8000, "Base": 12000, "Bull": 15000})
 
     def test_next_earnings(self):
+        # 2026-10-30 부터 직전 분기(3Q) 의 남은 일정도 본다 — 10월 20일에 3Q 분기보고서(법정 시한 11/14) 가 제일 가깝다
         ev = next_earnings(date(2026, 10, 20))
-        self.assertEqual(ev[0][0], date(2027, 1, 8))                 # 4Q 잠정 = 12/31 + 8
+        self.assertEqual(ev[0][0], date(2026, 11, 16))               # 3Q 분기보고서 = 9/30 + 45 = 11/14(토) → 다음 영업일 월요일
+        self.assertEqual(ev[1][0], date(2027, 1, 8))                 # 4Q 잠정 = 12/31 + 8 (통상 규칙)
         self.assertTrue(all(d > date(2026, 10, 20) for d, _, _ in ev))
+        # 회사별 과거 공시일이 있으면 그것으로 — NAVER 는 분기 말 +37일쯤 (2월 초 · 5월 초 · 8월 초 · 11월 초)
+        hist = [date(2025, 11, 5), date(2026, 2, 6), date(2026, 4, 30), date(2026, 8, 7)]
+        ev2 = next_earnings(date(2026, 10, 20), hist)
+        self.assertEqual(ev2[0][0], date(2026, 11, 5))               # 3Q 잠정 = 9/30 + 36 (오프셋 30·36·37·38 의 중앙값)
+        self.assertIn("과거 주기 추정", ev2[0][1])
+        self.assertEqual([k for _, _, k in ev2][:2], ["잠정", "확정"])
 
 
 class TestDraft(unittest.TestCase):
@@ -218,37 +226,37 @@ class TestDraft(unittest.TestCase):
         self.assertTrue(r.complete, [str(i) for i in r.errors])
         self.assertEqual(m.decision.value, "WATCH")
         self.assertEqual(m.current_price, 258000)
-        # 설계 v5: A1 은 섹터 원인 KPI 5개 (규칙 모드엔 Claim 수치가 없어 전부 정성), 결과 지표는 A3.7
+        # 설계 v5: A1 은 섹터 원인 KPI 5개 (규칙 모드엔 Claim 수치가 없어 전부 정성), 결과 지표는 A3.1
         self.assertEqual([n.label for n in m.drivers()], ["DRAM ASP", "HBM", "메모리 원가", "파운드리 손익", "FCF·주주환원"])
         self.assertTrue(all(n.driver.role == "cause" and n.driver.kind == "qualitative" and n.driver.proxies for n in m.drivers()))
         self.assertIn("선택 근거", m["A1.1"].question)
-        a372 = m["A3.7.2"]
+        a372 = m["A3.1.2"]
         self.assertEqual(a372.label, "분기 영업이익 (4Q26)")
         self.assertEqual((a372.unit, a372.driver.current.value, a372.driver.consensus.value, a372.driver.role), ("조원", 107.4, 64.0, "result"))
         self.assertIsNone(a372.driver.my_estimate.value)                      # 설계 v3: 내 추정은 빈칸
         self.assertIn("논제의 주인", a372.driver.my_estimate.rationale)
-        self.assertIn("DRAMeXchange", m.value("A4.5"))                        # 조기 경보 지표 = 원인 드라이버의 관측 지표
-        self.assertIsNone(m["A4.4.1"].rule)                                   # Kill 은 근거 없이 만들지 않는다 — 질문에 예시만
-        self.assertIn("예시(미검증)", m["A4.4.1"].question)
+        self.assertIn("DRAMeXchange", m.value("A5.5"))                        # 조기 경보 지표 = 원인 드라이버의 관측 지표
+        self.assertIsNone(m["A5.4.1"].rule)                                   # Kill 은 근거 없이 만들지 않는다 — 질문에 예시만
+        self.assertIn("예시(미검증)", m["A5.4.1"].question)
         self.assertEqual(m.scenarios(), {})                                   # 리포트 제시 케이스 없음 → 공란
         self.assertTrue(m.meta["draft"]["scenario_candidates"])               # 증권사 자체 후보(목표가) 는 있다
         self.assertIsNone(m.value("A2.1"))                                    # 내재 가정은 비움, 관측은 질문에
         self.assertIn("매수 일색", m["A2.1"].question)
-        self.assertIn("목표가", m.value("A3.6.4"))                             # 분포 노드
-        self.assertEqual(m.value("A3.6.3"), "up")
+        self.assertIn("목표가", m.value("A3.5.4"))                             # 분포 노드
+        self.assertEqual(m.value("A3.5.3"), "up")
         pend = [str(i) for i in r.pending]
         self.assertTrue(any("시나리오" in x for x in pend) and any("정성 드라이버" in x for x in pend) and any("Kill" in x for x in pend), pend)
         self.assertTrue(m.catalysts())
-        self.assertEqual(m["A8.2"].links, ["S.KR-SEMI"])
-        self.assertIn("조원", m.value("A8.1.4"))
+        self.assertEqual(m["A9.2"].links, ["S.KR-SEMI"])
+        self.assertIn("조원", m.value("A9.1.4"))
         # 채운 노드엔 전부 draft 태그, 판단은 unverified
         filled = [m[n] for n in r.rules.filled]
         self.assertTrue(filled and all(DRAFT_TAG in n.tags for n in filled))
-        self.assertEqual(m["A6.5"].status.value, "unverified")
+        self.assertEqual(m["A7.5"].status.value, "unverified")
         self.assertEqual(m["A0"].status.value, "unverified")
         self.assertEqual(m.meta["draft"]["consensus"]["n"], 3)
         self.assertFalse(m.meta["draft"]["llm"])
-        self.assertIsNone(m.value("A3.4"))                                    # 확률이 없으니 ER 보류
+        self.assertIsNone(m.value("A4.5"))                                    # 확률이 없으니 ER 보류
         self.assertIn("미확정", r.summary_text())
         self.assertIn("A 맵 초안", r.summary_text())
 
@@ -279,7 +287,7 @@ class TestDraft(unittest.TestCase):
         }
         f = MockGroupFiller(answers)
         # 예전 그룹 채움은 보조 경로 — 명시적으로 켜고(llm_groups=True) Claim 경로는 끈다. 시나리오 그룹은 더 이상 돌지 않는다(설계 v3)
-        r = draft_from_reports(TXTS, today=TODAY, filler=f, llm_groups=True, claims="off")
+        r = draft_from_reports(TXTS, today=TODAY, filler=f, llm_groups=True, claims="off", llm_events="off")   # 층 B(LLM 사건) 도 끈다
         m = r.map
         self.assertEqual(f.calls, ["drivers", "thesis", "risks", "catalysts", "evidence"])
         self.assertTrue(r.llm_used and m.meta["draft"]["llm"])
@@ -287,20 +295,26 @@ class TestDraft(unittest.TestCase):
         self.assertIn("HBM 점유율", labels)
         self.assertNotIn("지어낸 변수", labels)                      # evidence 가 자료에 없으면 거부
         self.assertTrue(any("환각" in n for n in r.notes))
-        self.assertEqual(m["A3.7.2"].driver.current.value, 107.4)     # 결과 지표(A3.7) 의 숫자는 LLM 이 못 바꾼다
+        self.assertEqual(m["A3.1.2"].driver.current.value, 107.4)     # 결과 지표(A3.1) 의 숫자는 LLM 이 못 바꾼다
         self.assertEqual(m["A1.1"].driver.my_estimate.value, 110)     # keep_id(A1.1 = DRAM ASP) 의 내 추정만 받는다
         self.assertEqual(m["A1.1"].driver.role, "cause")
         self.assertEqual(m.scenarios(), {})                           # 시나리오는 LLM 도 만들지 않는다
         self.assertEqual([k.condition for k in m.kill_rules()], ["driver[A1.1].current < 80"])
         self.assertTrue(m.value("A0").startswith("[LLM 초안]"))
         self.assertEqual(m.value("A2.3"), "시간축")
-        self.assertEqual(len(m.catalysts()), 1)
-        self.assertEqual(m.value("A8.1.2"), "과점")
+        # 2026-10-30: LLM 촉매는 규칙 일정에 **합쳐진다** (전엔 전부 지우고 다시 썼다). 같은 사건(01-08 4Q26 잠정) 은 한 줄이고
+        # affects 는 넘겨받으며, 지난 날짜(2020) 는 안 들어온다
+        cats = m.catalysts()
+        jan8 = [e for e in cats if e.date == date(2027, 1, 8)]
+        self.assertEqual(len(jan8), 1)
+        self.assertIn("A1.1", jan8[0].affects)
+        self.assertFalse(any(e.date.year == 2020 for e in cats))
+        self.assertEqual(m.value("A9.1.2"), "과점")
         self.assertEqual(m.decision.value, "WATCH")
         self.assertTrue(r.complete, [str(i) for i in r.errors])
 
     def test_claims_path_builds_issues_and_nodes(self):
-        """설계 v3 기본 경로: filler → Claim 추출(+의미 판정) → Issue → A2.1.x · A4 · A8.4."""
+        """설계 v3 기본 경로: filler → Claim 추출(+의미 판정) → Issue → A2.1.x · A5 · A9.4."""
         good = "HBM4는 4분기부터 주요 고객사 공급이 본격화되어 4Q26 HBM 점유율은 40%까지 상승할 것으로 기대한다"
         claims = [
             {"proposition": "HBM4 공급 본격화로 4Q26 HBM 점유율이 40% 까지 오른다", "epistemic_type": "estimate", "roles": ["thesis"], "driver_id": "hbm",
@@ -335,12 +349,18 @@ class TestDraft(unittest.TestCase):
         self.assertTrue(a21 and any("HBM" in n.label for n in a21), [n.label for n in a21])
         self.assertTrue(any("독립 주장" in n.label for n in a21))      # 한 증권사만 말했고 수치가 있다
         self.assertIn("침묵", r.issue_set.issues[0].summary + " ".join(i.summary for i in r.issue_set.issues))
-        self.assertIn("CXMT", m["A4.1"].value["text"])
-        self.assertIsNone(m["A4.1"].value["probability"])                # 확률·영향은 사람
+        self.assertIn("CXMT", m["A5.1"].value["text"])
+        self.assertIsNone(m["A5.1"].value["probability"])                # 확률·영향은 사람
         self.assertTrue(any(e.date == date(2026, 10, 30) for e in m.catalysts()))
-        self.assertIn("A8.4.1", m.nodes)
+        self.assertIn("A9.4.1", m.nodes)
         self.assertIn("claims", m["A2.1.1"].source.name)
-        self.assertTrue(r.complete, [str(i) for i in r.errors])
+        # 설계 v7 T3: 진짜 오류는 없지만 Claim 품질 게이트(핵심 검증률 3/9 < 50%) 미달 → 초안을 완료로 표시하지 않는다
+        self.assertEqual(r.errors, [])
+        gate = m.meta["draft"]["claim_gate"]
+        self.assertEqual(gate["status"], "needs_claim_review")
+        self.assertEqual(m.meta["draft"]["draft_status"], "needs_claim_review")
+        self.assertFalse(r.complete)
+        self.assertTrue(r.summary_text().startswith("⚠ Claim 품질 게이트"))
         self.assertTrue(r.pending)
         self.assertIn("쟁점:", r.summary_text())
 
@@ -352,7 +372,7 @@ class TestDraft(unittest.TestCase):
         r = draft_from_reports(TXTS, today=TODAY, filler=Broken())
         self.assertTrue(r.complete)
         self.assertTrue(any("실패" in n for n in r.notes))
-        self.assertEqual(r.map["A3.7.2"].driver.current.value, 107.4)
+        self.assertEqual(r.map["A3.1.2"].driver.current.value, 107.4)
         self.assertEqual(r.map.meta["draft"]["quality"], "rules")        # 저품질로 표기
         self.assertTrue(any("저품질" in f or "규칙 분류" in f for f in r.flags))
 
@@ -459,7 +479,7 @@ class TestCreationTimePrice(unittest.TestCase):
         self.assertNotIn("warn", m["A0.4"].tags)
         self.assertFalse([f for f in r.flags if f.startswith("A0.4")])
         # 분포 노드의 상승여력도 새 현재가 기준 (목표가 평균 vs 261,500)
-        self.assertIn("현재가 대비", m.value("A3.6.4"))
+        self.assertIn("현재가 대비", m.value("A3.5.4"))
 
     def test_report_price_flagged_as_stale_without_fetch(self):
         r = draft_from_reports(TXTS, today=TODAY, fetch_price=False)
@@ -506,8 +526,9 @@ class TestCreationTimePrice(unittest.TestCase):
             self.assertIn("네이버", src)
             self.assertNotIn("warn", m["A0.4"].tags)
             self.assertEqual(store.load_map(m.map_id).current_price, 261500)
-            self.assertIsNone(m.value("A3.4"))                 # 시나리오·확률이 없으니 ER 은 여전히 보류
-            with self.assertRaises(OpsError):
+            self.assertIsNone(m.value("A4.5"))                 # 시나리오·확률이 없으니 ER 은 여전히 보류
+            # 개발 PC 에는 형제 폴더의 리서치 DB 가 있어 가격이 나온다 — 이 검사는 'DB 도 네트워크도 없음' 을 보므로 DB 를 끈다
+            with mock.patch.dict(os.environ, {"KSTOCK_RESEARCH_DB": "off"}), self.assertRaises(OpsError):
                 ops.refresh_price(m, fetch=False)                 # DB 도 네트워크도 없음
             store.close()
 
@@ -534,9 +555,9 @@ class TestQualityGuards(unittest.TestCase):
 
     def test_kill_is_not_invented(self):
         r = draft_from_reports(TXTS, today=TODAY, fetch_price=False)
-        self.assertIsNone(r.map["A4.4.1"].rule)
-        self.assertIn("지금 수준", r.map["A4.4.1"].question)              # 예시만 질문에 (미검증 표기)
-        self.assertTrue(any(i.node_id == "A4.4" for i in r.pending))
+        self.assertIsNone(r.map["A5.4.1"].rule)
+        self.assertIn("지금 수준", r.map["A5.4.1"].question)              # 예시만 질문에 (미검증 표기)
+        self.assertTrue(any(i.node_id == "A5.4" for i in r.pending))
 
     def test_bear_floor(self):
         d, _ = digest_files(TXTS, today=TODAY)
@@ -762,19 +783,19 @@ class TestV3OpsFeatures(unittest.TestCase):
             self.assertEqual(len(sc), 3)
             self.assertTrue(all(s.probability is None for s in sc.values()))
             self.assertTrue(sc["Bear"].target_price < sc["Base"].target_price < sc["Bull"].target_price)
-            self.assertIsNone(m.value("A3.4"))                                  # 확률 없음 → ER 보류
+            self.assertIsNone(m.value("A4.5"))                                  # 확률 없음 → ER 보류
             # v4 V5: 증권사 기준 목표가를 Bear/Bull 에 넣은 것은 사용자 재해석 — 그렇게 기록된다
-            self.assertTrue(any("사용자 재해석" in str(h.source) for h in m["A3.1"].history))
+            self.assertTrue(any("사용자 재해석" in str(h.source) for h in m["A4.2"].history))
             self.assertTrue(sc["Bear"].valuation_method.startswith("[사용자 재해석]"))
             self.assertTrue(m.meta["draft"]["scenario_origin"]["Bear"]["reinterpretation"])
             self.assertEqual(m.meta["draft"]["scenario_origin"]["Bear"]["origin"], "broker_tp")
             msg2 = ops.apply_example_probs(m)
             self.assertIn("미검증", msg2)
-            self.assertIsNotNone(m.value("A3.4"))                               # 이제 계산된다
+            self.assertIsNotNone(m.value("A4.5"))                               # 이제 계산된다
             self.assertAlmostEqual(sum(s.probability for s in m.scenarios().values()), 1.0)
-            self.assertTrue(any("미검증" in str(h.source) for h in m["A3.2"].history))
+            self.assertTrue(any("미검증" in str(h.source) for h in m["A4.3"].history))
             saved = store.load_map(m.map_id)
-            self.assertEqual(saved["A3.2"].scenario.probability, 0.45)
+            self.assertEqual(saved["A4.3"].scenario.probability, 0.45)
             store.close()
 
     def test_review_queue_issues_and_source(self):
@@ -802,7 +823,7 @@ class TestV3OpsFeatures(unittest.TestCase):
             self.assertEqual(ops.review_queue(m), [])
             with self.assertRaises(OpsError):
                 ops.review_claim(m, "nope:c1", "approve")
-            info = ops.source_of(m, "A8.4.1")
+            info = ops.source_of(m, "A9.4.1")
             self.assertTrue(info["path"].endswith(".txt"))
             a21 = m.children("A2.1")
             if a21:

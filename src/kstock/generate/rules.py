@@ -1,7 +1,7 @@
 """규칙 채움 — 리포트 합산(ReportDigest)에서 숫자로 결정되는 노드를 채운다 (자동 생성 계획 §3a).
 
 LLM 없이 돌아간다. 채운 노드에는 전부 `draft` 태그가 붙고, 추정(my_estimate)에는 '초안' 이 적힌다.
-판단(A6.5)은 항상 WATCH. 사실(fact) 은 리포트를 Source 로 달아 confirmed, 판단(judgment) 은 unverified 로 둔다 —
+판단(A7.5)은 항상 WATCH. 사실(fact) 은 리포트를 Source 로 달아 confirmed, 판단(judgment) 은 unverified 로 둔다 —
 사람이 저장할 때 확정한다.
 """
 
@@ -66,26 +66,12 @@ def _trim(s: str, n: int = 140) -> str:
     return s if len(s) <= n else s[: n - 1].rstrip() + "…"
 
 
-def next_earnings(today: date) -> list[tuple[date, str, str]]:
-    """다음 두 분기의 (예정일 추정, 라벨, 종류). 잠정 = 분기 말 +8일, 확정 = +45일 (법정 시한) — 통상 일정 기준 추정."""
-    out: list[tuple[date, str, str]] = []
-    q_end_month = ((today.month - 1) // 3 + 1) * 3
-    y, mth = today.year, q_end_month
-    for _ in range(3):
-        last_day = (date(y + (mth // 12), (mth % 12) + 1, 1) - timedelta(days=1))
-        q = mth // 3
-        yy = str(y)[2:]
-        prov, final = last_day + timedelta(days=8), last_day + timedelta(days=45)
-        if prov > today:
-            out.append((prov, f"{q}Q{yy} 잠정실적 발표 (예정일 추정)", "잠정"))
-        if final > today:
-            out.append((final, f"{q}Q{yy} 확정실적·사업보고서 (예정일 추정)", "확정"))
-        mth += 3
-        if mth > 12:
-            mth, y = 3, y + 1
-        if len(out) >= 4:
-            break
-    return out[:4]
+def next_earnings(today: date, history: list[date] | None = None) -> list[tuple[date, str, str]]:
+    """다음 실적 일정 (예정일, 라벨, 종류). 2026-10-30 부터 `generate.catalysts.earnings_calendar` 가 계산한다 —
+    회사별 과거 공시일이 있으면 그것으로, 없으면 통상 규칙(잠정 +8일 · 분기보고서 45일 · 사업보고서 90일)."""
+    from .catalysts import next_earnings as _next
+
+    return _next(today, history)
 
 
 def _year_num(label: str) -> int:
@@ -112,21 +98,21 @@ def fill_price(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult,
     return p
 
 
-RESULT_SLOTS = {"revenue": "A3.7.1", "op": "A3.7.2", "eps": "A3.7.3", "opm": "A3.7.4"}   # 설계 v5: 결과 지표 자리 (A1 → A3.7)
+RESULT_SLOTS = {"revenue": "A3.1.1", "op": "A3.1.2", "eps": "A3.1.3", "opm": "A3.1.4"}   # 설계 v5: 결과 지표 자리 (A1 → A3.1)
 
 
 def ensure_result_nodes(m: NewMap) -> None:
-    """A3.7 재무 전망 묶음이 없는 옛 스켈레톤에 노드를 만든다."""
+    """A3.1 재무 전망 묶음이 없는 옛 스켈레톤에 노드를 만든다."""
     from ..templates.questions import A_SPEC
     from ..templates.skeleton import _node_from_spec
 
-    for nid in ("A3.7", *RESULT_SLOTS.values()):
+    for nid in ("A3.1", *RESULT_SLOTS.values()):
         if nid not in m.nodes and nid in A_SPEC:
             m.add(_node_from_spec(MapKind.NEW, nid, A_SPEC[nid]))
 
 
 def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, sector: str | None) -> list[str]:
-    """**결과 지표** (매출·영업이익·EPS·영업이익률) 를 추정치 표에서 A3.7.x 에 채운다 (설계 v5 — 전에는 A1 이었다).
+    """**결과 지표** (매출·영업이익·EPS·영업이익률) 를 추정치 표에서 A3.1.x 에 채운다 (설계 v5 — 전에는 A1 이었다).
     current = 최근 실적(A), consensus = 차년도 E 평균, my_estimate = 비움. Driver 구조를 그대로 쓰되 role=result."""
     src = d.source_all()
     ensure_result_nodes(m)
@@ -194,9 +180,9 @@ def fill_drivers(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult
         filled.append(nid)
         used_metrics.add(metric)
     if filled:
-        res.notes.append(f"결과 지표 {len(filled)}개를 표에서 A3.7 에 채움 ({', '.join(m[x].label for x in filled)}) — 원인 드라이버(A1) 는 Claim 에서")
+        res.notes.append(f"결과 지표 {len(filled)}개를 표에서 A3.1 에 채움 ({', '.join(m[x].label for x in filled)}) — 원인 드라이버(A1) 는 Claim 에서")
     else:
-        res.notes.append("추정치 표에서 결과 지표를 채우지 못했다 (A3.7 비움)")
+        res.notes.append("추정치 표에서 결과 지표를 채우지 못했다 (A3.1 비움)")
     return filled
 
 
@@ -256,7 +242,7 @@ def fill_scenarios(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResu
                 + ([_trim(thesis_top[0], 90)] if thesis_top else []),
     }
     methods = {"Bear": "컨센서스 분포 하단 앵커 (초안)", "Base": "컨센서스 분포 하위 1/3 앵커 (초안)", "Bull": "컨센서스 평균 앵커 (초안)"}
-    for nid, nm in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, nm in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         n = m[nid]
         n.scenario = Scenario(name=nm, probability=SCENARIO_P[nm], target_price=round(anchors[nm], -2) if anchors[nm] >= 10000 else round(anchors[nm]),
                               assumptions=assumptions[nm] + common, horizon_months=12, valuation_method=methods[nm])
@@ -295,8 +281,8 @@ def fill_view(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, p
     for nid in ("A2.2", "A2.3"):
         m[nid].tags = sorted(set(m[nid].tags) | {PENDING_TAG})
     if d.revision:
-        _set(m, "A3.6.3", d.revision, today=today, source=Source(name=f"직전 목표가 대비 상향/하향 건수 (리포트 {d.n_tp}건)", url=src.url, retrieved_at=d.as_of), res=res)
-    m["A3.6"].question = d.consensus_line()
+        _set(m, "A3.5.3", d.revision, today=today, source=Source(name=f"직전 목표가 대비 상향/하향 건수 (리포트 {d.n_tp}건)", url=src.url, retrieved_at=d.as_of), res=res)
+    m["A3.5"].question = d.consensus_line()
 
 
 def fill_thesis(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, p0: float | None) -> None:
@@ -320,75 +306,56 @@ def fill_risks(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) 
     risks = d.top("risk", 3)
     # 설계 v4 V8: 키워드로 고른 문장은 '리스크' 로 확정하지 않는다 — 값은 비우고(pending) 질문에 후보로만 적는다.
     # LLM Claim 이 있으면 mapping 이 인용 근거가 있는 리스크로 채운다. 확률·영향(0.25 / -25%) 같은 기본값도 더 넣지 않는다.
-    for nid, text in zip(("A4.1", "A4.2", "A4.3"), risks, strict=False):
+    for nid, text in zip(("A5.1", "A5.2", "A5.3"), risks, strict=False):
         n = m[nid]
         base_q = (n.question or "").split(" | 키워드 후보")[0]
         n.question = (base_q + f" | 키워드 후보(미검증): {_trim(text, 120)}")[:400]
         n.tags = sorted(set(n.tags) | {PENDING_TAG})
         res.notes.append(f"{nid}: 키워드 문장은 후보로만 (질문) — 리스크 확정은 Claim 또는 사람")
-    # 원인 드라이버(A1) 는 뒤에 cause 모듈이 채우므로 여기서는 표의 결과 지표(A3.7) 를 예시·경보 지표로 쓴다
-    drivers = m.drivers() or [n for n in (m.children("A3.7") if "A3.7" in m else []) if n.driver is not None]
+    # 원인 드라이버(A1) 는 뒤에 cause 모듈이 채우므로 여기서는 표의 결과 지표(A3.1) 를 예시·경보 지표로 쓴다
+    drivers = m.drivers() or [n for n in (m.children("A3.1") if "A3.1" in m else []) if n.driver is not None]
     # Kill 기준은 자동으로 만들지 않는다 (설계 v3): 원문 근거(조건부 리스크 주장) 가 있으면 mapping 이 제안하고, 없으면 질문으로 남긴다
-    m["A4.4.1"].tags = sorted(set(m["A4.4.1"].tags) | {PENDING_TAG})
+    m["A5.4.1"].tags = sorted(set(m["A5.4.1"].tags) | {PENDING_TAG})
     if drivers and drivers[0].driver and drivers[0].driver.current.value:
         n = drivers[0]
-        m["A4.4.1"].question = (m["A4.4.1"].question + f" | 예시(미검증): {n.label} 이 지금 수준 {n.driver.current.value:,.2f}{n.unit or ''} 에서 20% 악화되면 폐기").strip(" |")
+        m["A5.4.1"].question = (m["A5.4.1"].question + f" | 예시(미검증): {n.label} 이 지금 수준 {n.driver.current.value:,.2f}{n.unit or ''} 에서 20% 악화되면 폐기").strip(" |")
     indicators = sorted({n.driver.check_indicator for n in drivers if n.driver and n.driver.check_indicator})
     if indicators:
-        _set(m, "A4.5", " · ".join(indicators), today=today, source=Source(name="섹터 KPI 사전 (자동)", retrieved_at=today), res=res)
+        _set(m, "A5.5", " · ".join(indicators), today=today, source=Source(name="섹터 KPI 사전 (자동)", retrieved_at=today), res=res)
 
 
-def fill_catalysts(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) -> None:
+def fill_catalysts(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult,
+                   earnings_history: list[date] | None = None, sector: str | None = None, texts: dict[str, str] | None = None) -> None:
+    """A6.1 규칙 채움 — 실적 일정(회사별 과거 공시일 우선) + 리포트 문장·설명회 Q&A 의 촉매 (`event_text.report_text_events`).
+
+    여기서 만든 것은 전부 추정이다. 공시(DART) 와 Claim 은 뒤에서 `catalysts.merge_events` 로 합쳐지며,
+    같은 사건이면 확실성이 높은 출처가 남는다. (2026-10-31 전엔 촉매 문장 상위 3개만 하나씩 이벤트로 — 두산에너빌리티 검토 뒤 교체)
+    """
+    from .catalysts import earnings_calendar, merge_events, rule_event, set_catalysts
+    from .event_text import report_text_events
+
     drivers = m.drivers()
     op_driver = next((n.id for n in drivers if "영업이익" in n.label), None)
-    events: list[Event] = []
-    for dt, label, kind in next_earnings(today)[:2]:
-        events.append(Event(date=dt, fact=label, affects=[op_driver] if op_driver else [], direction="중립", priced_in="아니오",
-                            materiality="H" if kind == "잠정" else "M", source=Source(name="통상 일정 기준 추정", retrieved_at=today)))
-    src = d.source_all()
-    for text in d.top("catalyst", 3):
-        dt = _date_in_sentence(text, today)
-        if dt is None or dt <= today:
-            continue
-        events.append(Event(date=dt, fact=_trim(text, 110) + " (리포트)", affects=[], direction="중립", priced_in="아니오", materiality="M", source=src))
-    events.sort(key=lambda e: e.date)
-    seen: set[date] = set()
-    i = 0
-    for ev in events:
-        if ev.date in seen and "리포트" not in ev.fact:
-            continue
-        seen.add(ev.date)
-        i += 1
-        nid = f"A5.1.{i}"
-        node = Node(id=nid, map=MapKind.NEW, parent="A5.1", label=_trim(ev.fact, 30), node_type="event", value_type="text", as_of=today, event=ev)
-        mark_draft(node)
-        m.add(node)
-        res.filled.append(nid)
-        if i >= 5:
-            break
+    events: list[Event] = [rule_event(e, today=today, affects=[op_driver] if op_driver else [])
+                           for e in earnings_calendar(today, earnings_history)[:2]]
+    text_events, text_notes = report_text_events(d, today=today, sector=sector, texts=texts)
+    events += text_events
+    res.notes += [f"A6.1 문장: {x}" for x in text_notes]
+    merged, notes = merge_events([], events)
+    res.notes += [f"A6.1: {x}" for x in notes]
+    res.filled += set_catalysts(m, merged, today=today)
+    dropped = (m.meta.get("draft") or {}).get("a6_1_dropped") or []
+    if dropped:
+        res.notes.append(f"A6.1 상한 {len(merged) - len(dropped)}건 — 생략 {len(dropped)}건: " + " / ".join(dropped))
+    if earnings_history:
+        res.notes.append(f"A6.1 실적 일정: 과거 공시일 {len(earnings_history)}건으로 추정")
 
 
 def _date_in_sentence(text: str, today: date) -> date | None:
-    import re
+    """옛 이름 호환 — `catalysts.parse_when` 의 기준일."""
+    from .catalysts import date_in_sentence
 
-    m = re.search(r"(20\d{2})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일", text)
-    if m:
-        return _safe_date(int(m[1]), int(m[2]), int(m[3]))
-    m = re.search(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일", text)
-    if m:
-        y = today.year if int(m[1]) >= today.month else today.year + 1
-        return _safe_date(y, int(m[1]), int(m[2]))
-    m = re.search(r"(20\d{2})\s*년\s*(\d{1,2})\s*월", text)
-    if m:
-        return _safe_date(int(m[1]), int(m[2]), 15)
-    m = re.search(r"([1-4])Q\s?(\d{2})", text)
-    if m:
-        y, q = 2000 + int(m[2]), int(m[1])
-        return _safe_date(y, q * 3, 28) + timedelta(days=8)
-    m = re.search(r"(20\d{2})\s*년\s*([1-4])\s*분기", text)
-    if m:
-        return _safe_date(int(m[1]), int(m[2]) * 3, 28) + timedelta(days=8)
-    return None
+    return date_in_sentence(text, today)
 
 
 def _safe_date(y: int, mth: int, d: int) -> date | None:
@@ -400,31 +367,31 @@ def _safe_date(y: int, mth: int, d: int) -> date | None:
 
 def fill_exec(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult) -> None:
     base = None   # 시나리오를 자동으로 만들지 않으므로 익절 기준도 비워 둔다 (사람이 Base 를 정한 뒤)
-    m["A6.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action=Action.review, escalate_to="YELLOW",
+    m["A7.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action=Action.review, escalate_to="YELLOW",
                           note=f"고점 대비 −25% 면 논제 재검토 — 기본값 ({DRAFT})")
-    m["A6.3"].as_of = today
-    mark_draft(m["A6.3"])
-    res.filled.append("A6.3")
+    m["A7.3"].as_of = today
+    mark_draft(m["A7.3"])
+    res.filled.append("A7.3")
     if base:
-        m["A6.4"].rule = Rule(trigger_type="price", condition=f"price > {base:g}", action=Action.trim, size="50%",
+        m["A7.4"].rule = Rule(trigger_type="price", condition=f"price > {base:g}", action=Action.trim, size="50%",
                               note="Base 목표가 도달 시 절반 축소 — 기본값")
-        m["A6.4"].as_of = today
-        mark_draft(m["A6.4"])
-        res.filled.append("A6.4")
-    _set(m, "A6.5", "WATCH", today=today, status=NodeStatus.unverified, res=res)
+        m["A7.4"].as_of = today
+        mark_draft(m["A7.4"])
+        res.filled.append("A7.4")
+    _set(m, "A7.5", "WATCH", today=today, status=NodeStatus.unverified, res=res)
 
 
 def fill_evidence(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, sector: str | None) -> None:
     src = d.source_all()
     biz = d.top("business", 1)
     if biz:
-        _set(m, "A8.1.1", _trim(biz[0], 200), today=today, source=src, res=res)
+        _set(m, "A9.1.1", _trim(biz[0], 200), today=today, source=src, res=res)
     sh = d.top("shareholder", 1)
     if sh:
-        _set(m, "A8.1.3", _trim(sh[0], 200), today=today, source=src, res=res)
+        _set(m, "A9.1.3", _trim(sh[0], 200), today=today, source=src, res=res)
     val = d.top("valuation", 1)
     if val:
-        _set(m, "A3.6.2", _trim(val[0], 200), today=today, source=src, res=res)
+        _set(m, "A3.5.2", _trim(val[0], 200), today=today, source=src, res=res)
     ya, ye = d.latest_actual_year("op"), d.next_estimate_year("op")
     if ya and ye:
         rev_a, op_a = d.value("revenue", ya), d.value("op", ya)
@@ -440,22 +407,22 @@ def fill_evidence(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResul
         if any(v):
             bits.append(f"{ye} " + " · ".join(x for x in v if x))
         if bits:
-            _set(m, "A8.1.4", " / ".join(bits) + f" — 리포트 {len(d.reports)}건 평균 (표 원단위 {d.unit_note})", today=today, source=src, res=res)
+            _set(m, "A9.1.4", " / ".join(bits) + f" — 리포트 {len(d.reports)}건 평균 (표 원단위 {d.unit_note})", today=today, source=src, res=res)
     if sector:
-        m["A8.2"].links = [f"S.{sector}"]
-    m["A8.3"].links = ["M0"]
-    m["A8"].question = "리포트: " + " / ".join(f.label + (f" ({f.path.name})" if f.path else "") for f in d.reports)
-    m["A8.1"].question = f"리포트 {len(d.reports)}건에서 규칙으로 뽑은 문장 — 원문 확인 필요"
+        m["A9.2"].links = [f"S.{sector}"]
+    m["A9.3"].links = ["M0"]
+    m["A9"].question = "리포트: " + " / ".join(f.label + (f" ({f.path.name})" if f.path else "") for f in d.reports)
+    m["A9.1"].question = f"리포트 {len(d.reports)}건에서 규칙으로 뽑은 문장 — 원문 확인 필요"
 
 
 # ---------------------------------------------------------------------------- 진입점
 def fill_tp_distribution(m: NewMap, d: ReportDigest, *, today: date, res: RuleFillResult, p0: float | None) -> None:
-    """A3.6.4 증권사 목표가 분포 (fact) — min/median/mean/max/n/분산 + 목표가별 상승여력. 시나리오가 아니라 분포다."""
+    """A3.5.4 증권사 목표가 분포 (fact) — min/median/mean/max/n/분산 + 목표가별 상승여력. 시나리오가 아니라 분포다."""
     if not d.n_tp:
         return
-    nid = "A3.6.4"
+    nid = "A3.5.4"
     if nid not in m.nodes:
-        m.add(Node(id=nid, map=MapKind.NEW, parent="A3.6", label="증권사 목표가 분포", node_type="fact", value_type="text",
+        m.add(Node(id=nid, map=MapKind.NEW, parent="A3.5", label="증권사 목표가 분포", node_type="fact", value_type="text",
                    question="목표가 분포는 시나리오가 아니다 — 가장 보수적/낙관적 증권사와 그 간격"))
     rows = []
     for t in sorted(d.targets, key=lambda t: t.tp):
@@ -474,7 +441,8 @@ def fill_tp_distribution(m: NewMap, d: ReportDigest, *, today: date, res: RuleFi
 
 
 def fill_from_digest(m: NewMap, d: ReportDigest, *, today: date, sector: str | None = None,
-                     price: tuple[float, date | None, Source] | None = None, texts: dict[str, str] | None = None) -> RuleFillResult:
+                     price: tuple[float, date | None, Source] | None = None, texts: dict[str, str] | None = None,
+                     earnings_history: list[date] | None = None) -> RuleFillResult:
     res = RuleFillResult(sector=sector)
     p0 = fill_price(m, d, today=today, res=res, price=price)
     fill_drivers(m, d, today=today, res=res, sector=sector)
@@ -487,7 +455,7 @@ def fill_from_digest(m: NewMap, d: ReportDigest, *, today: date, sector: str | N
     fill_view(m, d, today=today, res=res, p0=p0)
     fill_thesis(m, d, today=today, res=res, p0=p0)
     fill_risks(m, d, today=today, res=res)
-    fill_catalysts(m, d, today=today, res=res)
+    fill_catalysts(m, d, today=today, res=res, earnings_history=earnings_history, sector=sector, texts=texts)
     fill_exec(m, d, today=today, res=res)
     fill_evidence(m, d, today=today, res=res, sector=sector)
     m.meta.setdefault("draft", {})

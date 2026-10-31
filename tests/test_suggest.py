@@ -44,77 +44,77 @@ class TestSuggestions(unittest.TestCase):
         r = _draft()
         sugg = r.map.meta["draft"]["suggestions"]
         kinds = {nid: [s["kind"] for s in rows] for nid, rows in sugg.items()}
-        # 설계 v5: 결과 지표(컨센 있음) 는 A3.7.x — 규칙 모드의 A1 원인 드라이버는 정성(수치 없음) 이라 제안이 없다
-        self.assertEqual(kinds["A3.7.2"], ["consensus_median"])
-        self.assertEqual(kinds["A6.2"], ["price_band"])
+        # 설계 v5: 결과 지표(컨센 있음) 는 A3.1.x — 규칙 모드의 A1 원인 드라이버는 정성(수치 없음) 이라 제안이 없다
+        self.assertEqual(kinds["A3.1.2"], ["consensus_median"])
+        self.assertEqual(kinds["A7.2"], ["price_band"])
         self.assertNotIn("A2.3", kinds)                      # 열거형 노드엔 글 제안을 붙이지 않는다
         self.assertNotIn("A1.1", kinds)
-        s = sugg["A3.7.1"][0]
+        s = sugg["A3.1.1"][0]
         self.assertEqual(s["field"], "driver.my_estimate.value")
-        self.assertEqual(s["value"], r.map["A3.7.1"].driver.consensus.value)   # 사용자 결정: 내 추정 제안의 기본값 = 컨센
+        self.assertEqual(s["value"], r.map["A3.1.1"].driver.consensus.value)   # 사용자 결정: 내 추정 제안의 기본값 = 컨센
         self.assertIn("컨센", s["label"])
         self.assertIn("KB증권", s["label"])                   # 증권사별 값이 label 에
         self.assertTrue(s["report_ids"])
-        band = sugg["A6.2"][0]
+        band = sugg["A7.2"][0]
         lo, hi = band["value"]["price_range"].split("~")
         self.assertLess(float(lo.replace(",", "")), float(hi.replace(",", "")))
         self.assertEqual(float(hi.replace(",", "")), r.map.current_price)
         self.assertIsNone(band["value"]["tranches"])        # 분할 횟수는 사람 몫
         self.assertTrue(any("제안값" in n for n in r.notes))
         # 값이 있는 칸엔 제안이 없다 — 미리 채운 뒤 다시 만들면 비어 있어야 한다
-        for n in r.map.children("A3.7"):
+        for n in r.map.children("A3.1"):
             if n.driver:
                 self.assertIsNone(n.driver.my_estimate.value)
-        self.assertNotIn(PREFILL_TAG, r.map["A3.7.2"].tags)
+        self.assertNotIn(PREFILL_TAG, r.map["A3.1.2"].tags)
 
     def test_prefill_option_and_edit_promotes_to_user(self):
         r = _draft(prefill_suggestions=True)
         m = r.map
-        n = m["A3.7.2"]
+        n = m["A3.1.2"]
         self.assertEqual(n.driver.my_estimate.value, n.driver.consensus.value)
         self.assertIn(PREFILL_TAG, n.tags)
         self.assertIn("pending", n.tags)
         self.assertIn("리포트 제안(미확정)", n.driver.my_estimate.source.name)
-        self.assertTrue(m.meta["draft"]["suggestions"]["A3.7.2"][0]["prefilled"])
-        self.assertEqual(set(m.meta["draft"]["prefilled"]), {"A3.7.1", "A3.7.2", "A3.7.3", "A6.2"})
+        self.assertTrue(m.meta["draft"]["suggestions"]["A3.1.2"][0]["prefilled"])
+        self.assertEqual(set(m.meta["draft"]["prefilled"]), {"A3.1.1", "A3.1.2", "A3.1.3", "A7.2"})
         self.assertTrue(any("미리 채움" in x for x in r.notes))
         # 사람이 편집 폼에서 저장하면 suggested → user
-        apply_edit_ops(m, [{"op": "set", "id": "A3.7.2", "fields": {"driver": {**n.driver.model_dump(mode="json"), "my_estimate": {"value": 70.0}}}}], today=TODAY)
-        self.assertNotIn(PREFILL_TAG, m["A3.7.2"].tags)
-        self.assertIn("user", m["A3.7.2"].tags)
+        apply_edit_ops(m, [{"op": "set", "id": "A3.1.2", "fields": {"driver": {**n.driver.model_dump(mode="json"), "my_estimate": {"value": 70.0}}}}], today=TODAY)
+        self.assertNotIn(PREFILL_TAG, m["A3.1.2"].tags)
+        self.assertIn("user", m["A3.1.2"].tags)
         # 다시 만들어도 이미 값이 있는 칸엔 제안이 안 생기고, 미리 채운 것은 두 번 채우지 않는다
         self.assertEqual(apply_prefill(m, today=TODAY), [])
 
     def test_accept_records_source_and_stats(self):
         r = _draft()
         m = r.map
-        s = m.meta["draft"]["suggestions"]["A3.7.1"][0]
-        drv = {**m["A3.7.1"].driver.model_dump(mode="json"), "my_estimate": {"value": s["value"]}}
-        res = apply_edit_ops(m, [{"op": "set", "id": "A3.7.1", "fields": {"driver": drv, "_accepted": [{"field": s["field"], "kind": s["kind"], "report_ids": s["report_ids"], "value": s["value"]}]}}],
+        s = m.meta["draft"]["suggestions"]["A3.1.1"][0]
+        drv = {**m["A3.1.1"].driver.model_dump(mode="json"), "my_estimate": {"value": s["value"]}}
+        res = apply_edit_ops(m, [{"op": "set", "id": "A3.1.1", "fields": {"driver": drv, "_accepted": [{"field": s["field"], "kind": s["kind"], "report_ids": s["report_ids"], "value": s["value"]}]}}],
                              today=TODAY)
         self.assertIn("제안 수락", res.applied[0])
-        h = m["A3.7.1"].history[-1]
+        h = m["A3.1.1"].history[-1]
         self.assertTrue(h.source.name.startswith(ACCEPT_SOURCE))
         self.assertIn("컨센서스", h.source.name)
         self.assertIn(s["report_ids"][0], h.source.name)
-        self.assertEqual(m.meta["draft"]["suggestions"]["A3.7.1"][0]["accepted_at"], TODAY.isoformat())
-        self.assertEqual(m.meta["draft"]["suggestion_log"][0]["node"], "A3.7.1")
+        self.assertEqual(m.meta["draft"]["suggestions"]["A3.1.1"][0]["accepted_at"], TODAY.isoformat())
+        self.assertEqual(m.meta["draft"]["suggestion_log"][0]["node"], "A3.1.1")
         st = suggestion_stats(m)
         self.assertEqual((st["total"], st["accepted"], st["modified_after_accept"]), (4, 1, 0))
         self.assertAlmostEqual(st["accept_rate"], 0.25)
         self.assertEqual(st["modify_rate"], 0.0)
         self.assertIn("수락 1", stats_text(m))
         # _accepted 는 노드에 저장되지 않는다
-        self.assertNotIn("_accepted", m["A3.7.1"].model_dump())
+        self.assertNotIn("_accepted", m["A3.1.1"].model_dump())
         # 수락한 값을 나중에 다시 고치면 '수락 뒤 수정' 으로 센다
-        apply_edit_ops(m, [{"op": "set", "id": "A3.7.1", "fields": {"driver": {**m["A3.7.1"].driver.model_dump(mode="json"), "my_estimate": {"value": 800.0}}}}], today=TODAY)
-        self.assertTrue(m["A3.7.1"].history[-1].source.name.startswith(EDIT_SOURCE))
+        apply_edit_ops(m, [{"op": "set", "id": "A3.1.1", "fields": {"driver": {**m["A3.1.1"].driver.model_dump(mode="json"), "my_estimate": {"value": 800.0}}}}], today=TODAY)
+        self.assertTrue(m["A3.1.1"].history[-1].source.name.startswith(EDIT_SOURCE))
         self.assertEqual(suggestion_stats(m)["modify_rate"], 1.0)
         # 받아들였다가 폼에서 값을 바꾸면(_accepted 없음) 보통 편집이다
-        s3 = m.meta["draft"]["suggestions"]["A3.7.3"][0]
-        apply_edit_ops(m, [{"op": "set", "id": "A3.7.3", "fields": {"driver": {**m["A3.7.3"].driver.model_dump(mode="json"), "my_estimate": {"value": s3["value"] + 1}}}}], today=TODAY)
-        self.assertTrue(m["A3.7.3"].history[-1].source.name.startswith(EDIT_SOURCE))
-        self.assertNotIn("accepted_at", m.meta["draft"]["suggestions"]["A3.7.3"][0])
+        s3 = m.meta["draft"]["suggestions"]["A3.1.3"][0]
+        apply_edit_ops(m, [{"op": "set", "id": "A3.1.3", "fields": {"driver": {**m["A3.1.3"].driver.model_dump(mode="json"), "my_estimate": {"value": s3["value"] + 1}}}}], today=TODAY)
+        self.assertTrue(m["A3.1.3"].history[-1].source.name.startswith(EDIT_SOURCE))
+        self.assertNotIn("accepted_at", m.meta["draft"]["suggestions"]["A3.1.3"][0])
 
     def test_minority_opinion_suggestion(self):
         m = new_map_skeleton("005930", "삼성전자", "growth", TODAY)

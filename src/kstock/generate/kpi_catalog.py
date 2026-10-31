@@ -21,7 +21,7 @@ class Kpi:
     cadence_days: int = 90
     # 리포트 추정치 표에서 바로 채울 수 있는 지표면 metric 키 (revenue/op/np/eps/opm…), 아니면 None(수동·LLM)
     metric: str | None = None
-    # ---- 설계 v5: 원인 변수(cause) 는 A1, 결과 지표(result) 는 A3.7 로 간다
+    # ---- 설계 v5: 원인 변수(cause) 는 A1, 결과 지표(result) 는 A3.1 로 간다
     role: str = "cause"
     driver_id: str | None = None      # Claim 의 driver_id (DRIVERS) — 이 드라이버의 Claim 수치 셀을 찾는 열쇠
     variable: str | None = None       # 셀의 변수 축: asp | volume | cost | margin | op | revenue | fcf | orders | backlog | capacity
@@ -98,6 +98,20 @@ SECTOR_KPIS: dict[str, tuple[str, list[Kpi]]] = {
         Kpi("export_ratio", "수출 비중", "%", True, "분기 실적", 90),
     ]),
     "KR-INTERNET": ("인터넷·플랫폼", [
+        # 설계 v7 T10 — 원인 KPI (v5 형식: driver_id · variable · template · segment). NAVER 6건 리포트의 쟁점(광고·커머스·핀테크·AI DC·비용) 그대로
+        Kpi("ad_growth", "광고 성장 (서치플랫폼)", "%", True, "분기 실적 서치플랫폼 매출 YoY · 광고 경기 · AI 브리핑 광고 도입 (분기)", 90,
+            driver_id="ad_growth", variable="volume", template="price_volume", segment="서치플랫폼", proxies=("서치플랫폼 매출 YoY", "디스플레이 광고 YoY", "검색 점유율")),
+        Kpi("commerce", "커머스 거래액·테이크레이트", "%", True, "분기 실적 커머스 매출 YoY · 거래액(GMV) · 멤버십·N배송 (분기)", 90,
+            driver_id="commerce", variable="volume", template="price_volume", segment="커머스", proxies=("커머스 매출 YoY", "GMV", "테이크레이트", "멤버십 가입자")),
+        Kpi("fintech", "핀테크 결제액", "%", True, "분기 실적 핀테크 매출 YoY · 결제액 · 외부 결제 비중 (분기)", 90,
+            driver_id="fintech", variable="volume", template="price_volume", segment="핀테크", proxies=("결제액", "핀테크 매출 YoY", "외부 결제 비중")),
+        Kpi("marketing_cost", "마케팅·인프라 비용", "%p", False, "분기 실적 영업비용 YoY · 마케팅비 · 인프라비 · 인건비 (분기)", 90,
+            driver_id="marketing_cost", variable="cost", template="cost_ratio", segment=None, proxies=("영업비용 YoY", "마케팅비", "인프라비")),
+        # 2026-10-31: 용량(MW) 은 전제조건이지 성립 조건이 아니다 — 가동률·유상 계약 용량·계약 단가·EBITDA/FCF 를 함께 본다
+        Kpi("ai_dc", "AI 데이터센터·클라우드", "조원", True, "클라우드 매출 YoY · 유상 계약 용량(MW) · GPU 가동률 · 계약 단가 · AI DC EBITDA/FCF (분기 · 공시)", 90,
+            driver_id="ai_dc", variable="volume", template="price_volume", segment="클라우드", kind="qualitative",
+            proxies=("클라우드 매출 YoY", "구축 용량(MW)", "유상 계약 용량(MW)", "GPU 가동률", "계약 단가(MW당 매출)", "AI DC EBITDA·FCF")),
+        # 보조 (v5 이전 항목 — A1 후보 아님)
         Kpi("mau", "MAU", "백만", True, "분기 실적 발표", 90),
         Kpi("take_rate", "테이크레이트", "%", True, "분기 실적 발표", 90),
         Kpi("opm", "영업이익률", "%", True, "분기 실적", 90, "opm"),
@@ -111,6 +125,17 @@ SECTOR_KPIS: dict[str, tuple[str, list[Kpi]]] = {
         Kpi("roe", "ROE", "%", True, "분기 실적", 90, "roe"),
     ]),
     "KR-UTIL": ("유틸리티·에너지", [
+        # 설계 v7 T10 — 원인 KPI (두산에너빌리티 4건 리포트의 쟁점: 원전 수주 · 수주잔고 · 가스터빈 · SMR · 자회사)
+        Kpi("nuclear_orders", "원전 수주 (대형·SMR)", "조원", True, "수주 공시 · 체코·해외 원전 일정 · SMR 계약 (공시 · 분기)", 90,
+            driver_id="nuclear_orders", variable="orders", template="orders", segment="원자력", proxies=("신규수주 공시", "원전 프로젝트 일정", "SMR 계약")),
+        Kpi("backlog", "수주잔고·신규수주", "조원", True, "분기 실적 수주잔고 · 신규수주 가이던스 (분기)", 90,
+            driver_id="backlog", variable="orders", template="orders", segment="에너빌리티", proxies=("수주잔고", "신규수주", "수주 가이던스")),
+        Kpi("gas_turbine", "가스터빈 매출", "조원", True, "가스터빈 수주·납품 (분기 · 공시)", 90,
+            driver_id="gas_turbine", variable="volume", template="price_volume", segment="가스터빈", proxies=("가스터빈 수주", "납품 기수")),
+        Kpi("subsidiaries", "자회사 손익 (밥캣)", "조원", True, "밥캣 분기 실적 · 북미 소형 건설기계 수요 (분기)", 90,
+            driver_id="subsidiaries", variable="op", template="direct_op", segment="밥캣", proxies=("밥캣 영업이익", "북미 딜러 재고")),
+        Kpi("cost", "원가율 (에너빌리티)", "%p", False, "분기 실적 원가율 · 원자재 가격 (분기)", 90,
+            driver_id="cost", variable="cost", template="cost_ratio", segment="에너빌리티", kind="qualitative", proxies=("원가율", "원자재 가격")),
         Kpi("smp", "SMP (계통한계가격)", "원/kWh", True, "전력거래소 월별", 30),
         Kpi("fuel_cost", "연료비 단가", "원/kWh", False, "분기 실적", 90),
     ]),
@@ -174,7 +199,7 @@ def cause_kpis(sector: str | None) -> list[Kpi]:
 
 
 def result_kpis() -> list[Kpi]:
-    """결과 지표 (role=result, 표에서 채움) — A3.7 로 간다."""
+    """결과 지표 (role=result, 표에서 채움) — A3.1 로 간다."""
     return [k for k in COMMON_KPIS if k.role == "result" and k.metric]
 
 
@@ -222,14 +247,15 @@ DRIVERS: list[DriverDef] = [
     DriverDef("ad_growth", "광고 성장", ("광고 매출", "광고 성장", "서치플랫폼", "디스플레이 광고", "AI 브리핑 광고"), "KR-INTERNET", "revenue"),
     DriverDef("commerce", "커머스", ("커머스", "거래액", "GMV", "N배송", "멤버십", "쇼핑"), "KR-INTERNET", "revenue"),
     DriverDef("fintech", "핀테크·결제", ("파이낸셜", "결제액", "Npay", "페이", "두나무", "스테이블코인"), "KR-INTERNET", "revenue"),
-    DriverDef("ai_dc", "AI 데이터센터·클라우드", ("AI DC", "AI 데이터센터", "네오클라우드", "AI팩토리", "클라우드", "GPU", "소버린 AI", "엔비디아"), "KR-INTERNET", "revenue"),
+    DriverDef("ai_dc", "AI 데이터센터·클라우드", ("AI DC", "AI 데이터센터", "네오클라우드", "AI팩토리", "AI 팩토리", "AI Factory", "GPUaaS", "클라우드", "GPU", "소버린 AI", "엔비디아", "NVIDIA", "브룩필드"), "KR-INTERNET", "revenue"),
     DriverDef("content", "콘텐츠·웹툰", ("웹툰", "콘텐츠", "웹소설"), "KR-INTERNET", "revenue"),
     DriverDef("marketing_cost", "마케팅·인프라 비용", ("마케팅비", "인프라비", "파트너비", "중계권", "단말기"), "KR-INTERNET", "op"),
     # 유틸리티·에너지·원전·기계
-    DriverDef("nuclear_orders", "원전 수주", ("원전 수주", "원자력", "체코 원전", "웨스팅하우스", "해외원전", "주기기"), "KR-UTIL", "revenue"),
-    DriverDef("smr", "SMR", ("SMR", "소형모듈원자로", "NuScale", "TerraPower", "X-energy"), "KR-UTIL", "revenue"),
-    DriverDef("gas_turbine", "가스터빈", ("가스터빈", "LNG 발전", "복합화력", "GE Vernova", "Siemens"), "KR-UTIL", "revenue"),
-    DriverDef("backlog", "수주잔고", ("수주잔고", "신규수주", "수주 모멘텀", "수주 가시화"), "KR-UTIL", "revenue"),
+    DriverDef("nuclear_orders", "원전 수주", ("원전 수주", "원자력", "체코 원전", "웨스팅하우스", "해외원전", "주기기", "AP1000", "대미투자", "대미 투자",
+                                           "대형원전", "장주기 기자재", "장납기", "두코바니", "폴란드 원전", "Kozloduy", "V.C. Summer", "Fermi"), "KR-UTIL", "revenue"),
+    DriverDef("smr", "SMR", ("SMR", "소형모듈원자로", "NuScale", "TerraPower", "X-energy", "i-SMR", "BWRX", "Rolls-Royce", "다우케미컬", "루마니아"), "KR-UTIL", "revenue"),
+    DriverDef("gas_turbine", "가스터빈", ("가스터빈", "LNG 발전", "복합화력", "GE Vernova", "Siemens", "슬롯", "예약 물량", "예약계약", "중형 가스터빈", "복합 EPC", "복합화력 EPC"), "KR-UTIL", "revenue"),
+    DriverDef("backlog", "수주잔고", ("수주잔고", "신규수주", "신규 수주", "수주 목표", "수주 모멘텀", "수주 가시화"), "KR-UTIL", "revenue"),
     DriverDef("subsidiaries", "자회사 실적", ("자회사", "건설기계", "밥캣", "연료전지"), "KR-UTIL", "op"),
     # 2차전지·자동차·바이오·금융 (씨앗)
     DriverDef("ev_demand", "전기차 수요", ("전기차", "EV 수요", "캐즘"), "KR-BATT", "revenue"),

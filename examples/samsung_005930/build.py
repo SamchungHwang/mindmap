@@ -95,74 +95,74 @@ def build():
     a["A2.3"].set("시간축", as_of=TODAY)
 
     # ---- A3 시나리오 (P0 = 218,000)
-    a["A3.1"].scenario = Scenario(name="Bear", probability=0.30, target_price=170000,
+    a["A4.2"].scenario = Scenario(name="Bear", probability=0.30, target_price=170000,
                                   assumptions=["2027 상반기 DRAM 계약가 하락 전환", "2027E EPS 35,000", "PER 5배"],
                                   valuation_method="PER 5배 × 2027E EPS 35,000 (52주 저가 189,200 하회)")
-    a["A3.2"].scenario = Scenario(name="Base", probability=0.45, target_price=360000,
+    a["A4.3"].scenario = Scenario(name="Base", probability=0.45, target_price=360000,
                                   assumptions=["분기 OP 100조대 2027년 유지", "2027E EPS 60,000", "PER 6배"],
                                   valuation_method="PER 6배 × 2027E EPS 60,000 (컨센서스 평균 51.6만보다 보수적)")
-    a["A3.3"].scenario = Scenario(name="Bull", probability=0.25, target_price=520000,
+    a["A4.4"].scenario = Scenario(name="Bull", probability=0.25, target_price=520000,
                                   assumptions=["호황 2028년까지", "HBM 점유율 40%+", "주주환원 확대(소각 30~40조)", "2027E EPS 70,000", "PER 7.5배"],
                                   valuation_method="PER 7.5배 × 2027E EPS 70,000 ≈ 증권사 평균 목표가")
-    a["A3.6.1"].set(10, as_of=TODAY, source=Source(name="추정: 현재 PER≈4배(KB) vs 과거 10년 PER 밴드 6~20배 → 하위 10%ile", retrieved_at=TODAY))
-    a["A3.6.3"].set("up", as_of=TODAY, source=Source(name="메리츠 10/7 '2027년 메모리 판가·실적 상향', 3Q 컨센서스 상회", retrieved_at=TODAY))
-    a["A3.6.2"].set("SK하이닉스 대비 HBM 점유율 열위지만 PER·PBR(1.33배) 모두 할인. 할인 근거: HBM 2위, 파운드리 적자, 지배구조", as_of=TODAY,
+    a["A3.5.1"].set(10, as_of=TODAY, source=Source(name="추정: 현재 PER≈4배(KB) vs 과거 10년 PER 밴드 6~20배 → 하위 10%ile", retrieved_at=TODAY))
+    a["A3.5.3"].set("up", as_of=TODAY, source=Source(name="메리츠 10/7 '2027년 메모리 판가·실적 상향', 3Q 컨센서스 상회", retrieved_at=TODAY))
+    a["A3.5.2"].set("SK하이닉스 대비 HBM 점유율 열위지만 PER·PBR(1.33배) 모두 할인. 할인 근거: HBM 2위, 파운드리 적자, 지배구조", as_of=TODAY,
                     source=SRC_FLOW)
 
-    # ---- A4 리스크 & 무효화 조건
-    a["A4.1"].set({"probability": 0.35, "impact_pct": -30, "text": "메모리 가격 피크아웃 — 2027 상반기 DRAM 계약가 하락 전환"}, as_of=TODAY)
-    a["A4.2"].set({"probability": 0.25, "impact_pct": -20, "text": "중국 추격 — CXMT 4F² DDR5 양산 성공 시 범용 DRAM 가격 압박"}, as_of=TODAY)
-    a["A4.3"].set({"probability": 0.40, "impact_pct": -15, "text": "외국인 수급·매크로 — 유가·미 금리 상승·원화 약세 지속 (10월 외국인 순매도 17.7조 중 삼성 4.7조)"}, as_of=TODAY)
-    a["A4.4.1"].rule = Rule(trigger_type="fact", condition="driver[A1.1].current < 80", action=Action.exit, escalate_to="RED",
+    # ---- A5 리스크 & 무효화 조건
+    a["A5.1"].set({"probability": 0.35, "impact_pct": -30, "text": "메모리 가격 피크아웃 — 2027 상반기 DRAM 계약가 하락 전환"}, as_of=TODAY)
+    a["A5.2"].set({"probability": 0.25, "impact_pct": -20, "text": "중국 추격 — CXMT 4F² DDR5 양산 성공 시 범용 DRAM 가격 압박"}, as_of=TODAY)
+    a["A5.3"].set({"probability": 0.40, "impact_pct": -15, "text": "외국인 수급·매크로 — 유가·미 금리 상승·원화 약세 지속 (10월 외국인 순매도 17.7조 중 삼성 4.7조)"}, as_of=TODAY)
+    a["A5.4.1"].rule = Rule(trigger_type="fact", condition="driver[A1.1].current < 80", action=Action.exit, escalate_to="RED",
                             note="분기 영업이익 80조 미만 확인 = 사이클 꺾임. 가격이 아니라 실적으로 논제를 버린다")
-    a.add(Node(id="A4.4.2", map=MapKind.NEW, parent="A4.4", label="무효화 조건 2", node_type="rule", value_type="text", as_of=TODAY,
+    a.add(Node(id="A5.4.2", map=MapKind.NEW, parent="A5.4", label="무효화 조건 2", node_type="rule", value_type="text", as_of=TODAY,
                rule=Rule(trigger_type="fact", condition="driver[A1.2].current < 25", action=Action.exit, escalate_to="RED",
                          note="HBM 점유율 25% 미만 = HBM4 인증/램프업 실패")))
-    a["A4.5"].set("DRAMeXchange DDR5 계약가 월간 변동률(2개월 연속 마이너스), 트렌드포스 분기 HBM 점유율, KRX 외국인 월간 순매수",
+    a["A5.5"].set("DRAMeXchange DDR5 계약가 월간 변동률(2개월 연속 마이너스), 트렌드포스 분기 HBM 점유율, KRX 외국인 월간 순매수",
                   as_of=TODAY, source=Source(name="직접 설정", retrieved_at=TODAY))
 
-    # ---- A5 촉매 & 타임라인 (날짜는 통상 일정 기준 추정 — 확정 공시 확인 필요)
+    # ---- A6 촉매 & 타임라인 (날짜는 통상 일정 기준 추정 — 확정 공시 확인 필요)
     for i, (d, fact, direction, mat) in enumerate((
         (date(2026, 10, 30), "3Q26 확정실적·컨퍼런스콜 — 사업부별 이익, 주주환원 언급 (예정일 추정)", "중립", "H"),
         (date(2027, 1, 8), "4Q26 잠정실적 — 분기 OP 110~116조 컨센서스 확인 (예정일 추정)", "중립", "H"),
         (date(2027, 1, 29), "2027~2029 주주환원 정책 발표 가능 (KB: FCF 50% 초과 가능성)", "강화", "H"),
         (date(2027, 1, 31), "1Q27 HBM4 공급 계약가 — 2027 판가 상승률 확인", "강화", "H"),
     ), start=1):
-        a.add(Node(id=f"A5.1.{i}", map=MapKind.NEW, parent="A5.1", label=fact[:30], node_type="event", value_type="text", as_of=TODAY,
+        a.add(Node(id=f"A6.1.{i}", map=MapKind.NEW, parent="A6.1", label=fact[:30], node_type="event", value_type="text", as_of=TODAY,
                    event=Event(date=d, fact=fact, affects=["A1.1"] if "실적" in fact else ["A1.3"] if "판가" in fact else [],
                                direction=direction, priced_in="아니오", materiality=mat,
                                source=Source(name="통상 일정 기준 추정", retrieved_at=TODAY))))
-    a["A5.2.1"].set("하락", as_of=TODAY, source=SRC_FLOW)
-    a["A5.2.2"].set(1.3, as_of=TODAY, source=Source(name="10/19 거래량 1,569만주 — 9월 일평균 대비 추정", retrieved_at=TODAY))
-    a["A5.2.3"].set(-47286, as_of=TODAY, source=SRC_FLOW)  # 10월 외국인 순매도 4조 7,286억
-    a["A5.2"].question = "10월 외국인 순매도 -4.7조(10/19 +6,247억 순매수 전환), 10월 -18.8%, 10/13 CXMT 쇼크 -7.39%"
+    a["A6.2.1"].set("하락", as_of=TODAY, source=SRC_FLOW)
+    a["A6.2.2"].set(1.3, as_of=TODAY, source=Source(name="10/19 거래량 1,569만주 — 9월 일평균 대비 추정", retrieved_at=TODAY))
+    a["A6.2.3"].set(-47286, as_of=TODAY, source=SRC_FLOW)  # 10월 외국인 순매도 4조 7,286억
+    a["A6.2"].question = "10월 외국인 순매도 -4.7조(10/19 +6,247억 순매수 전환), 10월 -18.8%, 10/13 CXMT 쇼크 -7.39%"
 
-    # ---- A6 실행 계획 (판단은 WATCH — 매수 여부는 논제의 주인이 정한다)
-    a["A6.2"].set({"price_range": [200000, 220000], "tranches": 3}, as_of=TODAY)
-    a["A6.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action=Action.review, escalate_to="YELLOW",
-                          note="고점 대비 -25% 면 논제 재검토 (손절은 사실 기준 A4.4 가 한다)")
-    a["A6.4"].rule = Rule(trigger_type="price", condition="price > 360000", action=Action.trim, size="50%",
+    # ---- A7 실행 계획 (판단은 WATCH — 매수 여부는 논제의 주인이 정한다)
+    a["A7.2"].set({"price_range": [200000, 220000], "tranches": 3}, as_of=TODAY)
+    a["A7.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action=Action.review, escalate_to="YELLOW",
+                          note="고점 대비 -25% 면 논제 재검토 (손절은 사실 기준 A5.4 가 한다)")
+    a["A7.4"].rule = Rule(trigger_type="price", condition="price > 360000", action=Action.trim, size="50%",
                           note="Base 목표가 도달 시 절반 축소")
-    a["A6.5"].set("WATCH", as_of=TODAY)
+    a["A7.5"].set("WATCH", as_of=TODAY)
 
-    # ---- A8 근거 자료
-    a["A8.1.1"].set("메모리(DRAM·NAND·HBM)가 이익의 거의 전부 — 4Q26 메모리 OP 113조 / 전사 114조 전망. 파운드리·시스템LSI, MX(적자 ~1조 방어), DX",
+    # ---- A9 근거 자료
+    a["A9.1.1"].set("메모리(DRAM·NAND·HBM)가 이익의 거의 전부 — 4Q26 메모리 OP 113조 / 전사 114조 전망. 파운드리·시스템LSI, MX(적자 ~1조 방어), DX",
                     as_of=TODAY, source=SRC_KB)
-    a["A8.1.2"].set("HBM4 양산 확대·HBM4E 샘플 공급, DRAM 3사 과점. 열위: HBM 점유율 2위(33%), 파운드리 적자", as_of=TODAY, source=SRC_KB_HBM)
-    a["A8.1.3"].set("3개년 주주환원 잔여 재원 110조 (현금배당 70~80조, 자사주 소각 30~40조 가능). 차기 정책 FCF 50% 초과 가능성",
+    a["A9.1.2"].set("HBM4 양산 확대·HBM4E 샘플 공급, DRAM 3사 과점. 열위: HBM 점유율 2위(33%), 파운드리 적자", as_of=TODAY, source=SRC_KB_HBM)
+    a["A9.1.3"].set("3개년 주주환원 잔여 재원 110조 (현금배당 70~80조, 자사주 소각 30~40조 가능). 차기 정책 FCF 50% 초과 가능성",
                     as_of=TODAY, source=SRC_KB)
-    a["A8.1.4"].set("3Q26 매출 195조(QoQ +13.7%, YoY +126.6%), 영업이익 107.4조(QoQ +20.0%, YoY +782.5%). PER≈4배, PBR 1.33배",
+    a["A9.1.4"].set("3Q26 매출 195조(QoQ +13.7%, YoY +126.6%), 영업이익 107.4조(QoQ +20.0%, YoY +782.5%). PER≈4배, PBR 1.33배",
                     as_of=TODAY, source=SRC_Q3)
-    a["A8.2"].links = ["S.KR-SEMI"]
-    a["A8.3"].links = ["M0"]
-    a["A3.6"].question = "참고: 증권사 목표가 최근 90일 21건 35만~63만, 평균 51.6만 (리서치 DB). 6월 고가 374,500 → 9/21 274,000 → 10/19 218,000"
-    a["A8.1"].question = str(SRC_DB.name)
-    a["A8"].question = f"{SRC_DB_PX.name}"
+    a["A9.2"].links = ["S.KR-SEMI"]
+    a["A9.3"].links = ["M0"]
+    a["A3.5"].question = "참고: 증권사 목표가 최근 90일 21건 35만~63만, 평균 51.6만 (리서치 DB). 6월 고가 374,500 → 9/21 274,000 → 10/19 218,000"
+    a["A9.1"].question = str(SRC_DB.name)
+    a["A9"].question = f"{SRC_DB_PX.name}"
 
     # ---- 평가·검증
     evaluate_new_map(a, today=TODAY)
-    sug = (a["A6.1"].value or {}).get("suggested")
-    a["A6.1"].value = {**(a["A6.1"].value or {}), "confirmed": 0.05, "reason": f"제안 {sug:.2%} → 5%로 확정 (초안: 포트폴리오 맥락 미반영)"}
+    sug = (a["A7.1"].value or {}).get("suggested")
+    a["A7.1"].value = {**(a["A7.1"].value or {}), "confirmed": 0.05, "reason": f"제안 {sug:.2%} → 5%로 확정 (초안: 포트폴리오 맥락 미반영)"}
     return a
 
 
@@ -179,7 +179,7 @@ def main(argv=None) -> int:
     write_markdown(a, out / "A_005930.md")
     issues = validate(a, today=TODAY)
     print(f"A 맵 {a.map_id} → {out}")
-    print(f"  기대수익률 {a.value('A3.4'):+.1%} · 손익비 {a.value('A3.5')} · 판단 {a.decision.value} · 검증 오류 {sum(1 for i in issues if i.level == 'error')} 경고 {sum(1 for i in issues if i.level == 'warn')}")
+    print(f"  기대수익률 {a.value('A4.5'):+.1%} · 손익비 {a.value('A4.6')} · 판단 {a.decision.value} · 검증 오류 {sum(1 for i in issues if i.level == 'error')} 경고 {sum(1 for i in issues if i.level == 'warn')}")
     for i in issues:
         print("   ", i)
     if args.db:

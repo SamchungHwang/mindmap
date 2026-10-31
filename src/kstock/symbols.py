@@ -197,14 +197,21 @@ def _rank(items: list[Symbol]) -> list[Symbol]:
 
 
 # ---------------------------------------------------------------------------- 기본 구성
+RESEARCH_DB_OFF = ("off", "none", "0", "-")      # KSTOCK_RESEARCH_DB=off → 형제 폴더 기본값도 쓰지 않는다 (테스트 · 리서치 DB 없이 돌릴 때)
+
+
 def research_db_path(store: Store | None = None) -> Path | None:
-    """설정 → 환경변수 → 형제 폴더 순으로 리서치 DB 경로. 없으면 None."""
+    """설정 → 환경변수 → 형제 폴더 순으로 리서치 DB 경로. 없으면 None. 환경변수(또는 설정) 가 off/none 이면 아예 쓰지 않는다."""
     cands: list[Path] = []
     if store is not None:
         v = store.get_setting("research_db")
+        if v and str(v).strip().lower() in RESEARCH_DB_OFF:
+            return None
         if v:
             cands.append(Path(str(v)))
     env = os.environ.get("KSTOCK_RESEARCH_DB")
+    if env and env.strip().lower() in RESEARCH_DB_OFF:
+        return None
     if env:
         cands.append(Path(env))
     cands.append(DEFAULT_RESEARCH_DB)

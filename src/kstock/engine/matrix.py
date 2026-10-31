@@ -82,7 +82,7 @@ def decide(
         if vs == ValuationState.저평가:
             if ws == WeightState.과다:
                 return MatrixResult(Action.hold, "유효 × 저평가 × 과다", "비중 상한 유지, 추가 금지")
-            return MatrixResult(Action.add, "유효 × 저평가 × (과소|적정)", "A6.1 재계산 비중까지")
+            return MatrixResult(Action.add, "유효 × 저평가 × (과소|적정)", "A7.1 재계산 비중까지")
         if vs == ValuationState.적정 or vs is None:
             if ws == WeightState.과소:
                 return MatrixResult(Action.add, "유효 × 적정 × 과소", "소폭 add (프로파일 기본값)")

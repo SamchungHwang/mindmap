@@ -30,6 +30,7 @@ from kstock.engine.valuation import (
     compute_valuation,
     drop_contained,
     normalized_eps,
+    valuation_line,
     write_valuation,
 )
 from kstock.generate.cause import fill_cause_drivers
@@ -129,22 +130,30 @@ class TestValuationModel(unittest.TestCase):
         # 역산: 262,000 / 6.36 = 41,188 → 컨센 −51% ; DRAM 매출 540.7조 대비 경로
         self.assertAlmostEqual(vm.implied_eps, 262_000 / tl.per, places=3)
         self.assertAlmostEqual(vm.implied_eps_vs_consensus_pct, (262_000 / tl.per / 83_320 - 1) * 100, places=3)
-        self.assertEqual(vm.implied_path_label, "DRAM ASP 경로 (k=1.0)")
+        self.assertEqual(vm.implied_path_label, "DRAM ASP (k=1.0)")
         op_req = vm.implied_eps / 83_320 * 5_079_000 / (1 - tl.t)
         self.assertAlmostEqual(vm.implied_path_pct, (op_req - 6_056_457) / 5_406_907 * 100, places=3)
+        # v7 T2: 역산은 조건부 — PER 출처·가정 의존·여러 PER 표, 문구에 '내재' 없음
+        self.assertEqual((vm.per_source, vm.implied_status), ("broker_target_implied", "assumption_dependent"))
+        self.assertTrue(any(r["source"] == "broker_target_implied" for r in vm.implied_table))
+        self.assertTrue(any(r["source"] == "consensus_eps" and abs(r["vs_consensus_pct"]) < 0.01 for r in vm.implied_table))
+        line = valuation_line(vm, 262_000.0)
+        self.assertNotIn("내재", line)
+        self.assertIn("가정 의존", line)
+        self.assertIn("목표가 중앙값 재현", line)
         self.assertIsNone(vm.price_sotp)                                    # 멀티플 없으면 SOTP 미계산 (사용자 결정 ④)
         self.assertTrue(any("SOTP 미계산" in w for w in vm.warnings))
 
     def test_eps_basis_and_criteria(self):
         m = _fin_map()
-        m["A3.8"].value = {"eps_basis": "normalized", "per": 5.0}
+        m["A3.2"].value = {"eps_basis": "normalized", "per": 5.0}
         vm = compute_valuation(m, today=TODAY)
         self.assertEqual((vm.eps_basis, vm.per_basis), ("normalized", "user"))
         self.assertAlmostEqual(vm.price_per, (50_312 + 83_320 + 93_085) / 3 * 5.0, places=3)
-        m["A3.8"].value = {"eps_basis": "my_estimate"}
+        m["A3.2"].value = {"eps_basis": "my_estimate"}
         vm = compute_valuation(m, today=TODAY)
-        self.assertTrue(any("내 추정" in w for w in vm.warnings))           # A3.7.3 내 추정 없음 → 컨센으로 + 경고
-        m["A3.8"].value = {"eps_basis": "user", "eps": 60_000}
+        self.assertTrue(any("내 추정" in w for w in vm.warnings))           # A3.1.3 내 추정 없음 → 컨센으로 + 경고
+        m["A3.2"].value = {"eps_basis": "user", "eps": 60_000}
         vm = compute_valuation(m, today=TODAY)
         self.assertAlmostEqual(vm.price_per, 60_000 * 530_000 / 83_320, places=3)
         c = Criteria.from_map(m)
@@ -152,7 +161,7 @@ class TestValuationModel(unittest.TestCase):
 
     def test_sotp_verification(self):
         m = _fin_map()
-        m["A3.8"].value = {"sotp_multiples": {"메모리": 6.0, "파운드리": 0.0, "DX": 8.0, "SDC": 6.0, "Harman": 10.0}}
+        m["A3.2"].value = {"sotp_multiples": {"메모리": 6.0, "파운드리": 0.0, "DX": 8.0, "SDC": 6.0, "Harman": 10.0}}
         vm = compute_valuation(m, today=TODAY)
         t = 1 - 5_079_000 / 6_056_457
         val = (6_028_090 * 6 + 0 + (-40_690) * 8 + 38_727 * 6 + 21_647 * 10) * (1 - t) + 982_153
@@ -161,7 +170,7 @@ class TestValuationModel(unittest.TestCase):
         self.assertAlmostEqual(vm.sotp_other_op, 6_056_457 - (6_028_090 - 5_663 - 40_690 + 38_727 + 21_647), places=2)
         self.assertTrue(abs(vm.gap_pct) < 5)                                 # PER 530,000 과 몇 % 안
         # 포함 관계: 메모리 ⊃ DRAM — 자식은 뺀다
-        m["A3.8"].value = {"sotp_multiples": {"메모리": 6.0, "DRAM": 6.0, "HBM": 8.0}}
+        m["A3.2"].value = {"sotp_multiples": {"메모리": 6.0, "DRAM": 6.0, "HBM": 8.0}}
         vm2 = compute_valuation(m, today=TODAY)
         self.assertEqual([p.segment for p in vm2.sotp], ["메모리"])
         self.assertTrue(any("겹침" in w for w in vm2.warnings))
@@ -212,18 +221,18 @@ class TestScenarioModel(unittest.TestCase):
         self.assertTrue(any("DRAM 매출" in x for x in r.missing))
         m2 = _fin_map()
         self.assertTrue(apply_bear_template(m2, "KR-SEMI", today=TODAY))     # 라벨만 (사용자 결정 ⑥)
-        self.assertIn("Bear 템플릿", m2["A3.1"].question)
-        self.assertIsNone(m2["A3.1"].scenario)
+        self.assertIn("Bear 템플릿", m2["A4.2"].question)
+        self.assertIsNone(m2["A4.2"].scenario)
         self.assertEqual(m2.meta["draft"]["scenario_template"]["Bear"][0], "메모리 ASP 경로 (컨센 대비 −%)")
 
 
 class TestAttractivenessConfidence(unittest.TestCase):
     def _with_scenarios(self):
         m = _fin_map()
-        m["A3.1"].scenario = Scenario(name="Bear", price_source="computed", per=3.5, probability=0.3,
+        m["A4.2"].scenario = Scenario(name="Bear", price_source="computed", per=3.5, probability=0.3,
                                       driver_assumptions=[DriverAssumption(node_id="A1.1", delta_pct=-30), DriverAssumption(node_id="A1.4", delta_pct=-20_000, unit="억원")])
-        m["A3.2"].scenario = Scenario(name="Base", price_source="computed", probability=0.45)
-        m["A3.3"].scenario = Scenario(name="Bull", price_source="computed", per=7.0, probability=0.25,
+        m["A4.3"].scenario = Scenario(name="Base", price_source="computed", probability=0.45)
+        m["A4.4"].scenario = Scenario(name="Bull", price_source="computed", per=7.0, probability=0.25,
                                       driver_assumptions=[DriverAssumption(node_id="A1.1", delta_pct=10), DriverAssumption(node_id="A1.4", delta_pct=100)])
         return m
 
@@ -245,21 +254,21 @@ class TestAttractivenessConfidence(unittest.TestCase):
         self.assertAlmostEqual(a["er_total_pct"], a["er_price_pct"] + 16_100 / 262_000 * 100, places=6)
         self.assertAlmostEqual(a["downside_pct"], (sc["Bear"].target_price / 262_000 - 1) * 100, places=6)
         self.assertAlmostEqual(a["mos_base_pct"], (1 - 262_000 / 530_000) * 100, places=6)
-        self.assertIn("배당 포함", m["A3.10"].value)
+        self.assertIn("배당 포함", m["A4.7"].value)
         ev = evaluate_new_map(m, today=TODAY)
-        self.assertAlmostEqual(ev.expected_return, v / 262_000 - 1, places=4)   # 기존 A3.4 식과 같다
+        self.assertAlmostEqual(ev.expected_return, v / 262_000 - 1, places=4)   # 기존 A4.5 식과 같다
         c = m.meta["draft"]["confidence"]
         self.assertIn(c["grade"], ("M", "L"))
         self.assertTrue(any("순이익 기준 혼합" in w for w in c["warnings"]))
         self.assertTrue(any("기본값" in w for w in c["warnings"]))        # 목표 PER 기본값은 경고로 드러난다
-        self.assertIn("신뢰도", m["A3.11"].value)
+        self.assertIn("신뢰도", m["A3.4"].value)
         self.assertEqual(len(m.meta["draft"]["valuation_log"]), 1)
         compute_valuation_all(m, today=TODAY)
         self.assertEqual(len(m.meta["draft"]["valuation_log"]), 1)          # 입력이 같으면 로그를 늘리지 않는다
 
     def test_no_probability_means_uncomputed(self):
         m = self._with_scenarios()
-        for nid in ("A3.1", "A3.2", "A3.3"):
+        for nid in ("A4.2", "A4.3", "A4.4"):
             m[nid].scenario.probability = None
         compute_scenarios(m, today=TODAY)
         write_valuation(m, today=TODAY)
@@ -274,24 +283,24 @@ class TestAttractivenessConfidence(unittest.TestCase):
 class TestEditsValidationCompat(unittest.TestCase):
     def test_edit_ops_compute_scenarios_and_criteria(self):
         m = _fin_map()
-        before = [i for i in validate_new_map(m, today=TODAY) if i.level == "error" and i.node_id in ("A3.1", "A3.2", "A3.3")]
+        before = [i for i in validate_new_map(m, today=TODAY) if i.level == "error" and i.node_id in ("A4.2", "A4.3", "A4.4")]
         self.assertEqual(len(before), 3)                                      # 노드별 '시나리오 누락'
-        edits = [{"op": "set", "id": "A3.8", "fields": {"value": {"sotp_multiples": {"메모리": 6.0, "SDC": 6.0, "Harman": 10.0, "DX": 8.0, "파운드리": 0.0}}}},
-                 {"op": "set", "id": "A3.2", "fields": {"scenario": {"name": "Base", "price_source": "computed", "probability": 0.45}}},
-                 {"op": "set", "id": "A3.1", "fields": {"scenario": {"name": "Bear", "price_source": "computed", "per": 3.5, "probability": 0.3,
+        edits = [{"op": "set", "id": "A3.2", "fields": {"value": {"sotp_multiples": {"메모리": 6.0, "SDC": 6.0, "Harman": 10.0, "DX": 8.0, "파운드리": 0.0}}}},
+                 {"op": "set", "id": "A4.3", "fields": {"scenario": {"name": "Base", "price_source": "computed", "probability": 0.45}}},
+                 {"op": "set", "id": "A4.2", "fields": {"scenario": {"name": "Bear", "price_source": "computed", "per": 3.5, "probability": 0.3,
                                                                      "driver_assumptions": [{"node_id": "A1.1", "delta_pct": -30}]}}},
-                 {"op": "set", "id": "A3.3", "fields": {"scenario": {"name": "Bull", "price_source": "computed", "per": 7.0, "probability": 0.25,
+                 {"op": "set", "id": "A4.4", "fields": {"scenario": {"name": "Bull", "price_source": "computed", "per": 7.0, "probability": 0.25,
                                                                      "driver_assumptions": [{"node_id": "A1.1", "delta_pct": 10}]}}}]
         trial, res = preview_edits(m, edits, today=TODAY)
         self.assertEqual(res.new_errors, [])
-        self.assertEqual(trial["A3.2"].scenario.target_price, 530_000.0)      # 미리보기도 통합 모델로 계산
-        self.assertEqual(trial["A3.1"].scenario.model.status, "계산됨")
+        self.assertEqual(trial["A4.3"].scenario.target_price, 530_000.0)      # 미리보기도 통합 모델로 계산
+        self.assertEqual(trial["A4.2"].scenario.model.status, "계산됨")
         self.assertIsNotNone(trial.meta["draft"]["valuation"]["price_sotp"])
-        self.assertTrue(trial["A3.10"].value.startswith("확률가중 가치 "))
+        self.assertTrue(trial["A4.7"].value.startswith("확률가중 가치 "))
         with tempfile.TemporaryDirectory() as d:
             res2 = apply_edits(m, {"map_id": m.map_id, "edits": edits}, today=TODAY, versions_dir=Path(d), check_hash=False)
             self.assertEqual(res2.version, 2)
-        self.assertEqual(m["A3.1"].scenario.price_source, "computed")
+        self.assertEqual(m["A4.2"].scenario.price_source, "computed")
         # 부분 입력: Base 만 넣어도 '새 오류' 가 아니다 (나머지 두 노드의 메시지가 그대로)
         m2 = _fin_map()
         _, r3 = preview_edits(m2, [edits[1]], today=TODAY)
@@ -301,7 +310,7 @@ class TestEditsValidationCompat(unittest.TestCase):
         m3.meta["draft"]["segments"] = {}
         _, r4 = preview_edits(m3, [edits[2]], today=TODAY)
         self.assertTrue(any("Bear 시나리오 미계산" in e for e in r4.new_errors) or True)
-        self.assertIsNone(preview_edits(m3, [edits[2]], today=TODAY)[0]["A3.1"].scenario.target_price)
+        self.assertIsNone(preview_edits(m3, [edits[2]], today=TODAY)[0]["A4.2"].scenario.target_price)
 
     def test_schema_and_old_maps(self):
         sch = edit_schemas()
@@ -309,13 +318,13 @@ class TestEditsValidationCompat(unittest.TestCase):
         self.assertEqual(keys["driver_assumptions"]["type"], "json")
         self.assertEqual(keys["price_source"]["type"], "select")
         self.assertNotIn("model", keys)
-        m = load_map_file(Path(__file__).resolve().parents[1] / "examples" / "gaon_A.json")
-        self.assertNotIn("A3.9", m)
+        m = load_map_file(Path(__file__).resolve().parent / "fixtures" / "maps_v1" / "gaon_A.json")
+        self.assertNotIn("A3.3", m)
         notes = compute_valuation_all(m, today=TODAY)                         # 옛 맵: 노드가 생기고 미계산으로 드러난다
-        self.assertIn("A3.9", m)
-        self.assertIn("미계산", m["A3.9"].value)
+        self.assertIn("A3.3", m)
+        self.assertIn("미계산", m["A3.3"].value)
         self.assertTrue(any("평가 모델" in n for n in notes))
-        self.assertEqual(m["A3.1"].scenario.price_source, "user")             # 옛 시나리오 기본값
+        self.assertEqual(m["A4.2"].scenario.price_source, "user")             # 옛 시나리오 기본값
         from kstock.render import to_html
 
         html = to_html(m)
@@ -336,11 +345,14 @@ class TestGoldenSamsung(unittest.TestCase):
         g = json.loads(gp.read_text(encoding="utf-8"))
         pdfs: list[Path] = []
         for rel in g["reports"]:
-            pdfs = sorted((root / rel).glob("*.pdf"))
+            folder = root / rel
+            # 정답표가 가리키는 세 파일만 — 폴더에 리포트가 더 쌓여도(PC: 하나증권 추가) 숫자가 흔들리지 않게
+            named = [folder / f for f in g.get("files", [])]
+            pdfs = [p for p in named if p.exists()] if named else sorted(folder.glob("*.pdf"))
             if len(pdfs) >= 3:
                 break
         if len(pdfs) < 3:
-            self.skipTest("삼성전자 리포트 PDF 없음")
+            self.skipTest("삼성전자 리포트 PDF 없음 (정답표의 세 파일)")
         from kstock.generate.draft import draft_from_reports
 
         r = draft_from_reports(pdfs, ticker="005930", claims="off", today=TODAY, fetch_price=False)
@@ -378,6 +390,6 @@ class TestGoldenSamsung(unittest.TestCase):
         rb = evaluate_scenario(m, bear, today=TODAY)
         self.assertAlmostEqual(rb.price, cb["price"], delta=cb["price"] * 0.01)
         self.assertAlmostEqual(evaluate_scenario(m, Scenario(name="Base", price_source="computed"), today=TODAY).price, e["base_scenario_price"], delta=e["base_scenario_price"] * 0.01)
-        m["A3.8"].value = {"sotp_multiples": e["sotp"]["multiples"]}
+        m["A3.2"].value = {"sotp_multiples": e["sotp"]["multiples"]}
         vm2 = compute_valuation(m, today=TODAY)
         self.assertAlmostEqual(vm2.price_sotp, e["sotp"]["price"], delta=e["sotp"]["price"] * 0.01)

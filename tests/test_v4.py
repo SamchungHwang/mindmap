@@ -231,11 +231,11 @@ class TestV5V6V8Map(unittest.TestCase):
         self.assertEqual(m.meta["draft"]["quality"], "rules")
         self.assertTrue(m.meta["draft"].get("rules_mode"))
         self.assertEqual([n for n in m.nodes if n.startswith("A2.1.")], [])                        # 쟁점 노드 없음
-        self.assertTrue(all(m[nid].value is None for nid in ("A4.1", "A4.2", "A4.3")))              # 리스크 없음
+        self.assertTrue(all(m[nid].value is None for nid in ("A5.1", "A5.2", "A5.3")))              # 리스크 없음
         self.assertIn("미생성", m["A2.1"].question)
         self.assertTrue(any("규칙 모드" in n for n in r.notes))
-        self.assertIn("키워드 분류 — 미검증", m["A8.4.1"].value)
-        self.assertIsNone(m["A4.4.1"].rule)
+        self.assertIn("키워드 분류 — 미검증", m["A9.4.1"].value)
+        self.assertIsNone(m["A5.4.1"].rule)
         self.assertEqual(r.errors, [])
 
     def test_kill_candidates_from_conditional_risk(self):
@@ -258,10 +258,10 @@ class TestV5V6V8Map(unittest.TestCase):
         self.assertEqual(len(kc), 1)
         self.assertEqual((kc[0]["kpi"], kc[0]["threshold"], kc[0]["claim_id"]), ("yield", 60.0, "a1"))
         self.assertIsNone(kc[0]["observable"])
-        self.assertIsNone(m["A4.4.1"].rule)                                                       # 자동 Rule 없음
-        self.assertIn("후보: 1건", m["A4.4.1"].question)
+        self.assertIsNone(m["A5.4.1"].rule)                                                       # 자동 Rule 없음
+        self.assertIn("후보: 1건", m["A5.4.1"].question)
         self.assertTrue(any("후보 1건" in n for n in notes))
-        self.assertTrue(m["A4.1"].value["text"].startswith("[조건부]"))                            # V1 접두어
+        self.assertTrue(m["A5.1"].value["text"].startswith("[조건부]"))                            # V1 접두어
 
 
 if __name__ == "__main__":
@@ -287,8 +287,9 @@ class TestV4CellBackfill(unittest.TestCase):
         # 최신 리포트에는 2028E 가 없고, 이전 리포트에만 있다 (분기 Preview 가 장기 추정을 안 싣는 경우)
         for cols in new.estimates.values():
             cols.pop("2028E", None)
-        for metric in ("op", "revenue"):
-            old.estimates.setdefault(metric, {})["2028E"] = 777.0
+        # 값은 다른 증권사와 같은 자릿수여야 한다 — 2026-10-31 정합성 층이 중앙값의 1/4~4배 밖(777) 을 평균에서 뺀다
+        old.estimates.setdefault("op", {})["2028E"] = 377000.0
+        old.estimates.setdefault("revenue", {})["2028E"] = 677000.0
         old.estimates["op"]["2027E"] = 1.0                       # 대표 문서에 있는 셀은 덮지 않는다
         d = ReportDigest.build(facts + [old], today=today)
         self.assertIn(old.path.name, d.excluded)                 # 대표 문서 집계에서는 제외
@@ -346,14 +347,14 @@ class TestV6KillConfirm(unittest.TestCase):
                 ops.apply_kill_candidate(m, 0, observable="분기 IR 수율 코멘트", update_cadence="분기", action="exit", save=False)
             msg = ops.apply_kill_candidate(m, 0, observable="분기 IR 수율 코멘트", update_cadence="분기", action="review",
                                            condition="driver[A1.1].current < 60", save=False)
-            self.assertIn("A4.4.1", msg)
-            r = m["A4.4.1"].rule
+            self.assertIn("A5.4.1", msg)
+            r = m["A5.4.1"].rule
             self.assertIsNotNone(r)
             self.assertEqual(r.action.value, "review")
             self.assertIn("사용자 확정 Kill", r.note)
             self.assertIn("관측: 분기 IR 수율 코멘트", r.note)
             self.assertEqual(m.meta["draft"]["kill_confirmed"][0]["origin"], "user_confirmed")
-            self.assertNotIn("pending", m["A4.4.1"].tags)
+            self.assertNotIn("pending", m["A5.4.1"].tags)
             store.close()
 
 

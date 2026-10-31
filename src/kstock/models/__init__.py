@@ -34,7 +34,9 @@ from .common import (
     Confidence,
     Decision,
     Direction,
+    EventCertainty,
     EventDirection,
+    EventStatus,
     HistoryPoint,
     HoldReason,
     Horizon,
@@ -75,8 +77,13 @@ from .sub import (
     Driver,
     DriverAssumption,
     Event,
+    EventOutcome,
     Measurement,
+    Observation,
+    PathPoint,
+    RequiredPath,
     Rule,
+    Ruler,
     Scenario,
     ScenarioResult,
     Sensitivity,
@@ -87,12 +94,12 @@ from .sub import (
 
 __all__ = [
     # enums
-    "Action", "Confidence", "Decision", "Direction", "EventDirection", "HoldReason", "Horizon",
+    "Action", "Confidence", "Decision", "Direction", "EventCertainty", "EventDirection", "EventStatus", "HoldReason", "Horizon",
     "InvestType", "Light", "MapKind", "Materiality", "NodeStatus", "NodeType", "PricedIn",
     "ReconstructionQuality", "ThesisState", "ValuationState", "ValueType", "WeightState", "WhyMarketWrong",
     # node / sub
     "Node", "Source", "HistoryPoint", "map_prefix", "parent_id_of",
-    "BiasCheck", "DecisionLog", "Driver", "DriverAssumption", "Event", "Measurement", "Rule", "Scenario", "ScenarioResult", "Sensitivity",
+    "BiasCheck", "DecisionLog", "Driver", "Observation", "PathPoint", "RequiredPath", "Ruler", "DriverAssumption", "Event", "EventOutcome", "Measurement", "Rule", "Scenario", "ScenarioResult", "Sensitivity",
     "SensitivityInput", "SotpPart", "ValuationModel",
     # maps
     "KIND_PREFIX", "MindMap", "NewMap", "HoldingMap", "Portfolio", "MacroMap", "SectorMap",

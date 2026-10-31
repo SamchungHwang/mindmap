@@ -21,8 +21,105 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
 #edges path { fill:none; stroke-width:2; opacity:.9; }
 .node { position:absolute; box-sizing:border-box; width:max-content; max-width:380px; padding:5px 10px; border-radius:8px;
   background:var(--box); border:1px solid var(--box-border); border-left-width:4px; box-shadow:var(--shadow);
-  white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:none; }
+  white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:text; }
 .node.has-kids { cursor:pointer; }
+.node .more { color:var(--muted); font-size:11px; white-space:nowrap; }
+.node.selected { outline:2px solid var(--root-bg); outline-offset:1px; }
+.node .copy, .node .pen { position:absolute; top:-9px; display:none; width:20px; height:20px; line-height:18px; text-align:center;
+  border-radius:50%; background:var(--btn); color:var(--fg); border:1px solid var(--box-border); font-size:12px; cursor:pointer; user-select:none; }
+.node .copy { right:-9px; }
+.node .pen { right:14px; }
+.node:hover .copy, .node:hover .pen { display:block; }
+.node .copy:hover, .node .pen:hover { background:var(--root-bg); color:#fff; }
+.node.edited { border-style:dashed; }
+.node.added { border-style:dashed; border-left-style:solid; }
+.node .mark { font-size:.75em; color:#d9822b; margin-right:.3em; }
+#editor { position:fixed; top:0; right:0; bottom:0; width:min(520px, 94vw); z-index:25; display:none; flex-direction:column; gap:8px;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; }
+#editor.show { display:flex; }
+#editor h3 { margin:0; font-size:14px; padding-right:60px; }
+#editor .close { position:absolute; top:10px; right:12px; }
+#editor form { flex:1; overflow:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; }
+#editor label { display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--muted); }
+#editor label.inline { flex-direction:row; align-items:center; gap:8px; }
+#editor input, #editor select, #editor textarea { font:13px/1.4 inherit; color:var(--fg); background:var(--bg); border:1px solid var(--box-border);
+  border-radius:6px; padding:5px 8px; width:100%; box-sizing:border-box; }
+#editor textarea { min-height:56px; resize:vertical; font-family: inherit; }
+#editor textarea.json { font-family: ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; }
+#editor fieldset { border:1px solid var(--box-border); border-radius:8px; padding:8px 10px; display:flex; flex-direction:column; gap:8px; margin:0; }
+#editor legend { font-size:12px; color:var(--muted); padding:0 4px; }
+#editor .adv { display:none; flex-direction:column; gap:8px; }
+#editor fieldset.showadv .adv { display:flex; }
+#editor .row { display:flex; gap:6px; flex-wrap:wrap; }
+#editor .row.two > label { flex:1 1 45%; }
+#editor button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#editor button.primary { background:var(--root-bg); color:#fff; }
+#editor button.danger { background:#c23b3b; color:#fff; }
+#editor .err { color:#c23b3b; font-size:12px; white-space:pre-wrap; }
+#editor .sugg { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:2px; }
+#editor .sugg b { color:var(--fg); font-weight:500; }
+#editor .sugg button { padding:2px 8px; font-size:12px; }
+#editor .note { color:var(--muted); font-size:12px; }
+#editbar { position:fixed; left:12px; top:10px; z-index:10; display:none; align-items:center; gap:6px; padding:6px 10px; border-radius:999px;
+  background:var(--box); border:1px solid var(--box-border); box-shadow:var(--shadow); font-size:13px; }
+#editbar.show { display:flex; }
+#editbar button { border:0; border-radius:999px; padding:5px 10px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#editbar button.primary { background:var(--root-bg); color:#fff; }
+#editbar button:disabled { opacity:.45; cursor:not-allowed; }
+#editbar .errs { color:#c23b3b; max-width:50vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#editbar .count { font-weight:600; }
+#menu { position:fixed; z-index:30; display:none; min-width:200px; background:var(--box); color:var(--fg); border:1px solid var(--box-border);
+  border-radius:8px; box-shadow:0 6px 24px rgba(0,0,0,.25); padding:4px; font-size:13px; }
+#menu div { padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap; }
+#menu div:hover { background:var(--btn); }
+#menu .sep { height:1px; padding:0; margin:4px 6px; background:var(--box-border); cursor:default; }
+#panel { position:fixed; top:0; right:0; bottom:0; width:min(460px, 90vw); z-index:20; display:none; flex-direction:column; gap:8px;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; }
+#panel.show { display:flex; }
+#panel h3 { margin:0; font-size:14px; padding-right:60px; }
+#panel textarea { flex:1; width:100%; box-sizing:border-box; resize:none; border:1px solid var(--box-border); border-radius:8px; padding:10px;
+  background:var(--bg); color:var(--fg); font:13px/1.5 ui-monospace, "Cascadia Mono", Consolas, "D2Coding", monospace; white-space:pre-wrap; }
+#panel .row { display:flex; gap:6px; }
+#panel button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#panel .close { position:absolute; top:10px; right:12px; }
+/* 시나리오 계산기 (설계 v6) — 서버 /preview 식 하나로 계산한다 */
+#calc { position:fixed; top:0; right:0; bottom:0; width:min(680px, 96vw); z-index:26; display:none; flex-direction:column; gap:8px; overflow:auto;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; font-size:13px; }
+#calc.show { display:flex; }
+/* 성립 조건 패널 (설계 v7 T9) — 서버가 만든 표를 보여 주기만 한다 */
+#cond { position:fixed; top:0; right:0; bottom:0; width:min(900px, 96vw); z-index:26; display:none; flex-direction:column; gap:8px; overflow:auto;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; font-size:12.5px; }
+#cond.show { display:flex; }
+#cond h3 { margin:0; font-size:14px; padding-right:60px; }
+#cond h4 { margin:10px 0 4px; font-size:13px; }
+#cond .close { position:absolute; top:10px; right:12px; border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); }
+#cond table { border-collapse:collapse; width:100%; font-size:12px; }
+#cond th, #cond td { border-bottom:1px solid var(--box-border); padding:3px 6px; text-align:left; vertical-align:top; }
+#cond th { color:var(--muted); font-weight:500; white-space:nowrap; }
+#cond .note { color:var(--muted); font-size:12px; }
+#cond .src { color:var(--muted); font-size:11px; }
+#cond .warn { color:#c23b3b; font-weight:600; }
+#calc h3 { margin:0; font-size:14px; padding-right:60px; }
+#calc .close { position:absolute; top:10px; right:12px; }
+#calc table { border-collapse:collapse; width:100%; font-size:12.5px; }
+#calc th, #calc td { border-bottom:1px solid var(--box-border); padding:4px 6px; text-align:right; vertical-align:middle; white-space:nowrap; }
+#calc th:first-child, #calc td:first-child { text-align:left; white-space:normal; }
+#calc th { color:var(--muted); font-weight:500; }
+#calc input, #calc select { font:12.5px/1.3 inherit; color:var(--fg); background:var(--bg); border:1px solid var(--box-border); border-radius:6px; padding:3px 6px; width:84px; box-sizing:border-box; text-align:right; }
+#calc select { width:auto; text-align:left; }
+#calc input.wide { width:100%; text-align:left; }
+#calc .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+#calc button { border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); font:500 13px/1 system-ui, sans-serif; }
+#calc button.primary { background:var(--root-bg); color:#fff; }
+#calc button:disabled { opacity:.45; cursor:not-allowed; }
+#calc .note { color:var(--muted); font-size:12px; }
+#calc .res { background:var(--code-bg); border-radius:8px; padding:8px 10px; white-space:pre-wrap; font-size:12.5px; }
+#calc .warn { color:#c23b3b; }
+#calc .src { color:var(--muted); font-size:11px; }
+#calc fieldset { border:1px solid var(--box-border); border-radius:8px; padding:8px 10px; margin:0; display:flex; flex-direction:column; gap:6px; }
+#calc legend { font-size:12px; color:var(--muted); padding:0 4px; }
+#toast { position:fixed; left:50%; bottom:40px; transform:translateX(-50%); z-index:40; display:none; padding:8px 14px; border-radius:999px;
+  background:var(--root-bg); color:#fff; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,.25); }
 /* 절대 배치 박스는 담는 상자 폭이 0 이면 한 글자씩 줄바꿈된다 — width:max-content 가 그것을 막는다 */
 .node.root { background:var(--root-bg); color:var(--root-fg); border-color:var(--root-bg); font-size:16px; padding:10px 16px; max-width:460px; }
 .node.depth1 { font-weight:600; }
@@ -50,33 +147,107 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
   <button id="expand" type="button" title="모두 펼치기">펼치기</button>
   <button id="collapse" type="button" title="1단계만 남기고 접기">접기</button>
   <button id="fit" type="button" title="화면 맞춤 (f)">맞춤</button>
+  <button id="copyall" type="button" title="맵 전체를 Markdown 목록으로 클립보드에">전체 복사</button>
+  <button id="calcbtn" type="button" data-edit title="밸류에이션 & 시나리오 계산기 — 드라이버 가정 묶음 → 통합 모델 → Bear/Base/Bull 가격 (설계 v6)">밸류 계산기</button>
+  <button id="condbtn" type="button" title="성립 조건 — 가정 표 · 역산 표 · 필요 경로 · 증거 계획(신호등) · 판단 수정 규칙 (설계 v7)">성립 조건</button>
   <button id="theme" type="button" title="밝게/어둡게">☀ / ☾</button>
 </div>
+<div id="calc">
+  <h3>밸류에이션 & 시나리오 계산기</h3>
+  <button id="calc-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <div id="calc-body"></div>
+  <div class="row">
+    <button id="calc-preview" type="button" class="primary" title="서버의 통합 모델로 계산해 보여 준다 (저장 안 함)">미리보기</button>
+    <button id="calc-apply" type="button" title="이 가정 묶음·평가 기준을 편집 목록에 넣는다 — 위쪽 「저장」 으로 맵에 반영">적용</button>
+    <button id="calc-reset" type="button">다시 읽기</button>
+    <span class="note" id="calc-note"></span>
+  </div>
+  <div id="calc-res" class="res" style="display:none"></div>
+  <div class="note">가정은 컨센(또는 선택한 EPS 기준) 경로 대비 변화다. 같은 사업부의 가격·물량이 함께 움직이면 교차항이 들어가고, 민감도(1변수) 를 더한 값과 다르다. 확률·멀티플·가정은 사람 몫 — 비워 두면 미계산으로 남는다. SOTP 는 검증용(멀티플 입력 뒤).</div>
+</div>
+<div id="cond">
+  <h3>성립 조건 · 증거 · 판단 상태 (설계 v7)</h3>
+  <button id="cond-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <div id="cond-body"></div>
+</div>
+<div id="menu">
+  <div data-act="edit" data-edit>✎ 편집… (더블클릭 · F2)</div>
+  <div data-act="addchild" data-edit>＋ 자식 노드 추가… (Insert)</div>
+  <div data-act="delete" data-edit>✕ 이 노드 삭제 (Delete)</div>
+  <div data-act="calc" data-edit>∑ 밸류 계산기…</div>
+  <div class="sep" data-edit></div>
+  <div data-act="line">한 줄 복사</div>
+  <div data-act="detail">상세 복사 (값·질문·출처)</div>
+  <div data-act="tree">이 가지 전체 복사 (Markdown)</div>
+  <div data-act="id">노드 id 복사</div>
+  <div class="sep"></div>
+  <div data-act="panel">상세 보기 (복사용 글상자)</div>
+</div>
+<div id="editbar">
+  <span class="count">고침 0건</span>
+  <button id="ed-undo" type="button" title="마지막 편집 되돌리기 (Ctrl+Z)">되돌리기</button>
+  <button id="ed-save" type="button" class="primary" title="맵에 반영 (Ctrl+S)">저장</button>
+  <button id="ed-discard" type="button" title="저장하지 않은 편집을 모두 버린다">모두 취소</button>
+  <span class="errs"></span>
+</div>
+<div id="editor">
+  <h3 id="editor-title"></h3>
+  <button id="editor-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <form id="eform" autocomplete="off"></form>
+  <div class="row">
+    <button id="ed-apply" type="button" class="primary" title="이 노드의 편집을 목록에 넣는다 (Ctrl+S)">적용</button>
+    <button id="ed-cancel" type="button">취소</button>
+    <span style="flex:1"></span>
+    <button id="ed-delete" type="button" class="danger" title="이 노드와 아래 가지를 지운다 (두 번 누름)">삭제</button>
+  </div>
+  <div class="note">적용은 화면에만 반영된다. 위쪽 「저장」 을 눌러야 맵 파일에 들어간다. 고친 노드는 ✎ 표시와 함께 user 태그를 얻고 초안 표시(draft·pending·⚑) 가 떨어진다.</div>
+</div>
+<div id="panel">
+  <h3 id="panel-title"></h3>
+  <button id="panel-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <textarea id="panel-text" spellcheck="false"></textarea>
+  <div class="row">
+    <button id="panel-copy" type="button">상세 복사</button>
+    <button id="panel-line" type="button">한 줄 복사</button>
+    <button id="panel-tree" type="button">가지 복사 (Markdown)</button>
+  </div>
+</div>
+<div id="toast"></div>
 <div id="stage">
   <div id="viewport">
     <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="nodes"></div>
   </div>
 </div>
-<div id="hint">노드 클릭 = 접기/펼치기 · 드래그 = 이동 · 휠 = 확대/축소 · f = 맞춤</div>
+<div id="hint">클릭 = 접기/펼치기 · 더블클릭/✎ = 편집 · 우클릭 = 편집·복사 메뉴 · 글자 긁기·⧉·Ctrl+C = 복사 (Shift: 상세) · F2 편집 · Insert 자식 추가 · Delete 삭제 · Ctrl+Z 되돌리기 · Ctrl+S 저장 · 드래그 = 이동 · 휠 = 확대/축소 · f = 맞춤</div>
 <script>
 (function () {
-  const DATA = {"id": "A0", "html": "<b>가온로보틱스 투자 논제<\/b>", "kind": "root", "fold": false, "children": [{"id": "A0.*", "html": "기본 정보", "kind": "question", "fold": false, "children": [{"id": "A0.1", "html": "투자유형: growth", "kind": "judgment", "fold": false, "children": []}, {"id": "A0.2", "html": "투자기간: 1Y", "kind": "judgment", "fold": false, "children": []}, {"id": "A0.3", "html": "확신도: M", "kind": "judgment", "fold": false, "children": []}, {"id": "A0.4", "html": "현재가: 58,000원 <sub>2026-10-19<\/sub>", "kind": "fact", "fold": false, "children": []}]}, {"id": "A1", "html": "핵심 드라이버", "kind": "question", "fold": false, "children": [{"id": "A1.1", "html": "영업이익률: 현재 8.1% → 컨센 10% → 내 추정 13% · 확인 2026-11-14 <sub>≈<\/sub>", "kind": "driver", "fold": false, "children": []}, {"id": "A1.2", "html": "수주잔고: 현재 4,200억원 → 컨센 4,500억원 → 내 추정 6,000억원 · 확인 2026-11-14 <sub>≈<\/sub>", "kind": "driver", "fold": false, "children": []}, {"id": "A1.3", "html": "양산 라인 가동률: 현재 55% → 컨센 65% → 내 추정 80% · 확인 2026-12-01 <sub>≈<\/sub>", "kind": "driver", "fold": false, "children": []}]}, {"id": "A2", "html": "컨센서스 vs 내 뷰", "kind": "question", "fold": false, "children": [{"id": "A2.1", "html": "현재 주가에 내재된 가정: OPM 10% 안착, 수주잔고 4,500억 유지, PER 15배 <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "fold": false, "children": []}, {"id": "A2.2", "html": "내가 다르게 보는 것: 양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음", "kind": "judgment", "fold": false, "children": []}, {"id": "A2.3", "html": "시장이 틀린 이유: 시간축", "kind": "judgment", "fold": false, "children": []}]}, {"id": "A3", "html": "밸류에이션 &amp; 시나리오", "kind": "question", "fold": false, "children": [{"id": "A3.1", "html": "Bear: 48,000원 (p=0.25, 12M) — 양산 지연 6개월; OPM 7% <sub>≈<\/sub>", "kind": "scenario", "fold": false, "children": []}, {"id": "A3.2", "html": "Base: 85,000원 (p=0.50, 12M) — OPM 13%; PER 18배 <sub>≈<\/sub>", "kind": "scenario", "fold": false, "children": []}, {"id": "A3.3", "html": "Bull: 120,000원 (p=0.25, 12M) — 해외 고객 추가; PER 25배 <sub>≈<\/sub>", "kind": "scenario", "fold": false, "children": []}, {"id": "A3.4", "html": "기대수익률: 45.7%", "kind": "computed", "fold": false, "children": []}, {"id": "A3.5", "html": "손익비: 2.7", "kind": "computed", "fold": false, "children": []}, {"id": "A3.6", "html": "밸류 근거", "kind": "question", "fold": false, "children": [{"id": "A3.6.1", "html": "역사 밴드 위치: 45.0% <sub>2026-10-19<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A3.6.2", "html": "피어 비교: <i>피어 대비 프리미엄/디스카운트와 그 정당성은?<\/i> <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A3.6.3", "html": "EPS 리비전 방향: up <sub>2026-10-19<\/sub>", "kind": "fact", "fold": false, "children": []}]}]}, {"id": "A4", "html": "리스크 &amp; 무효화 조건", "kind": "question", "fold": false, "children": [{"id": "A4.1", "html": "하락 리스크 1: probability=30.0%, impact_pct=-25, text=양산 수율 문제로 전환 지연 <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "fold": false, "children": []}, {"id": "A4.2", "html": "하락 리스크 2: probability=20.0%, impact_pct=-15, text=경쟁사 가격 인하 <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "fold": false, "children": []}, {"id": "A4.3", "html": "하락 리스크 3: _무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}_ <sub>?<\/sub>", "kind": "estimate", "fold": false, "children": []}, {"id": "A4.4", "html": "Kill criteria", "kind": "question", "fold": false, "children": [{"id": "A4.4.1", "html": "무효화 조건 1: ⚡ <code>driver[A1.2].current &lt; 3500<\/code> → exit", "kind": "rule", "fold": false, "children": []}]}, {"id": "A4.5", "html": "조기 경보 지표: 월별 수출 단가, 공급사 가동률 코멘트 <sub>? 2026-10-19<\/sub>", "kind": "fact", "fold": false, "children": []}]}, {"id": "A5", "html": "촉매 &amp; 타임라인", "kind": "question", "fold": false, "children": [{"id": "A5.1", "html": "촉매 이벤트", "kind": "question", "fold": false, "children": []}, {"id": "A5.2", "html": "수급/기술", "kind": "question", "fold": false, "children": [{"id": "A5.2.1", "html": "추세 <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A5.2.2", "html": "거래량 (20일 평균 대비) <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A5.2.3", "html": "외국인/기관 순매수 (20일 누적) <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A5.2.4", "html": "공매도/신용잔고 (유통주식 대비) <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}]}]}, {"id": "A6", "html": "실행 계획", "kind": "question", "fold": false, "children": [{"id": "A6.1", "html": "목표 비중: suggested=6.8%, confirmed=5.0%, reason=신규 섹터 — 보수적으로 5%", "kind": "judgment", "fold": false, "children": []}, {"id": "A6.2", "html": "진입 계획: price_range=55,000~60,000, tranches=3", "kind": "judgment", "fold": false, "children": []}, {"id": "A6.3", "html": "손절 규칙: ⚡ <code>drawdown &gt; 0.25<\/code> → review", "kind": "rule", "fold": false, "children": []}, {"id": "A6.4", "html": "익절/축소 규칙: ⚡ <code>price &gt; 110000<\/code> → trim 50%", "kind": "rule", "fold": false, "children": []}, {"id": "A6.5", "html": "판단: BUY", "kind": "judgment", "fold": false, "children": []}]}, {"id": "A7", "html": "모니터링 &amp; 복기", "kind": "question", "fold": false, "children": [{"id": "A7.1", "html": "체크포인트: 2026-11-14, 2026-12-01", "kind": "computed", "fold": false, "children": []}, {"id": "A7.2", "html": "업데이트 로그", "kind": "event", "fold": true, "children": []}, {"id": "A7.3", "html": "사후 복기: <i>매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이<\/i>", "kind": "judgment", "fold": false, "children": []}]}, {"id": "A8", "html": "근거 자료", "kind": "question", "fold": true, "children": [{"id": "A8.1", "html": "기업", "kind": "question", "fold": false, "children": [{"id": "A8.1.1", "html": "비즈니스 모델: 휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급 <sub>2026-10-19<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A8.1.2", "html": "경쟁우위: <i>마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?<\/i> <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A8.1.3", "html": "경영진 / 지배구조 / 주주환원: <i>자본배분 이력, 대주주 리스크, 배당·자사주<\/i> <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}, {"id": "A8.1.4", "html": "재무 (성장·수익·현금·건전성): <i>매출/이익 성장률, 마진, FCF, 부채비율<\/i> <sub>?<\/sub>", "kind": "fact", "fold": false, "children": []}]}, {"id": "A8.2", "html": "산업 → 섹터 맵: <i>S.&lt;시장&gt;-&lt;섹터&gt; 링크<\/i> → <code>S.KR-ROBOT<\/code>", "kind": "link", "fold": false, "children": []}, {"id": "A8.3", "html": "매크로 → 매크로 맵: <i>M0 링크<\/i> → <code>M0<\/code>", "kind": "link", "fold": false, "children": []}]}]};
-  const OPTS = {"layout": "balanced", "expandLevel": 2};
+  const DATA = {"id": "A0", "html": "<b>가온로보틱스 투자 논제<\/b>", "kind": "root", "fold": false, "children": [{"id": "A0.*", "html": "기본 정보", "kind": "question", "fold": false, "text": "기본 정보", "detail": "기본 정보", "locked": true, "children": [{"id": "A0.1", "html": "투자유형: growth", "kind": "judgment", "text": "투자유형: growth", "detail": "[A0.1] 투자유형\n값:\n  growth\n질문: 어떤 유형의 베팅인가 (프로파일 선택)\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "투자유형", "question": "어떤 유형의 베팅인가 (프로파일 선택)", "value": "growth", "value_type": "enum", "unit": null, "node_type": "judgment", "enum_options": ["growth", "value", "turnaround", "momentum", "event"], "source": null, "as_of": null, "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A0.2", "html": "투자기간: 1Y", "kind": "judgment", "text": "투자기간: 1Y", "detail": "[A0.2] 투자기간\n값:\n  1Y\n질문: 논제가 실현되는 데 필요한 시간\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "투자기간", "question": "논제가 실현되는 데 필요한 시간", "value": "1Y", "value_type": "enum", "unit": null, "node_type": "judgment", "enum_options": ["3M", "1Y", "3Y+"], "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A0.3", "html": "확신도: M", "kind": "judgment", "text": "확신도: M", "detail": "[A0.3] 확신도\n값:\n  M\n질문: 근거의 질과 양 기준 (H/M/L)\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "확신도", "question": "근거의 질과 양 기준 (H/M/L)", "value": "M", "value_type": "enum", "unit": null, "node_type": "judgment", "enum_options": ["H", "M", "L"], "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A0.4", "html": "현재가: 58,000원 <sub>2026-10-19<\/sub>", "kind": "fact", "text": "현재가: 58,000원 (2026-10-19)", "detail": "[A0.4] 현재가\n값:\n  58000\n질문: 작성 시점 종가\n출처: KRX 종가\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "현재가", "question": "작성 시점 종가", "value": 58000, "value_type": "price", "unit": "원", "node_type": "fact", "enum_options": null, "source": {"name": "KRX 종가", "url": "", "retrieved_at": "2026-10-19"}, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}]}, {"id": "A1", "html": "핵심 드라이버", "kind": "question", "text": "핵심 드라이버", "detail": "[A1] 핵심 드라이버\n질문: 논제의 성패를 가르는 변수 3~5개. 이 변수가 틀리면 논제가 무너지는가? 아니면 빼라.  예시(growth): 매출성장률 / TAM 침투율 / 마진 레버리지\n상태: unverified", "fold": false, "children": [{"id": "A1.1", "html": "영업이익률: 현재 8.1% → 컨센 10% → 내 추정 13% · 확인 2026-11-14 <sub>≈<\/sub>", "kind": "driver", "text": "영업이익률: 현재 8.1% → 컨센 10% → 내 추정 13% · 확인 2026-11-14 (≈)", "detail": "[A1.1] 영업이익률\n드라이버:\n  current: {'value': 8.1, 'as_of': '2026-08-14', 'source': {'name': '분기보고서 (2026.2Q)', 'url': 'https://dart.fss.or.kr/', 'retrieved_at': '2026-10-19'}}\n  consensus: {'value': 10.0, 'as_of': '2026-10-10'}\n  my_estimate: {'value': 13.0, 'as_of': '2026-10-19', 'rationale': '원가 구조 개선 + 믹스 변화'}\n  check_indicator: 분기보고서 영업이익률, 월별 수출 단가\n  next_check: 2026-11-14\n  higher_is_better: True\n  kind: quant\n질문: 이 변수가 틀리면 논제가 무너지는가?\n상태: estimated", "fold": false, "children": [], "edit": {"label": "영업이익률", "question": "이 변수가 틀리면 논제가 무너지는가?", "value": null, "value_type": "number", "unit": "%", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "driver", "data": {"current": {"value": 8.1, "as_of": "2026-08-14", "source": {"name": "분기보고서 (2026.2Q)", "url": "https://dart.fss.or.kr/", "retrieved_at": "2026-10-19"}, "rationale": null}, "consensus": {"value": 10.0, "as_of": "2026-10-10", "source": null, "rationale": null}, "my_estimate": {"value": 13.0, "as_of": "2026-10-19", "source": null, "rationale": "원가 구조 개선 + 믹스 변화"}, "check_indicator": "분기보고서 영업이익률, 월별 수출 단가", "next_check": "2026-11-14", "at_entry": null, "direction": null, "higher_is_better": true, "metric": null, "period": null, "kind": "quant", "role": null, "proxies": [], "invalidation_condition": null, "invalidation_rule": null, "sensitivity": null, "sensitivity_inputs": {}, "thesis_role": null, "thesis_role_source": null, "observations": [], "required": null, "band": null, "bound_bear": null, "bound_bull": null, "bounds_source": null, "light": null, "light_reason": null, "trend": null}}, "suggest": []}}, {"id": "A1.2", "html": "수주잔고: 현재 4,200억원 → 컨센 4,500억원 → 내 추정 6,000억원 · 확인 2026-11-14 <sub>≈<\/sub>", "kind": "driver", "text": "수주잔고: 현재 4,200억원 → 컨센 4,500억원 → 내 추정 6,000억원 · 확인 2026-11-14 (≈)", "detail": "[A1.2] 수주잔고\n드라이버:\n  current: {'value': 4200.0, 'as_of': '2026-08-14', 'source': {'name': '분기보고서 (2026.2Q)', 'url': 'https://dart.fss.or.kr/', 'retrieved_at': '2026-10-19'}}\n  consensus: {'value': 4500.0}\n  my_estimate: {'value': 6000.0}\n  check_indicator: IR 자료·공시\n  next_check: 2026-11-14\n  higher_is_better: True\n  kind: quant\n질문: 이 변수가 틀리면 논제가 무너지는가?\n상태: estimated", "fold": false, "children": [], "edit": {"label": "수주잔고", "question": "이 변수가 틀리면 논제가 무너지는가?", "value": null, "value_type": "number", "unit": "억원", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "driver", "data": {"current": {"value": 4200.0, "as_of": "2026-08-14", "source": {"name": "분기보고서 (2026.2Q)", "url": "https://dart.fss.or.kr/", "retrieved_at": "2026-10-19"}, "rationale": null}, "consensus": {"value": 4500.0, "as_of": null, "source": null, "rationale": null}, "my_estimate": {"value": 6000.0, "as_of": null, "source": null, "rationale": null}, "check_indicator": "IR 자료·공시", "next_check": "2026-11-14", "at_entry": null, "direction": null, "higher_is_better": true, "metric": null, "period": null, "kind": "quant", "role": null, "proxies": [], "invalidation_condition": null, "invalidation_rule": null, "sensitivity": null, "sensitivity_inputs": {}, "thesis_role": null, "thesis_role_source": null, "observations": [], "required": null, "band": null, "bound_bear": null, "bound_bull": null, "bounds_source": null, "light": null, "light_reason": null, "trend": null}}, "suggest": []}}, {"id": "A1.3", "html": "양산 라인 가동률: 현재 55% → 컨센 65% → 내 추정 80% · 확인 2026-12-01 <sub>≈<\/sub>", "kind": "driver", "text": "양산 라인 가동률: 현재 55% → 컨센 65% → 내 추정 80% · 확인 2026-12-01 (≈)", "detail": "[A1.3] 양산 라인 가동률\n드라이버:\n  current: {'value': 55.0, 'as_of': '2026-09-30'}\n  consensus: {'value': 65.0}\n  my_estimate: {'value': 80.0}\n  check_indicator: 탐방·공급사 코멘트\n  next_check: 2026-12-01\n  higher_is_better: True\n  kind: quant\n질문: 이 변수가 틀리면 논제가 무너지는가?\n상태: estimated", "fold": false, "children": [], "edit": {"label": "양산 라인 가동률", "question": "이 변수가 틀리면 논제가 무너지는가?", "value": null, "value_type": "number", "unit": "%", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "driver", "data": {"current": {"value": 55.0, "as_of": "2026-09-30", "source": null, "rationale": null}, "consensus": {"value": 65.0, "as_of": null, "source": null, "rationale": null}, "my_estimate": {"value": 80.0, "as_of": null, "source": null, "rationale": null}, "check_indicator": "탐방·공급사 코멘트", "next_check": "2026-12-01", "at_entry": null, "direction": null, "higher_is_better": true, "metric": null, "period": null, "kind": "quant", "role": null, "proxies": [], "invalidation_condition": null, "invalidation_rule": null, "sensitivity": null, "sensitivity_inputs": {}, "thesis_role": null, "thesis_role_source": null, "observations": [], "required": null, "band": null, "bound_bear": null, "bound_bull": null, "bounds_source": null, "light": null, "light_reason": null, "trend": null}}, "suggest": []}}], "edit": {"label": "핵심 드라이버", "question": "논제의 성패를 가르는 변수 3~5개. 이 변수가 틀리면 논제가 무너지는가? 아니면 빼라.  예시(growth): 매출성장률 / TAM 침투율 / 마진 레버리지", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A2", "html": "컨센서스 vs 내 뷰", "kind": "question", "text": "컨센서스 vs 내 뷰", "detail": "[A2] 컨센서스 vs 내 뷰\n질문: 기대수익의 원천: 시장과 어디서 다르게 보는가\n상태: unverified", "fold": false, "children": [{"id": "A2.1", "html": "현재 주가에 내재된 가정: OPM 10% 안착, 수주잔고 4,500억 유지, PER 15배 <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "text": "현재 주가에 내재된 가정: OPM 10% 안착, 수주잔고 4,500억 유지, PER 15배 (≈ 2026-10-19)", "detail": "[A2.1] 현재 주가에 내재된 가정\n값:\n  OPM 10% 안착, 수주잔고 4,500억 유지, PER 15배\n질문: 현재 주가가 성립하려면 시장은 무엇을 믿고 있어야 하나?\n기준일: 2026-10-19\n상태: estimated", "fold": false, "children": [], "edit": {"label": "현재 주가에 내재된 가정", "question": "현재 주가가 성립하려면 시장은 무엇을 믿고 있어야 하나?", "value": "OPM 10% 안착, 수주잔고 4,500억 유지, PER 15배", "value_type": "text", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A2.2", "html": "내가 다르게 보는 것: 양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음", "kind": "judgment", "text": "내가 다르게 보는 것: 양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음", "detail": "[A2.2] 내가 다르게 보는 것\n값:\n  양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음\n질문: 어디서 다르게 보고, 근거는 무엇인가?\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "내가 다르게 보는 것", "question": "어디서 다르게 보고, 근거는 무엇인가?", "value": "양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음", "value_type": "text", "unit": null, "node_type": "judgment", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A2.3", "html": "시장이 틀린 이유: 시간축", "kind": "judgment", "text": "시장이 틀린 이유: 시간축", "detail": "[A2.3] 시장이 틀린 이유\n값:\n  시간축\n질문: 내가 맞다면 왜 시장은 아직 모르는가?\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "시장이 틀린 이유", "question": "내가 맞다면 왜 시장은 아직 모르는가?", "value": "시간축", "value_type": "enum", "unit": null, "node_type": "judgment", "enum_options": ["시간축", "정보", "심리", "구조"], "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A2.4", "html": "가격이 성립하기 위한 조건: <i>그 가격(기본 목표가 중앙값, 사용자가 바꿀 수 있다) 이 성립하려면 무엇이 언제까지 일어나야 하나? 가정 표(증권사·컨센·내 가정) 와 역산 표(한 변수 해 · 두 변수 조합 — 나머지 고정의 수학적 해, 시장의 기대가 아니다) 와 날짜별 필요 경로(출처·보간 표시) 를 코드가 채운다. 도달 가능성 판정은 사람이 적는다<\/i>", "kind": "computed", "text": "가격이 성립하기 위한 조건: 그 가격(기본 목표가 중앙값, 사용자가 바꿀 수 있다) 이 성립하려면 무엇이 언제까지 일어나야 하나? 가정 표(증권사·컨센·내 가정) 와 역산 표(한 변수 해 · 두 변수 조합 — 나머지 고정의 수학적 해, 시장의 기대가 아니다) 와 날짜별 필요 경로(출처·보간 표시) 를 코드가 채운다. 도달 가능성 판정은 사람이 적는다", "detail": "[A2.4] 가격이 성립하기 위한 조건\n질문: 그 가격(기본 목표가 중앙값, 사용자가 바꿀 수 있다) 이 성립하려면 무엇이 언제까지 일어나야 하나? 가정 표(증권사·컨센·내 가정) 와 역산 표(한 변수 해 · 두 변수 조합 — 나머지 고정의 수학적 해, 시장의 기대가 아니다) 와 날짜별 필요 경로(출처·보간 표시) 를 코드가 채운다. 도달 가능성 판정은 사람이 적는다\n상태: unverified", "fold": false, "children": [], "edit": {"label": "가격이 성립하기 위한 조건", "question": "그 가격(기본 목표가 중앙값, 사용자가 바꿀 수 있다) 이 성립하려면 무엇이 언제까지 일어나야 하나? 가정 표(증권사·컨센·내 가정) 와 역산 표(한 변수 해 · 두 변수 조합 — 나머지 고정의 수학적 해, 시장의 기대가 아니다) 와 날짜별 필요 경로(출처·보간 표시) 를 코드가 채운다. 도달 가능성 판정은 사람이 적는다", "value": null, "value_type": "text", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "single: price = PER × EPS_std × (1 + ΔOP(x)(1−t)/NP) 를 x 로 닫힌 식 ; pair: x 격자마다 y 를 품 ; path: Claim 분기 QoQ 지수 → 사업부 표 분기 열 → 연간 등비 보간(표시)", "sub": null, "suggest": []}}], "edit": {"label": "컨센서스 vs 내 뷰", "question": "기대수익의 원천: 시장과 어디서 다르게 보는가", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3", "html": "밸류에이션", "kind": "question", "text": "밸류에이션", "detail": "[A3] 밸류에이션\n질문: 값이 얼마인가 — 결과 지표 전망 · 평가 기준(사람) · 평가 모델(코드) · 모델 신뢰도 · 밸류 근거\n상태: unverified", "fold": false, "children": [{"id": "A3.1", "html": "재무 전망 (결과 지표)", "kind": "question", "text": "재무 전망 (결과 지표)", "detail": "[A3.1] 재무 전망 (결과 지표)\n질문: 원인 변수(A1) 가 만들어 내는 숫자 — 증권사 표 컨센서스와 내 추정\n상태: unverified", "fold": false, "children": [{"id": "A3.1.1", "html": "매출액: <i>A1 의 가격·물량 가정이 매출로 얼마나 이어지나<\/i> <sub>?<\/sub>", "kind": "estimate", "text": "매출액: A1 의 가격·물량 가정이 매출로 얼마나 이어지나 (?)", "detail": "[A3.1.1] 매출액\n질문: A1 의 가격·물량 가정이 매출로 얼마나 이어지나\n상태: unverified", "fold": false, "children": [], "edit": {"label": "매출액", "question": "A1 의 가격·물량 가정이 매출로 얼마나 이어지나", "value": null, "value_type": "number", "unit": "억원", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.1.2", "html": "영업이익: <i>매출 증가분이 얼마나 이익으로 남나 (원가·레버리지)<\/i> <sub>?<\/sub>", "kind": "estimate", "text": "영업이익: 매출 증가분이 얼마나 이익으로 남나 (원가·레버리지) (?)", "detail": "[A3.1.2] 영업이익\n질문: 매출 증가분이 얼마나 이익으로 남나 (원가·레버리지)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "영업이익", "question": "매출 증가분이 얼마나 이익으로 남나 (원가·레버리지)", "value": null, "value_type": "number", "unit": "억원", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.1.3", "html": "EPS: <i>이익이 주당가치로 얼마나 전환되나 (세금·주식 수)<\/i> <sub>?<\/sub>", "kind": "estimate", "text": "EPS: 이익이 주당가치로 얼마나 전환되나 (세금·주식 수) (?)", "detail": "[A3.1.3] EPS\n질문: 이익이 주당가치로 얼마나 전환되나 (세금·주식 수)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "EPS", "question": "이익이 주당가치로 얼마나 전환되나 (세금·주식 수)", "value": null, "value_type": "number", "unit": "원", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.1.4", "html": "영업이익률: <i>원가 드라이버의 결과<\/i> <sub>?<\/sub>", "kind": "estimate", "text": "영업이익률: 원가 드라이버의 결과 (?)", "detail": "[A3.1.4] 영업이익률\n질문: 원가 드라이버의 결과\n상태: unverified", "fold": false, "children": [], "edit": {"label": "영업이익률", "question": "원가 드라이버의 결과", "value": null, "value_type": "percent", "unit": "%", "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "재무 전망 (결과 지표)", "question": "원인 변수(A1) 가 만들어 내는 숫자 — 증권사 표 컨센서스와 내 추정", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.2", "html": "평가 기준: _모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} (eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 공시 보통주(리포트 머리, 우선주 포함·자기주식 제외는 걸러냄) / net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배} / earnings_basis: 지배(기본) / share_count_basis: 보통주(기본) — 컨센 EPS 는 증권사별 EPS 를 평균하지 않고 지배 순이익÷공시 보통주로 정규화한 뒤 평균한다; 기준이 안 맞는 증권사는 제외)_", "kind": "judgment", "text": "평가 기준: _모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} (eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 공시 보통주(리포트 머리, 우선주 포함·자기주식 제외는 걸러냄) / net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배} / earnings_basis: 지배(기본) / share_count_basis: 보통주(기본) — 컨센 EPS 는 증권사별 EPS 를 평균하지 않고 지배 순이익÷공시 보통주로 정규화한 뒤 평균한다; 기준이 안 맞는 증권사는 제외)_", "detail": "[A3.2] 평가 기준\n질문: 모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} (eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 공시 보통주(리포트 머리, 우선주 포함·자기주식 제외는 걸러냄) / net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배} / earnings_basis: 지배(기본) / share_count_basis: 보통주(기본) — 컨센 EPS 는 증권사별 EPS 를 평균하지 않고 지배 순이익÷공시 보통주로 정규화한 뒤 평균한다; 기준이 안 맞는 증권사는 제외)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "평가 기준", "question": "모델이 읽는 선택값 — 비우면 기본값을 쓰고 '기본값' 으로 표시한다. {eps_basis, eps_year, per, shares, net_cash, dividend_in_return, sotp_multiples} (eps_basis: consensus·my_estimate·normalized·user / per: 적용 PER, 기본 = 목표가 중앙값÷EPS / shares: 주, 기본 = 공시 보통주(리포트 머리, 우선주 포함·자기주식 제외는 걸러냄) / net_cash: 억원, 기본 = 최근 실적 연도 순현금 / dividend_in_return: separate·include·exclude / sotp_multiples: {사업부: 배} / earnings_basis: 지배(기본) / share_count_basis: 보통주(기본) — 컨센 EPS 는 증권사별 EPS 를 평균하지 않고 지배 순이익÷공시 보통주로 정규화한 뒤 평균한다; 기준이 안 맞는 증권사는 제외)", "value": null, "value_type": "text", "unit": null, "node_type": "judgment", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.3", "html": "평가 모델 (PER · SOTP): <i>기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 'PER 와 다른 변수를 고정하면 현재가를 설명하는 EPS·드라이버 변화' (조건부 — 여러 PER 표; 시장의 기대가 아니다. 적용 PER 가 목표가 유도값이면 가정 의존)<\/i>", "kind": "computed", "text": "평가 모델 (PER · SOTP): 기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 'PER 와 다른 변수를 고정하면 현재가를 설명하는 EPS·드라이버 변화' (조건부 — 여러 PER 표; 시장의 기대가 아니다. 적용 PER 가 목표가 유도값이면 가정 의존)", "detail": "[A3.3] 평가 모델 (PER · SOTP)\n질문: 기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 'PER 와 다른 변수를 고정하면 현재가를 설명하는 EPS·드라이버 변화' (조건부 — 여러 PER 표; 시장의 기대가 아니다. 적용 PER 가 목표가 유도값이면 가정 의존)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "평가 모델 (PER · SOTP)", "question": "기준 EPS × 적용 PER 가격이 기본, 정상화 EPS 가격을 나란히, SOTP(사업부 OP×(1−t)×멀티플 + 순현금) 는 검증, 역산은 'PER 와 다른 변수를 고정하면 현재가를 설명하는 EPS·드라이버 변화' (조건부 — 여러 PER 표; 시장의 기대가 아니다. 적용 PER 가 목표가 유도값이면 가정 의존)", "value": null, "value_type": "text", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "price_per = EPS(basis) × PER ; price_sotp = (Σ seg OP×(1−t)×multiple + net_cash) / N ; implied_eps = P0 / PER", "sub": null, "suggest": []}}, {"id": "A3.4", "html": "모델 신뢰도 · 갱신 이력: <i>규칙 기반 H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합(지배/전체·우선주) · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력<\/i>", "kind": "computed", "text": "모델 신뢰도 · 갱신 이력: 규칙 기반 H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합(지배/전체·우선주) · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력", "detail": "[A3.4] 모델 신뢰도 · 갱신 이력\n질문: 규칙 기반 H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합(지배/전체·우선주) · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력\n상태: unverified", "fold": false, "children": [], "edit": {"label": "모델 신뢰도 · 갱신 이력", "question": "규칙 기반 H/M/L — 입력 커버리지 · 증권사 수 · EPS 기준 혼합(지배/전체·우선주) · 사업부 합 vs 전사 · 데이터 나이 · PER/SOTP 차이 · Bear ≥ 현재가 · 확률 미입력", "value": null, "value_type": "text", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "grade = H if no warnings and coverage ≥ 0.8 ; M if warnings ≤ 2 ; else L", "sub": null, "suggest": []}}, {"id": "A3.5", "html": "밸류 근거", "kind": "question", "text": "밸류 근거", "detail": "[A3.5] 밸류 근거\n질문: 멀티플 숫자 하나가 아니라 맥락\n상태: unverified", "fold": false, "children": [{"id": "A3.5.1", "html": "역사 밴드 위치: 45.0% <sub>2026-10-19<\/sub>", "kind": "fact", "text": "역사 밴드 위치: 45.0% (2026-10-19)", "detail": "[A3.5.1] 역사 밴드 위치\n값:\n  45\n질문: 현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?\n출처: KRX 종가\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "역사 밴드 위치", "question": "현재 멀티플이 자기 역사 분포의 몇 백분위에 있나?", "value": 45, "value_type": "percent", "unit": "%ile", "node_type": "fact", "enum_options": null, "source": {"name": "KRX 종가", "url": "", "retrieved_at": "2026-10-19"}, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.5.2", "html": "피어 비교: <i>피어 대비 프리미엄/디스카운트와 그 정당성은?<\/i> <sub>?<\/sub>", "kind": "fact", "text": "피어 비교: 피어 대비 프리미엄/디스카운트와 그 정당성은? (?)", "detail": "[A3.5.2] 피어 비교\n질문: 피어 대비 프리미엄/디스카운트와 그 정당성은?\n상태: unverified", "fold": false, "children": [], "edit": {"label": "피어 비교", "question": "피어 대비 프리미엄/디스카운트와 그 정당성은?", "value": null, "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A3.5.3", "html": "EPS 리비전 방향: up <sub>2026-10-19<\/sub>", "kind": "fact", "text": "EPS 리비전 방향: up (2026-10-19)", "detail": "[A3.5.3] EPS 리비전 방향\n값:\n  up\n질문: 최근 3개월 컨센서스 EPS 방향\n출처: 컨센서스 집계\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "EPS 리비전 방향", "question": "최근 3개월 컨센서스 EPS 방향", "value": "up", "value_type": "enum", "unit": null, "node_type": "fact", "enum_options": ["up", "flat", "down"], "source": {"name": "컨센서스 집계", "url": "", "retrieved_at": "2026-10-19"}, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "밸류 근거", "question": "멀티플 숫자 하나가 아니라 맥락", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "밸류에이션", "question": "값이 얼마인가 — 결과 지표 전망 · 평가 기준(사람) · 평가 모델(코드) · 모델 신뢰도 · 밸류 근거", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A4", "html": "시나리오", "kind": "question", "text": "시나리오", "detail": "[A4] 시나리오\n질문: 확률·목표가로 숫자화된 세 갈래 — 드라이버 가정 묶음이 통합 모델(A3) 을 거쳐 목표가가 된다 (가정·확률은 사람)\n상태: unverified", "fold": false, "children": [{"id": "A4.1", "html": "시나리오 한눈에: <i>시나리오 = 드라이버 가정 묶음(A1.x 컨센 대비 Δ%) + 적용 PER + 확률 → 통합 모델이 목표가를 계산. 세 갈래의 뜻·가정·확률·목표가와 증권사 후보, 빠진 것을 코드가 요약한다 — 가정·확률은 사람이 넣는다 (콘솔 「C」 후보 · 「P」 예시 확률 · 「V」 가정·PER · HTML 밸류 계산기 ∑ · <code>mindmap scenario --set<\/code>)<\/i>", "kind": "computed", "text": "시나리오 한눈에: 시나리오 = 드라이버 가정 묶음(A1.x 컨센 대비 Δ%) + 적용 PER + 확률 → 통합 모델이 목표가를 계산. 세 갈래의 뜻·가정·확률·목표가와 증권사 후보, 빠진 것을 코드가 요약한다 — 가정·확률은 사람이 넣는다 (콘솔 「C」 후보 · 「P」 예시 확률 · 「V」 가정·PER · HTML 밸류 계산기 ∑ · mindmap scenario --set)", "detail": "[A4.1] 시나리오 한눈에\n질문: 시나리오 = 드라이버 가정 묶음(A1.x 컨센 대비 Δ%) + 적용 PER + 확률 → 통합 모델이 목표가를 계산. 세 갈래의 뜻·가정·확률·목표가와 증권사 후보, 빠진 것을 코드가 요약한다 — 가정·확률은 사람이 넣는다 (콘솔 「C」 후보 · 「P」 예시 확률 · 「V」 가정·PER · HTML 밸류 계산기 ∑ · `mindmap scenario --set`)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "시나리오 한눈에", "question": "시나리오 = 드라이버 가정 묶음(A1.x 컨센 대비 Δ%) + 적용 PER + 확률 → 통합 모델이 목표가를 계산. 세 갈래의 뜻·가정·확률·목표가와 증권사 후보, 빠진 것을 코드가 요약한다 — 가정·확률은 사람이 넣는다 (콘솔 「C」 후보 · 「P」 예시 확률 · 「V」 가정·PER · HTML 밸류 계산기 ∑ · `mindmap scenario --set`)", "value": null, "value_type": "text", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "row(name) = 뜻 · 가정(driver_assumptions) · PER · p · TP(통합 모델) · TP/P0−1 ; V = Σ p·TP (A4.7)", "sub": null, "suggest": []}}, {"id": "A4.2", "html": "Bear: 48,000원 (p=0.25, 12M) — 양산 지연 6개월; OPM 7% <sub>≈<\/sub>", "kind": "scenario", "text": "Bear: 48,000원 (p=0.25, 12M) — 양산 지연 6개월; OPM 7% (≈)", "detail": "[A4.2] Bear\n시나리오:\n  name: Bear\n  assumptions: ['양산 지연 6개월', 'OPM 7%']\n  probability: 0.25\n  target_price: 48000.0\n  horizon_months: 12\n  valuation_method: PER 12배 × 2027E EPS\n  price_source: user\n질문: 무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가)\n상태: estimated", "fold": false, "children": [], "edit": {"label": "Bear", "question": "무엇이 무너지면 어디까지 떨어지나 (가정·확률·목표가)", "value": null, "value_type": "price", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "scenario", "data": {"name": "Bear", "assumptions": ["양산 지연 6개월", "OPM 7%"], "probability": 0.25, "target_price": 48000.0, "horizon_months": 12, "valuation_method": "PER 12배 × 2027E EPS", "driver_assumptions": [], "eps_basis": null, "eps_year": null, "per": null, "conditions": [], "indicators": [], "falsifier": null, "price_source": "user", "model": null}}, "suggest": []}}, {"id": "A4.3", "html": "Base: 85,000원 (p=0.50, 12M) — OPM 13%; PER 18배 <sub>≈<\/sub>", "kind": "scenario", "text": "Base: 85,000원 (p=0.50, 12M) — OPM 13%; PER 18배 (≈)", "detail": "[A4.3] Base\n시나리오:\n  name: Base\n  assumptions: ['OPM 13%', 'PER 18배']\n  probability: 0.5\n  target_price: 85000.0\n  horizon_months: 12\n  valuation_method: PER 밴드 중앙값 × 2027E EPS\n  price_source: user\n질문: 논제가 그대로 실현되면 (가정·확률·목표가)\n상태: estimated", "fold": false, "children": [], "edit": {"label": "Base", "question": "논제가 그대로 실현되면 (가정·확률·목표가)", "value": null, "value_type": "price", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "scenario", "data": {"name": "Base", "assumptions": ["OPM 13%", "PER 18배"], "probability": 0.5, "target_price": 85000.0, "horizon_months": 12, "valuation_method": "PER 밴드 중앙값 × 2027E EPS", "driver_assumptions": [], "eps_basis": null, "eps_year": null, "per": null, "conditions": [], "indicators": [], "falsifier": null, "price_source": "user", "model": null}}, "suggest": []}}, {"id": "A4.4", "html": "Bull: 120,000원 (p=0.25, 12M) — 해외 고객 추가; PER 25배 <sub>≈<\/sub>", "kind": "scenario", "text": "Bull: 120,000원 (p=0.25, 12M) — 해외 고객 추가; PER 25배 (≈)", "detail": "[A4.4] Bull\n시나리오:\n  name: Bull\n  assumptions: ['해외 고객 추가', 'PER 25배']\n  probability: 0.25\n  target_price: 120000.0\n  horizon_months: 12\n  valuation_method: PER 25배 × 2027E EPS\n  price_source: user\n질문: 무엇이 추가로 잘되면 (가정·확률·목표가)\n상태: estimated", "fold": false, "children": [], "edit": {"label": "Bull", "question": "무엇이 추가로 잘되면 (가정·확률·목표가)", "value": null, "value_type": "price", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "scenario", "data": {"name": "Bull", "assumptions": ["해외 고객 추가", "PER 25배"], "probability": 0.25, "target_price": 120000.0, "horizon_months": 12, "valuation_method": "PER 25배 × 2027E EPS", "driver_assumptions": [], "eps_basis": null, "eps_year": null, "per": null, "conditions": [], "indicators": [], "falsifier": null, "price_source": "user", "model": null}}, "suggest": []}}, {"id": "A4.5", "html": "기대수익률: 45.7%", "kind": "computed", "text": "기대수익률: 45.7%", "detail": "[A4.5] 기대수익률\n값:\n  0.4569\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "기대수익률", "question": "", "value": 0.4569, "value_type": "percent", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "sum(p_i * (TP_i / P0 - 1))", "sub": null, "suggest": []}}, {"id": "A4.6", "html": "손익비: 2.7", "kind": "computed", "text": "손익비: 2.7", "detail": "[A4.6] 손익비\n값:\n  2.7\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "손익비", "question": "", "value": 2.7, "value_type": "number", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "((TP_base - P0) / P0) / ((P0 - TP_bear) / P0)", "sub": null, "suggest": []}}, {"id": "A4.7", "html": "확률가중 투자 매력도: <i>V = Σ p·TP · 기대수익률(가격 / 배당 포함 따로) · 하방 수익률(Bear) · 안전마진 — 확률은 사람이 넣어야 계산된다<\/i>", "kind": "computed", "text": "확률가중 투자 매력도: V = Σ p·TP · 기대수익률(가격 / 배당 포함 따로) · 하방 수익률(Bear) · 안전마진 — 확률은 사람이 넣어야 계산된다", "detail": "[A4.7] 확률가중 투자 매력도\n질문: V = Σ p·TP · 기대수익률(가격 / 배당 포함 따로) · 하방 수익률(Bear) · 안전마진 — 확률은 사람이 넣어야 계산된다\n상태: unverified", "fold": false, "children": [], "edit": {"label": "확률가중 투자 매력도", "question": "V = Σ p·TP · 기대수익률(가격 / 배당 포함 따로) · 하방 수익률(Bear) · 안전마진 — 확률은 사람이 넣어야 계산된다", "value": null, "value_type": "text", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "V = Σ p_i·TP_i ; ER = V/P0 − 1 ; ER_total = ER + DPS_E/P0 ; downside = TP_bear/P0 − 1 ; MoS = 1 − P0/V", "sub": null, "suggest": []}}], "edit": {"label": "시나리오", "question": "확률·목표가로 숫자화된 세 갈래 — 드라이버 가정 묶음이 통합 모델(A3) 을 거쳐 목표가가 된다 (가정·확률은 사람)", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5", "html": "리스크 &amp; 무효화 조건", "kind": "question", "text": "리스크 & 무효화 조건", "detail": "[A5] 리스크 & 무효화 조건\n질문: 무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나\n상태: unverified", "fold": false, "children": [{"id": "A5.1", "html": "하락 리스크 1: 양산 수율 문제로 전환 지연 (확률 30%, 영향 -25%) <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "text": "하락 리스크 1: 양산 수율 문제로 전환 지연 (확률 30%, 영향 -25%) (≈ 2026-10-19)", "detail": "[A5.1] 하락 리스크 1\n값:\n  probability: 0.3\n  impact_pct: -25\n  text: 양산 수율 문제로 전환 지연\n질문: 무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}\n기준일: 2026-10-19\n상태: estimated", "fold": false, "children": [], "edit": {"label": "하락 리스크 1", "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}", "value": {"probability": 0.3, "impact_pct": -25, "text": "양산 수율 문제로 전환 지연"}, "value_type": "range", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5.2", "html": "하락 리스크 2: 경쟁사 가격 인하 (확률 20%, 영향 -15%) <sub>≈ 2026-10-19<\/sub>", "kind": "estimate", "text": "하락 리스크 2: 경쟁사 가격 인하 (확률 20%, 영향 -15%) (≈ 2026-10-19)", "detail": "[A5.2] 하락 리스크 2\n값:\n  probability: 0.2\n  impact_pct: -15\n  text: 경쟁사 가격 인하\n질문: 무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}\n기준일: 2026-10-19\n상태: estimated", "fold": false, "children": [], "edit": {"label": "하락 리스크 2", "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}", "value": {"probability": 0.2, "impact_pct": -15, "text": "경쟁사 가격 인하"}, "value_type": "range", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "estimated", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5.3", "html": "하락 리스크 3: _무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}_ <sub>?<\/sub>", "kind": "estimate", "text": "하락 리스크 3: _무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}_ (?)", "detail": "[A5.3] 하락 리스크 3\n질문: 무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}\n상태: unverified", "fold": false, "children": [], "edit": {"label": "하락 리스크 3", "question": "무엇이, 어느 확률로, 얼마나 깎는가? {probability, impact_pct, text}", "value": null, "value_type": "range", "unit": null, "node_type": "estimate", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5.4", "html": "Kill criteria", "kind": "question", "text": "Kill criteria", "detail": "[A5.4] Kill criteria\n질문: 어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나? (가격이 아닌 사실 기준)\n상태: unverified", "fold": false, "children": [{"id": "A5.4.1", "html": "무효화 조건 1: ⚡ <code>driver[A1.2].current &lt; 3500<\/code> → exit", "kind": "rule", "text": "무효화 조건 1: ⚡ driver[A1.2].current < 3500 → exit", "detail": "[A5.4.1] 무효화 조건 1\n규칙:\n  trigger_type: fact\n  condition: driver[A1.2].current < 3500\n  action: exit\n  escalate_to: RED\n  status: armed\n  note: 수주잔고가 매수 시점보다 줄면 논제 폐기\n  side: bear\n  persistence: 2\n질문: 사실 기준 조건식 → exit\n상태: unverified", "fold": false, "children": [], "edit": {"label": "무효화 조건 1", "question": "사실 기준 조건식 → exit", "value": null, "value_type": "text", "unit": null, "node_type": "rule", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "rule", "data": {"trigger_type": "fact", "condition": "driver[A1.2].current < 3500", "action": "exit", "size": null, "escalate_to": "RED", "status": "armed", "fired_at": null, "note": "수주잔고가 매수 시점보다 줄면 논제 폐기", "grade": null, "driver_id": null, "threshold": null, "side": "bear", "persistence": 2, "proposal": {}}}, "suggest": []}}], "edit": {"label": "Kill criteria", "question": "어떤 사실이 확인되면 손실 크기와 무관하게 논제를 버리나? (가격이 아닌 사실 기준)", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5.5", "html": "조기 경보 지표: 월별 수출 단가, 공급사 가동률 코멘트 <sub>? 2026-10-19<\/sub>", "kind": "fact", "text": "조기 경보 지표: 월별 수출 단가, 공급사 가동률 코멘트 (? 2026-10-19)", "detail": "[A5.5] 조기 경보 지표\n값:\n  월별 수출 단가, 공급사 가동률 코멘트\n질문: 그 사실을 미리 알려주는 지표는? 어디서, 얼마나 자주 확인? (설계 v7: 증거 계획 표 — 드라이버마다 자·관측값·필요값·띠·경계·다음 확인일·신호등을 코드가 모은다)\n기준일: 2026-10-19\n상태: unverified", "fold": false, "children": [], "edit": {"label": "조기 경보 지표", "question": "그 사실을 미리 알려주는 지표는? 어디서, 얼마나 자주 확인? (설계 v7: 증거 계획 표 — 드라이버마다 자·관측값·필요값·띠·경계·다음 확인일·신호등을 코드가 모은다)", "value": "월별 수출 단가, 공급사 가동률 코멘트", "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A5.6", "html": "판단 수정 규칙", "kind": "question", "text": "판단 수정 규칙", "detail": "[A5.6] 판단 수정 규칙\n질문: 어떤 증거가 나오면 무엇을 바꾸나 — 미리 적는다. 자식 규칙(A5.6.x): 대상 드라이버 · 경계값 · 지속성(연속 n회) · 등급(shift/review/warn) · 제안(%p). 발동 → 검증(진위·자·지속성) → 영향 → 제안 → 사람 승인. 자동으로 바뀌는 것은 '신규 BUY 보류' 플래그뿐\n상태: unverified", "fold": false, "children": [], "edit": {"label": "판단 수정 규칙", "question": "어떤 증거가 나오면 무엇을 바꾸나 — 미리 적는다. 자식 규칙(A5.6.x): 대상 드라이버 · 경계값 · 지속성(연속 n회) · 등급(shift/review/warn) · 제안(%p). 발동 → 검증(진위·자·지속성) → 영향 → 제안 → 사람 승인. 자동으로 바뀌는 것은 '신규 BUY 보류' 플래그뿐", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "리스크 & 무효화 조건", "question": "무엇이 논제를 깨고, 그걸 어떻게 미리 알 수 있나", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A6", "html": "촉매 &amp; 타임라인", "kind": "question", "text": "촉매 & 타임라인", "detail": "[A6] 촉매 & 타임라인\n질문: 날짜 박힌 이벤트와 진입 타이밍\n상태: unverified", "fold": false, "children": [{"id": "A6.1", "html": "촉매 이벤트", "kind": "question", "text": "촉매 이벤트", "detail": "[A6.1] 촉매 이벤트\n질문: 날짜가 박힌 사건만\n상태: unverified", "fold": false, "children": [], "edit": {"label": "촉매 이벤트", "question": "날짜가 박힌 사건만", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A6.2", "html": "수급/기술", "kind": "question", "text": "수급/기술", "detail": "[A6.2] 수급/기술\n질문: 진입 타이밍용 — 프로파일 가중치\n상태: unverified", "fold": false, "children": [{"id": "A6.2.1", "html": "추세 <sub>?<\/sub>", "kind": "fact", "text": "추세 (?)", "detail": "[A6.2.1] 추세\n상태: unverified", "fold": false, "children": [], "edit": {"label": "추세", "question": "", "value": null, "value_type": "enum", "unit": null, "node_type": "fact", "enum_options": ["상승", "횡보", "하락"], "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A6.2.2", "html": "거래량 (20일 평균 대비) <sub>?<\/sub>", "kind": "fact", "text": "거래량 (20일 평균 대비) (?)", "detail": "[A6.2.2] 거래량 (20일 평균 대비)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "거래량 (20일 평균 대비)", "question": "", "value": null, "value_type": "number", "unit": "배", "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A6.2.3", "html": "외국인/기관 순매수 (20일 누적) <sub>?<\/sub>", "kind": "fact", "text": "외국인/기관 순매수 (20일 누적) (?)", "detail": "[A6.2.3] 외국인/기관 순매수 (20일 누적)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "외국인/기관 순매수 (20일 누적)", "question": "", "value": null, "value_type": "number", "unit": "억원", "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A6.2.4", "html": "공매도/신용잔고 (유통주식 대비) <sub>?<\/sub>", "kind": "fact", "text": "공매도/신용잔고 (유통주식 대비) (?)", "detail": "[A6.2.4] 공매도/신용잔고 (유통주식 대비)\n상태: unverified", "fold": false, "children": [], "edit": {"label": "공매도/신용잔고 (유통주식 대비)", "question": "", "value": null, "value_type": "percent", "unit": "%", "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "수급/기술", "question": "진입 타이밍용 — 프로파일 가중치", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": 0.2, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "촉매 & 타임라인", "question": "날짜 박힌 이벤트와 진입 타이밍", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A7", "html": "실행 계획", "kind": "question", "text": "실행 계획", "detail": "[A7] 실행 계획\n질문: 비중·진입·손절·익절·판단\n상태: unverified", "fold": false, "children": [{"id": "A7.1", "html": "목표 비중: suggested=6.8%, confirmed=5.0%, reason=신규 섹터 — 보수적으로 5%", "kind": "judgment", "text": "목표 비중: suggested=6.8%, confirmed=5.0%, reason=신규 섹터 — 보수적으로 5%", "detail": "[A7.1] 목표 비중\n값:\n  suggested: 0.0675\n  confirmed: 0.05\n  reason: 신규 섹터 — 보수적으로 5%\n질문: 제안식 → 확정. {suggested, confirmed, reason}\n상태: unverified", "fold": false, "children": [], "edit": {"label": "목표 비중", "question": "제안식 → 확정. {suggested, confirmed, reason}", "value": {"suggested": 0.0675, "confirmed": 0.05, "reason": "신규 섹터 — 보수적으로 5%"}, "value_type": "percent", "unit": "%", "node_type": "judgment", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A7.2", "html": "진입 계획: price_range=55,000~60,000, tranches=3", "kind": "judgment", "text": "진입 계획: price_range=55,000~60,000, tranches=3", "detail": "[A7.2] 진입 계획\n값:\n  price_range: [55000, 60000]\n  tranches: 3\n질문: 어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "진입 계획", "question": "어느 가격대에서 몇 번에 나눠 사나? {price_range, tranches}", "value": {"price_range": [55000, 60000], "tranches": 3}, "value_type": "range", "unit": null, "node_type": "judgment", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A7.3", "html": "손절 규칙: ⚡ <code>drawdown &gt; 0.25<\/code> → review", "kind": "rule", "text": "손절 규칙: ⚡ drawdown > 0.25 → review", "detail": "[A7.3] 손절 규칙\n규칙:\n  trigger_type: price\n  condition: drawdown > 0.25\n  action: review\n  escalate_to: YELLOW\n  status: armed\n  side: bear\n  persistence: 2\n질문: 가격 기준 하나 + 사실 기준 하나\n상태: unverified", "fold": false, "children": [], "edit": {"label": "손절 규칙", "question": "가격 기준 하나 + 사실 기준 하나", "value": null, "value_type": "text", "unit": null, "node_type": "rule", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "rule", "data": {"trigger_type": "price", "condition": "drawdown > 0.25", "action": "review", "size": null, "escalate_to": "YELLOW", "status": "armed", "fired_at": null, "note": null, "grade": null, "driver_id": null, "threshold": null, "side": "bear", "persistence": 2, "proposal": {}}}, "suggest": []}}, {"id": "A7.4", "html": "익절/축소 규칙: ⚡ <code>price &gt; 110000<\/code> → trim 50%", "kind": "rule", "text": "익절/축소 규칙: ⚡ price > 110000 → trim 50%", "detail": "[A7.4] 익절/축소 규칙\n규칙:\n  trigger_type: price\n  condition: price > 110000\n  action: trim\n  size: 50%\n  status: armed\n  side: bear\n  persistence: 2\n상태: unverified", "fold": false, "children": [], "edit": {"label": "익절/축소 규칙", "question": "", "value": null, "value_type": "text", "unit": null, "node_type": "rule", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "rule", "data": {"trigger_type": "price", "condition": "price > 110000", "action": "trim", "size": "50%", "escalate_to": null, "status": "armed", "fired_at": null, "note": null, "grade": null, "driver_id": null, "threshold": null, "side": "bear", "persistence": 2, "proposal": {}}}, "suggest": []}}, {"id": "A7.5", "html": "판단: BUY", "kind": "judgment", "text": "판단: BUY", "detail": "[A7.5] 판단\n값:\n  BUY\n질문: BUY / WATCH / PASS\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "판단", "question": "BUY / WATCH / PASS", "value": "BUY", "value_type": "enum", "unit": null, "node_type": "judgment", "enum_options": ["BUY", "WATCH", "PASS"], "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "실행 계획", "question": "비중·진입·손절·익절·판단", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A8", "html": "모니터링 &amp; 복기", "kind": "question", "text": "모니터링 & 복기", "detail": "[A8] 모니터링 & 복기\n상태: unverified", "fold": false, "children": [{"id": "A8.1", "html": "체크포인트: 2026-11-14, 2026-12-01", "kind": "computed", "text": "체크포인트: 2026-11-14, 2026-12-01", "detail": "[A8.1] 체크포인트\n값:\n  - 2026-11-14\n  - 2026-12-01\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "체크포인트", "question": "", "value": ["2026-11-14", "2026-12-01"], "value_type": "date", "unit": null, "node_type": "computed", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": "sorted(A1.x.next_check ∪ A6.1.x.date)", "sub": null, "suggest": []}}, {"id": "A8.2", "html": "업데이트 로그", "kind": "event", "text": "업데이트 로그", "detail": "[A8.2] 업데이트 로그\n상태: unverified", "fold": true, "children": [], "edit": {"label": "업데이트 로그", "question": "", "value": null, "value_type": "text", "unit": null, "node_type": "event", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": {"kind": "event", "data": null}, "suggest": []}}, {"id": "A8.3", "html": "사후 복기: <i>매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이<\/i>", "kind": "judgment", "text": "사후 복기: 매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이", "detail": "[A8.3] 사후 복기\n질문: 매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이\n상태: unverified", "fold": false, "children": [], "edit": {"label": "사후 복기", "question": "매도 완료 후: 논제가 맞았나, 틀렸다면 어느 가정이", "value": null, "value_type": "text", "unit": null, "node_type": "judgment", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "모니터링 & 복기", "question": "", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9", "html": "근거 자료", "kind": "question", "text": "근거 자료", "detail": "[A9] 근거 자료\n질문: 논제를 뒷받침하는 것만. 기본 접힘\n상태: unverified", "fold": true, "children": [{"id": "A9.1", "html": "기업", "kind": "question", "text": "기업", "detail": "[A9.1] 기업\n상태: unverified", "fold": false, "children": [{"id": "A9.1.1", "html": "비즈니스 모델: 휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급 <sub>2026-10-19<\/sub>", "kind": "fact", "text": "비즈니스 모델: 휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급 (2026-10-19)", "detail": "[A9.1.1] 비즈니스 모델\n값:\n  휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급\n질문: 무엇을 팔아 어떻게 돈을 버나?\n출처: 분기보고서 (2026.2Q) https://dart.fss.or.kr/\n기준일: 2026-10-19\n상태: confirmed", "fold": false, "children": [], "edit": {"label": "비즈니스 모델", "question": "무엇을 팔아 어떻게 돈을 버나?", "value": "휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급", "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": {"name": "분기보고서 (2026.2Q)", "url": "https://dart.fss.or.kr/", "retrieved_at": "2026-10-19"}, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9.1.2", "html": "경쟁우위: <i>마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?<\/i> <sub>?<\/sub>", "kind": "fact", "text": "경쟁우위: 마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가? (?)", "detail": "[A9.1.2] 경쟁우위\n질문: 마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?\n상태: unverified", "fold": false, "children": [], "edit": {"label": "경쟁우위", "question": "마진을 지키는 것은 무엇이고 5년 뒤에도 유효한가?", "value": null, "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9.1.3", "html": "경영진 / 지배구조 / 주주환원: <i>자본배분 이력, 대주주 리스크, 배당·자사주<\/i> <sub>?<\/sub>", "kind": "fact", "text": "경영진 / 지배구조 / 주주환원: 자본배분 이력, 대주주 리스크, 배당·자사주 (?)", "detail": "[A9.1.3] 경영진 / 지배구조 / 주주환원\n질문: 자본배분 이력, 대주주 리스크, 배당·자사주\n상태: unverified", "fold": false, "children": [], "edit": {"label": "경영진 / 지배구조 / 주주환원", "question": "자본배분 이력, 대주주 리스크, 배당·자사주", "value": null, "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9.1.4", "html": "재무 (성장·수익·현금·건전성): <i>매출/이익 성장률, 마진, FCF, 부채비율<\/i> <sub>?<\/sub>", "kind": "fact", "text": "재무 (성장·수익·현금·건전성): 매출/이익 성장률, 마진, FCF, 부채비율 (?)", "detail": "[A9.1.4] 재무 (성장·수익·현금·건전성)\n질문: 매출/이익 성장률, 마진, FCF, 부채비율\n상태: unverified", "fold": false, "children": [], "edit": {"label": "재무 (성장·수익·현금·건전성)", "question": "매출/이익 성장률, 마진, FCF, 부채비율", "value": null, "value_type": "text", "unit": null, "node_type": "fact", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "기업", "question": "", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9.2", "html": "산업 → 섹터 맵: <i>S.&lt;시장&gt;-&lt;섹터&gt; 링크<\/i> → <code>S.KR-ROBOT<\/code>", "kind": "link", "text": "산업 → 섹터 맵: S.<시장>-<섹터> 링크 → S.KR-ROBOT", "detail": "[A9.2] 산업 → 섹터 맵\n질문: S.<시장>-<섹터> 링크\n상태: unverified\n연결: S.KR-ROBOT", "fold": false, "children": [], "edit": {"label": "산업 → 섹터 맵", "question": "S.<시장>-<섹터> 링크", "value": null, "value_type": "ref", "unit": null, "node_type": "link", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": ["S.KR-ROBOT"], "tags": [], "formula": null, "sub": null, "suggest": []}}, {"id": "A9.3", "html": "매크로 → 매크로 맵: <i>M0 링크<\/i> → <code>M0<\/code>", "kind": "link", "text": "매크로 → 매크로 맵: M0 링크 → M0", "detail": "[A9.3] 매크로 → 매크로 맵\n질문: M0 링크\n상태: unverified\n연결: M0", "fold": false, "children": [], "edit": {"label": "매크로 → 매크로 맵", "question": "M0 링크", "value": null, "value_type": "ref", "unit": null, "node_type": "link", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": null, "links": ["M0"], "tags": [], "formula": null, "sub": null, "suggest": []}}], "edit": {"label": "근거 자료", "question": "논제를 뒷받침하는 것만. 기본 접힘", "value": null, "value_type": "text", "unit": null, "node_type": "question", "enum_options": null, "source": null, "as_of": null, "confidence": null, "status": "unverified", "next_check": null, "weight": 0.6, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}}], "text": "가온로보틱스 투자 논제", "detail": "[A0] 가온로보틱스 투자 논제\n값:\n  가온로보틱스는 휴머노이드 액추에이터 양산 전환으로 12개월 내 OPM 8%→13%, 주가 85,000원. 시장은 아직 2027년 수주잔고 전환율을 반영하지 않음\n질문: 이 종목이 왜, 언제까지, 얼마로 가는가를 한 문장으로. 시장이 아직 반영하지 않은 것은 무엇인가?\n기준일: 2026-10-19\n상태: confirmed", "edit": {"label": "가온로보틱스 투자 논제", "question": "이 종목이 왜, 언제까지, 얼마로 가는가를 한 문장으로. 시장이 아직 반영하지 않은 것은 무엇인가?", "value": "가온로보틱스는 휴머노이드 액추에이터 양산 전환으로 12개월 내 OPM 8%→13%, 주가 85,000원. 시장은 아직 2027년 수주잔고 전환율을 반영하지 않음", "value_type": "text", "unit": null, "node_type": "judgment", "enum_options": null, "source": null, "as_of": "2026-10-19", "confidence": null, "status": "confirmed", "next_check": null, "weight": null, "links": [], "tags": [], "formula": null, "sub": null, "suggest": []}};
+  const OPTS = {"layout": "balanced", "expandLevel": 2, "edit": {"server": false, "token": "", "map_id": "A:000000:2026-10-19", "base_hash": "a40fb97b1b0d33bf", "schemas": {"subs": {"driver": [{"key": "current.value", "label": "현재 · 값", "type": "number", "adv": false}, {"key": "current.as_of", "label": "현재 · 기준일", "type": "date", "adv": true}, {"key": "current.source.name", "label": "현재 · 출처 · 이름", "type": "text", "adv": true}, {"key": "current.source.url", "label": "현재 · 출처 · URL", "type": "text", "adv": true}, {"key": "current.source.retrieved_at", "label": "현재 · 출처 · 확인일", "type": "date", "adv": true}, {"key": "current.rationale", "label": "현재 · 근거", "type": "text", "adv": true}, {"key": "consensus.value", "label": "컨센서스 · 값", "type": "number", "adv": false}, {"key": "consensus.as_of", "label": "컨센서스 · 기준일", "type": "date", "adv": true}, {"key": "consensus.source.name", "label": "컨센서스 · 출처 · 이름", "type": "text", "adv": true}, {"key": "consensus.source.url", "label": "컨센서스 · 출처 · URL", "type": "text", "adv": true}, {"key": "consensus.source.retrieved_at", "label": "컨센서스 · 출처 · 확인일", "type": "date", "adv": true}, {"key": "consensus.rationale", "label": "컨센서스 · 근거", "type": "text", "adv": true}, {"key": "my_estimate.value", "label": "내 추정 · 값", "type": "number", "adv": false}, {"key": "my_estimate.as_of", "label": "내 추정 · 기준일", "type": "date", "adv": true}, {"key": "my_estimate.source.name", "label": "내 추정 · 출처 · 이름", "type": "text", "adv": true}, {"key": "my_estimate.source.url", "label": "내 추정 · 출처 · URL", "type": "text", "adv": true}, {"key": "my_estimate.source.retrieved_at", "label": "내 추정 · 출처 · 확인일", "type": "date", "adv": true}, {"key": "my_estimate.rationale", "label": "내 추정 · 근거", "type": "text", "adv": true}, {"key": "check_indicator", "label": "확인 지표", "type": "text", "adv": false}, {"key": "next_check", "label": "다음 확인일", "type": "date", "adv": false}, {"key": "at_entry", "label": "매수 시점 값", "type": "number", "adv": true}, {"key": "direction", "label": "방향", "type": "select", "options": ["강화", "유지", "약화"], "adv": true}, {"key": "higher_is_better", "label": "높을수록 좋음", "type": "bool", "adv": true}, {"key": "metric", "label": "변수 id", "type": "text", "adv": true}, {"key": "period", "label": "기간", "type": "text", "adv": true}, {"key": "kind", "label": "종류 (quant·qualitative)", "type": "select", "options": ["quant", "qualitative"], "adv": false}, {"key": "role", "label": "역할 (cause·result)", "type": "select", "options": ["cause", "result"], "adv": true}, {"key": "proxies", "label": "대체 관측 지표", "type": "list", "adv": false}, {"key": "invalidation_condition", "label": "무효화 조건", "type": "text", "adv": false}, {"key": "invalidation_rule", "label": "Kill 규칙 노드", "type": "text", "adv": true}, {"key": "sensitivity_inputs", "label": "민감도 입력 (segment_revenue 억원 · pass_through · tax_rate · shares · per_target · fcf …)", "type": "json", "adv": true}, {"key": "thesis_role", "label": "논제 역할 (required 필수 · core 핵심 수익 · secondary 보조)", "type": "select", "options": ["required", "core", "secondary"], "adv": false}, {"key": "thesis_role_source", "label": "역할 출처 (user·proposed)", "type": "text", "adv": false}, {"key": "observations", "label": "관측값 목록 (JSON: metric_id · period · value_type · basis · value · as_of · compare_at · source · verification)", "type": "json", "adv": false}, {"key": "required.ruler.metric_id", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · ruler · metric_id", "type": "text", "adv": false}, {"key": "required.ruler.value_type", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · ruler · value_type", "type": "select", "options": ["abs", "pct", "cum", "state"], "adv": false}, {"key": "required.ruler.basis", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · ruler · basis", "type": "select", "options": ["none", "qoq", "yoy", "vs_consensus"], "adv": false}, {"key": "required.ruler.unit", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · ruler · unit", "type": "text", "adv": false}, {"key": "required.ruler.index_base", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · ruler · index_base", "type": "text", "adv": false}, {"key": "required.target_price", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · 목표가", "type": "number", "adv": false}, {"key": "required.target_label", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · target_label", "type": "text", "adv": false}, {"key": "required.points", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · points", "type": "json", "adv": false}, {"key": "required.method", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · method", "type": "text", "adv": false}, {"key": "required.computed_at", "label": "필요 경로 (JSON: ruler · points[at·value·source·band]) · computed_at", "type": "date", "adv": false}, {"key": "band", "label": "허용 띠 (± 자의 단위)", "type": "number", "adv": false}, {"key": "bound_bear", "label": "Bear 경계", "type": "number", "adv": false}, {"key": "bound_bull", "label": "Bull 경계", "type": "number", "adv": false}, {"key": "bounds_source", "label": "경계 출처 (user·proposed)", "type": "text", "adv": false}], "scenario": [{"key": "name", "label": "이름", "type": "text", "adv": false}, {"key": "assumptions", "label": "가정", "type": "list", "adv": false}, {"key": "probability", "label": "확률 (0~1)", "type": "number", "adv": false}, {"key": "target_price", "label": "목표가", "type": "number", "adv": false}, {"key": "horizon_months", "label": "기간 (개월)", "type": "number", "adv": true}, {"key": "valuation_method", "label": "밸류 방식", "type": "text", "adv": false}, {"key": "driver_assumptions", "label": "드라이버 가정 묶음 (JSON 목록: node_id · variable · delta_pct)", "type": "json", "adv": false}, {"key": "eps_basis", "label": "EPS 기준 (consensus·my_estimate·normalized·user)", "type": "select", "options": ["consensus", "my_estimate", "normalized", "user"], "adv": false}, {"key": "eps_year", "label": "기준 연도", "type": "text", "adv": true}, {"key": "per", "label": "적용 PER", "type": "number", "adv": false}, {"key": "conditions", "label": "성립 조건", "type": "list", "adv": false}, {"key": "indicators", "label": "확인 지표", "type": "list", "adv": true}, {"key": "falsifier", "label": "버리는 신호", "type": "text", "adv": true}, {"key": "price_source", "label": "목표가 출처 (computed·user·broker)", "type": "select", "options": ["computed", "user", "broker"], "adv": false}], "rule": [{"key": "trigger_type", "label": "트리거 종류", "type": "select", "options": ["fact", "price", "weight", "time", "event", "evidence"], "adv": false}, {"key": "condition", "label": "조건식", "type": "text", "adv": false}, {"key": "action", "label": "행동", "type": "select", "options": ["add", "hold", "trim", "switch", "exit", "hedge", "review"], "adv": false}, {"key": "size", "label": "크기", "type": "text", "adv": false}, {"key": "escalate_to", "label": "격상 등급", "type": "select", "options": ["GREEN", "YELLOW", "RED"], "adv": false}, {"key": "status", "label": "상태", "type": "select", "options": ["armed", "fired", "disabled"], "adv": false}, {"key": "fired_at", "label": "발동일", "type": "date", "adv": false}, {"key": "note", "label": "메모", "type": "text", "adv": false}, {"key": "grade", "label": "규칙 등급 (shift 확률 이동 · review 재검토 · warn 경고 · kill)", "type": "select", "options": ["shift", "review", "warn", "kill"], "adv": false}, {"key": "driver_id", "label": "드라이버 id", "type": "text", "adv": false}, {"key": "threshold", "label": "경계값", "type": "number", "adv": false}, {"key": "side", "label": "경계 쪽 (bear·bull)", "type": "select", "options": ["bear", "bull"], "adv": false}, {"key": "persistence", "label": "지속성 (연속 n회)", "type": "number", "adv": false}, {"key": "proposal", "label": "제안 (JSON: kind · scenario_from · scenario_to · pct_points)", "type": "json", "adv": false}], "event": [{"key": "date", "label": "날짜", "type": "date", "adv": false}, {"key": "fact", "label": "사실", "type": "text", "adv": false}, {"key": "affects", "label": "영향 노드", "type": "list", "adv": false}, {"key": "direction", "label": "방향", "type": "select", "options": ["강화", "약화", "중립"], "adv": true}, {"key": "priced_in", "label": "선반영", "type": "select", "options": ["예", "부분", "아니오"], "adv": false}, {"key": "materiality", "label": "중요도", "type": "select", "options": ["H", "M", "L"], "adv": false}, {"key": "source.name", "label": "출처 · 이름", "type": "text", "adv": true}, {"key": "source.url", "label": "출처 · URL", "type": "text", "adv": true}, {"key": "source.retrieved_at", "label": "출처 · 확인일", "type": "date", "adv": true}]}, "enums": {"status": ["confirmed", "estimated", "unverified", "stale"], "confidence": ["H", "M", "L"], "node_type": ["fact", "estimate", "question", "judgment", "rule", "event", "link", "computed"], "value_type": ["number", "percent", "price", "probability", "date", "text", "enum", "range", "ref", "bool"]}, "sub_labels": {"driver": "드라이버", "scenario": "시나리오", "rule": "규칙", "event": "이벤트"}}, "today": "2026-10-28", "valuation": {"p0": 58000, "year": null, "eps": null, "per": null, "shares_out": null, "net_cash": null, "dps": null, "line": null, "basis": null, "segments": [], "drivers": {}}}, "conditions": "<div class=\"note\">상태: 판단 BUY · 신호등 드라이버 없음<\/div>\n<h4>③ 필요 경로 — 날짜별 (출처 표시 · * = 보간)<\/h4><table class=\"\"><thead><tr><th>드라이버<\/th><th>자<\/th><th>점<\/th><th>출처<\/th><\/tr><\/thead><tbody><tr><td>영업이익률<\/td><td><span class='src'>경로 없음 — 분기 추정치 또는 사람 입력<\/span><\/td><td><\/td><td><\/td><\/tr><tr><td>수주잔고<\/td><td><span class='src'>경로 없음 — 분기 추정치 또는 사람 입력<\/span><\/td><td><\/td><td><\/td><\/tr><tr><td>양산 라인 가동률<\/td><td><span class='src'>경로 없음 — 분기 추정치 또는 사람 입력<\/span><\/td><td><\/td><td><\/td><\/tr><\/tbody><\/table>\n<h4>⑤ 판단 수정 규칙 — 발동 → 검증 → 제안 → 사람 승인<\/h4><div class='note'>규칙 없음 — 콘솔 「G」 또는 CLI <code>mindmap rule add<\/code> 로 만든다 (Kill 은 A5.4)<\/div>\n<div class='note'>관측값·띠·역할·규칙은 노드 편집 폼(드라이버 observations · band · bound_bear · thesis_role; A5.6.x 규칙) 또는 콘솔 「O」「G」, CLI <code>mindmap observe / evidence / rule<\/code> 로 넣는다. 확률 이동·재검토는 제안이고 사람이 승인한다. 주가는 증거가 아니다.<\/div>"};
   const COLORS = ["#2f6fb3", "#d9822b", "#3b9a5a", "#c23b3b", "#7b5cc2", "#1f9aa8", "#b4a023", "#c8578b"];
   const GAP_X = 44, GAP_Y = 10, RADIAL_STEP = 230;
   const stage = document.getElementById("stage"), vp = document.getElementById("viewport");
   const svg = document.getElementById("edges"), layer = document.getElementById("nodes");
   const root = document.documentElement, key = "kstock-mindmap-theme";
   let layout = OPTS.layout || "balanced", tx = 0, ty = 0, k = 1;
+  const EDIT = OPTS.edit || null;  // 편집 설정 (요약 뷰에서는 null)
   const nodes = new Map();         // id -> {d, el, open, w, h, x, y, color, depth}
+  let TREE = DATA;                 // 지금 그리는 트리 (편집을 적용한 것). DATA 는 원본.
+  let selectedId = null;
 
-  // ---------- 트리 준비
-  (function walk(d, depth, color) {
-    const open = !d.fold && (OPTS.expandLevel == null || depth < OPTS.expandLevel || depth === 0);
-    nodes.set(d.id, { d, open, depth, color, children: d.children.map(c => c.id) });
-    d.children.forEach((c, i) => walk(c, depth + 1, depth === 0 ? COLORS[i % COLORS.length] : color));
-  })(DATA, 0, null);
+  // ---------- 트리 준비 (편집 뒤 다시 부를 수 있다 — 접힘 상태는 id 로 이어받는다)
+  function loadTree(tree) {
+    const wasOpen = new Map(); for (const [id, n] of nodes) wasOpen.set(id, n.open);
+    nodes.clear(); layer.innerHTML = "";
+    (function walk(d, depth, color) {
+      const open = wasOpen.has(d.id) ? wasOpen.get(d.id) : (!d.fold && (OPTS.expandLevel == null || depth < OPTS.expandLevel || depth === 0));
+      nodes.set(d.id, { d, open, depth, color, children: d.children.map(c => c.id) });
+      d.children.forEach((c, i) => walk(c, depth + 1, depth === 0 ? COLORS[i % COLORS.length] : color));
+    })(tree, 0, null);
+    TREE = tree;
+    if (selectedId && !nodes.has(selectedId)) selectedId = null;
+  }
+  loadTree(DATA);
 
   function descendants(id) { const n = nodes.get(id); return n.children.reduce((s, c) => s + 1 + descendants(c), 0); }
 
@@ -91,12 +262,28 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
       if (n.depth === 1) el.classList.add("depth1");
       if (n.children.length) el.classList.add("has-kids");
       el.style.borderLeftColor = n.color || "var(--root-bg)";
-      el.addEventListener("click", (e) => { e.stopPropagation(); if (n.children.length) { n.open = !n.open; render(); } });
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (e.target.classList.contains("copy")) { copyText(n.d.text, "한 줄 복사"); return; }
+        if (e.target.classList.contains("pen")) { openEditor(id); return; }
+        select(id);
+        // 글자를 긁어 선택한 뒤의 클릭은 접기/펼치기가 아니다 — 복사하려는 것
+        const sel = window.getSelection && window.getSelection();
+        if (sel && sel.toString().trim() && el.contains(sel.anchorNode)) return;
+        if (n.children.length) { n.open = !n.open; render(); }
+      });
+      el.addEventListener("dblclick", (e) => { e.stopPropagation(); e.preventDefault(); if (EDIT && !n.d.locked) openEditor(id); else openPanel(id); });
+      el.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); select(id); openMenu(id, e.clientX, e.clientY); });
       layer.appendChild(el);
       n.el = el;
     }
     const more = (!n.open && n.children.length) ? `<span class="more">+${descendants(id)}</span>` : "";
-    n.el.innerHTML = n.d.html + more;
+    const pen = (EDIT && !n.d.locked) ? `<span class="pen" title="편집 (더블클릭)">✎</span>` : "";
+    const mark = n.d.added ? `<span class="mark" title="추가됨 (저장 전)">＋</span>` : (n.d.edited ? `<span class="mark" title="고침 (저장 전)">✎</span>` : "");
+    n.el.innerHTML = mark + n.d.html + more + pen + `<span class="copy" title="한 줄 복사 (우클릭: 더 보기)">⧉</span>`;
+    n.el.classList.toggle("selected", selectedId === id);
+    n.el.classList.toggle("edited", !!n.d.edited && !n.d.added);
+    n.el.classList.toggle("added", !!n.d.added);
     n.el.style.display = "";
     n.w = n.el.offsetWidth; n.h = n.el.offsetHeight;
     return n;
@@ -201,9 +388,9 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
   function render() {
     // 숨김 노드 정리 후 보이는 노드 재기
     for (const n of nodes.values()) if (n.el) n.el.style.display = "none";
-    const vis = visible(DATA.id, []);
+    const vis = visible(TREE.id, []);
     vis.forEach(n => ensure(n.d.id));
-    const r = nodes.get(DATA.id);
+    const r = nodes.get(TREE.id);
     if (layout === "radial") layoutRadial(r); else if (layout === "right") layoutRight(r); else layoutBalanced(r);
     // 경계
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -233,6 +420,580 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     k = Math.min(1.25, Math.min(W / (b.maxX - b.minX), H / (b.maxY - b.minY)));
     tx = W / 2 - ((b.minX + b.maxX) / 2) * k; ty = H / 2 - ((b.minY + b.maxY) / 2) * k;
     applyTransform();
+  }
+
+  // ---------- 복사 · 상세 (노드 글자는 그대로 긁어 복사할 수 있고, ⧉ / 우클릭 / Ctrl+C 도 된다)
+  const menu = document.getElementById("menu"), panel = document.getElementById("panel"), toast = document.getElementById("toast");
+  function select(id) {
+    if (selectedId && nodes.get(selectedId) && nodes.get(selectedId).el) nodes.get(selectedId).el.classList.remove("selected");
+    selectedId = id;
+    const n = nodes.get(id); if (n && n.el) n.el.classList.add("selected");
+  }
+  function showToast(msg) { toast.textContent = msg; toast.style.display = "block"; clearTimeout(showToast.t); showToast.t = setTimeout(() => toast.style.display = "none", 1400); }
+  function copyText(text, what) {
+    const done = () => showToast((what || "복사") + " — " + (text.length > 40 ? text.slice(0, 40) + "…" : text));
+    const fallback = () => {
+      const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) { showToast("복사 실패 — 상세 패널에서 직접 선택해 복사하세요"); }
+      document.body.removeChild(ta);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  }
+  function subtreeMarkdown(id, depth) {
+    const n = nodes.get(id);
+    let out = "  ".repeat(depth) + "- " + n.d.text + "\n";
+    n.children.forEach(c => { out += subtreeMarkdown(c, depth + 1); });
+    return out;
+  }
+  function openMenu(id, x, y) {
+    const n = nodes.get(id);
+    menu.dataset.id = id; menu.style.display = "block";
+    for (const item of menu.querySelectorAll("[data-edit]")) item.style.display = EDIT ? "" : "none";
+    const lockedItem = menu.querySelector('[data-act="edit"]'), delItem = menu.querySelector('[data-act="delete"]');
+    if (lockedItem) lockedItem.style.display = (EDIT && !n.d.locked) ? "" : "none";
+    if (delItem) delItem.style.display = (EDIT && !n.d.locked && n.depth > 0) ? "" : "none";
+    const W = window.innerWidth, H = window.innerHeight;
+    menu.style.left = Math.min(x, W - menu.offsetWidth - 8) + "px"; menu.style.top = Math.min(y, H - menu.offsetHeight - 8) + "px";
+  }
+  function closeMenu() { menu.style.display = "none"; }
+  menu.addEventListener("click", (e) => {
+    const act = e.target.dataset.act, id = menu.dataset.id; if (!act || !id) return;
+    const n = nodes.get(id); closeMenu();
+    if (act === "line") copyText(n.d.text, "한 줄 복사");
+    else if (act === "detail") copyText(n.d.detail, "상세 복사");
+    else if (act === "tree") copyText(subtreeMarkdown(id, 0), "가지 복사 (Markdown)");
+    else if (act === "id") copyText(id, "id 복사");
+    else if (act === "panel") openPanel(id);
+    else if (act === "edit") openEditor(id);
+    else if (act === "addchild") openAdder(id);
+    else if (act === "delete") askDelete(id);
+    else if (act === "calc") openCalc();
+  });
+  function openPanel(id) {
+    const n = nodes.get(id);
+    document.getElementById("panel-title").textContent = n.d.text.length > 80 ? n.d.text.slice(0, 80) + "…" : n.d.text;
+    document.getElementById("panel-text").value = n.d.detail;
+    panel.dataset.id = id; panel.classList.add("show");
+    const ta = document.getElementById("panel-text"); ta.focus(); ta.select();
+  }
+  document.getElementById("panel-close").addEventListener("click", () => panel.classList.remove("show"));
+  document.getElementById("panel-copy").addEventListener("click", () => copyText(document.getElementById("panel-text").value, "상세 복사"));
+  document.getElementById("panel-line").addEventListener("click", () => copyText(nodes.get(panel.dataset.id).d.text, "한 줄 복사"));
+  document.getElementById("panel-tree").addEventListener("click", () => copyText(subtreeMarkdown(panel.dataset.id, 0), "가지 복사 (Markdown)"));
+  document.getElementById("copyall").addEventListener("click", () => copyText(subtreeMarkdown(TREE.id, 0), "전체 복사 (Markdown)"));
+  window.addEventListener("click", closeMenu);
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape") { closeMenu(); panel.classList.remove("show"); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      // 글자를 선택한 상태면 브라우저 기본 복사. 아니면 고른 노드의 한 줄 (Shift 를 누르면 상세)
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.toString().trim()) return;
+      if (document.activeElement && document.activeElement.tagName === "TEXTAREA") return;
+      if (selectedId) { e.preventDefault(); const n = nodes.get(selectedId); copyText(e.shiftKey ? n.d.detail : n.d.text, e.shiftKey ? "상세 복사" : "한 줄 복사"); }
+    }
+  });
+
+  // ---------- 편집 (generate/edits.py 의 연산 목록을 쌓는다 — 서버가 있으면 미리보기·저장, 없으면 edits.json 내려받기)
+  const SCHEMA = EDIT ? EDIT.schemas : null;
+  const SUBS = ["driver", "scenario", "rule", "event"];
+  const edits = [];
+  let tempSeq = 0, pendingDelete = null, lastErrors = [], savedLen = 0;
+  const editor = document.getElementById("editor"), editbar = document.getElementById("editbar"), eform = document.getElementById("eform");
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const clone = o => JSON.parse(JSON.stringify(o));
+  function findIn(tree, id) { if (tree.id === id) return tree; for (const c of tree.children) { const f = findIn(c, id); if (f) return f; } return null; }
+  function parentIn(tree, id, p) { if (tree.id === id) return p; for (const c of tree.children) { const f = parentIn(c, id, tree); if (f) return f; } return null; }
+  function fmtNum(v) { return (typeof v === "number") ? (Number.isInteger(v) ? v.toLocaleString("en-US") : String(v)) : String(v); }
+  function localText(ed) {
+    const label = ed.label || "", sub = ed.sub; let val = "";
+    if (sub && sub.kind === "driver") {
+      const d = sub.data || {}, u = ed.unit || "", seq = [];
+      if (d.at_entry != null) seq.push("매수시 " + fmtNum(d.at_entry) + u);
+      if (d.current && d.current.value != null) seq.push("현재 " + fmtNum(d.current.value) + u);
+      if (d.consensus && d.consensus.value != null) seq.push("컨센 " + fmtNum(d.consensus.value) + u);
+      if (d.my_estimate && d.my_estimate.value != null) seq.push("내 추정 " + fmtNum(d.my_estimate.value) + u);
+      val = seq.join(" → ") + (d.next_check ? " · 확인 " + d.next_check : "");
+    } else if (sub && sub.kind === "scenario") {
+      const s = sub.data || {};
+      val = (s.name ? s.name + ": " : "") + (s.target_price != null ? fmtNum(s.target_price) + "원" : "미계산") + (s.probability != null ? " (p=" + s.probability + ", " + (s.horizon_months || 12) + "M)" : "")
+        + (s.price_source === "computed" ? " — 가정 " + ((s.driver_assumptions || []).filter(d => d.delta_pct != null).map(d => d.node_id + " " + (d.delta_pct >= 0 ? "+" : "") + d.delta_pct + (d.unit || "%")).join(" · ") || "없음(컨센 경로)") + (s.per ? " · PER " + s.per : "") + " (저장 뒤 계산)"
+           : (s.assumptions && s.assumptions.length ? " — " + s.assumptions.join("; ") : ""));
+    } else if (sub && sub.kind === "rule") { const r = sub.data || {}; val = "⚡ " + (r.condition || "") + " → " + (r.action || ""); }
+    else if (sub && sub.kind === "event") { const e = sub.data || {}; val = (e.date || "") + " " + (e.fact || ""); }
+    else if (ed.value != null && ed.value !== "") val = (typeof ed.value === "object") ? JSON.stringify(ed.value) : (typeof ed.value === "number" ? fmtNum(ed.value) + (ed.unit || "") : String(ed.value));
+    return val ? label + ": " + val : label;
+  }
+  function flat(v, ind, L) {
+    if (v == null) return;
+    if (Array.isArray(v)) { for (const x of v) { if (x && typeof x === "object") flat(x, ind, L); else L.push(ind + "- " + x); } }
+    else if (typeof v === "object") { for (const [k, x] of Object.entries(v)) { if (x == null || x === "" || (Array.isArray(x) && !x.length)) continue; if (typeof x === "object") { L.push(ind + k + ":"); flat(x, ind + "  ", L); } else L.push(ind + k + ": " + x); } }
+    else L.push(ind + v);
+  }
+  function localDetail(id, ed) {
+    const L = ["[" + id + "] " + (ed.label || "")];
+    if (ed.sub) { L.push((SCHEMA.sub_labels[ed.sub.kind] || ed.sub.kind) + ":"); flat(ed.sub.data, "  ", L); }
+    else if (ed.value != null && ed.value !== "") { L.push("값:"); if (typeof ed.value === "object") flat(ed.value, "  ", L); else L.push("  " + ed.value); }
+    if (ed.question) L.push("질문: " + ed.question);
+    if (ed.source && (ed.source.name || ed.source.url)) L.push("출처: " + [ed.source.name, ed.source.url].filter(Boolean).join(" "));
+    if (ed.as_of) L.push("기준일: " + ed.as_of);
+    if (ed.status) L.push("상태: " + ed.status);
+    if (ed.tags && ed.tags.length) L.push("태그: " + ed.tags.join(", "));
+    if (ed.links && ed.links.length) L.push("연결: " + ed.links.join(", "));
+    return L.join("\n");
+  }
+  function refreshLocal(d) { d.text = localText(d.edit); d.html = esc(d.text); d.detail = localDetail(d.id, d.edit); d.kind = d.edit.sub ? d.edit.sub.kind : d.edit.node_type; }
+  function blankEdit() {
+    return { label: "", question: "", value: null, value_type: "text", unit: null, node_type: "estimate", enum_options: null, source: null, as_of: EDIT ? EDIT.today : null,
+             confidence: null, status: "unverified", next_check: null, weight: null, links: [], tags: ["user"], formula: null, sub: null, suggest: [] };
+  }
+  function assignFields(ed, fields) {
+    for (const [k, v] of Object.entries(fields)) {
+      if (k === "_accepted") continue;
+      if (SUBS.includes(k)) ed.sub = v ? { kind: k, data: clone(v) } : null; else ed[k] = clone(v);
+    }
+  }
+  function localApply(tree, ops) {
+    // 서버 없이 보는 임시 표시 — 저장 뒤 다시 렌더링하면 정확한 표시(node_line) 가 된다
+    const t = clone(tree);
+    for (const op of ops) {
+      if (op.op === "set") { const d = findIn(t, op.id); if (!d) continue; assignFields(d.edit, op.fields); refreshLocal(d); d.edited = true; }
+      else if (op.op === "add") {
+        const p = findIn(t, op.parent); if (!p) continue;
+        const ed = blankEdit(); assignFields(ed, op.fields);
+        const d = { id: op.id, fold: false, children: [], edit: ed, added: true }; refreshLocal(d); p.children.push(d);
+      } else if (op.op === "delete") { const p = parentIn(t, op.id, null); if (p) p.children = p.children.filter(c => c.id !== op.id); }
+    }
+    return t;
+  }
+  function markEdited(tree, idMap) {
+    for (const op of edits) {
+      if (op.op === "set") { const d = findIn(tree, idMap[op.id] || op.id); if (d && !d.added) d.edited = true; }
+      else if (op.op === "add") { const d = findIn(tree, idMap[op.id] || op.id); if (d) d.added = true; }
+    }
+  }
+  async function api(path, body) {
+    const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-Token": EDIT.token }, body: JSON.stringify(body) });
+    return await res.json();
+  }
+  async function refresh() {
+    // 편집 목록 전체를 원본에 다시 적용한다. 실패(서버가 거절) 면 null 대신 오류 문자열을 돌려준다.
+    let tree, errs = [], warns = [];
+    if (!edits.length) tree = DATA;
+    else if (EDIT.server) {
+      let r;
+      try { r = await api("/preview", { edits }); } catch (e) { return "편집 서버에 닿지 않는다 — " + e; }
+      if (!r.ok) return r.error || "적용 실패";
+      tree = r.tree; errs = r.new_errors || []; warns = r.warnings || []; markEdited(tree, r.id_map || {});
+    } else tree = localApply(DATA, edits);
+    loadTree(tree); render(); updateBar(errs, warns);
+    return null;
+  }
+  async function commit(op) {
+    edits.push(op);
+    const err = await refresh();
+    if (err) { edits.pop(); await refresh(); }
+    return err;
+  }
+  async function undo() { if (!edits.length) return; edits.pop(); await refresh(); showToast("되돌림 — 남은 편집 " + edits.length + "건"); }
+  async function discard() { edits.length = 0; await refresh(); closeEditor(); showToast("편집을 모두 취소했다"); }
+  function updateBar(errs, warns) {
+    lastErrors = errs || [];
+    editbar.classList.toggle("show", edits.length > 0);
+    editbar.querySelector(".count").textContent = "고침 " + edits.length + "건";
+    const e = editbar.querySelector(".errs");
+    const msg = (lastErrors.length ? "⚠ 저장하면 검증 오류: " + lastErrors.join(" · ") : "") + (warns && warns.length ? " ⚑ " + warns.join(" · ") : "");
+    e.textContent = msg; e.title = msg; e.style.display = msg ? "" : "none";
+    editbar.querySelector("#ed-save").disabled = lastErrors.length > 0;
+  }
+  async function save() {
+    if (!edits.length) { showToast("고친 것이 없다"); return; }
+    if (lastErrors.length) { showToast("검증 오류가 있어 저장할 수 없다 — 편집을 되돌리거나 고칠 것"); return; }
+    const payload = { map_id: EDIT.map_id, base_hash: EDIT.base_hash, created_at: new Date().toISOString(), edits };
+    if (EDIT.server) {
+      let r;
+      try { r = await api("/save", payload); } catch (e) { showToast("저장 실패 — " + e); return; }
+      if (r.ok) { edits.length = 0; updateBar([], []); showToast("저장됨 — v" + r.version + " · " + (r.applied || []).length + "건"); setTimeout(() => location.reload(), 700); }
+      else showToast("저장 거절 — " + r.error);
+    } else {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = EDIT.map_id.replace(/:/g, "_") + ".edits.json";
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      savedLen = edits.length;
+      showToast("편집 파일을 내려받았다 — `mindmap apply-edits <파일>` 또는 콘솔 「편집 파일 반영」 으로 맵에 넣는다");
+    }
+  }
+  async function askDelete(id) {
+    const n = nodes.get(id); if (!n || n.d.locked || n.depth === 0) return;
+    const count = 1 + descendants(id);
+    if (pendingDelete !== id) { pendingDelete = id; showToast("삭제: " + id + (count > 1 ? " (가지 " + count + "개 포함)" : "") + " — 한 번 더 누르면 지운다"); setTimeout(() => { if (pendingDelete === id) pendingDelete = null; }, 4000); return; }
+    pendingDelete = null; closeEditor();
+    const err = await commit({ op: "delete", id });
+    showToast(err ? "삭제 거절 — " + err : "삭제했다 (저장 전) — " + id);
+  }
+  // ----- 편집 폼
+  function jsonTemplate(ed) {
+    // 질문에 "{suggested, confirmed, reason}" 처럼 구조가 적혀 있고 값이 비어 있으면 그 키로 JSON 틀을 준다
+    const m = /\{\s*([a-z_]+(?:\s*,\s*[a-z_]+)+)\s*\}/.exec(ed.question || "");
+    if (!m) return null;
+    const o = {}; m[1].split(",").forEach(k => { o[k.trim()] = null; }); return o;
+  }
+  function valueType(ed) {
+    if (ed.value != null && typeof ed.value === "object") return "json";
+    if (ed.value == null && jsonTemplate(ed)) return "json";
+    const vt = ed.value_type || "text";
+    if (["number", "percent", "price", "probability"].includes(vt)) return "number";
+    if (vt === "date") return "date";
+    if (vt === "bool") return "bool";
+    if (vt === "enum" && ed.enum_options && ed.enum_options.length) return "enum";
+    return "text";
+  }
+  function inputHtml(name, type, value, opts) {
+    const v = value == null ? "" : value;
+    if (type === "bool") return `<select name="${name}" data-type="bool"><option value="true"${v === true ? " selected" : ""}>예</option><option value="false"${v === false || v === "" ? " selected" : ""}>아니오</option></select>`;
+    if (type === "select" || type === "enum") return `<select name="${name}" data-type="select"><option value=""${v === "" ? " selected" : ""}>—</option>` + (opts || []).map(o => `<option value="${esc(o)}"${String(v) === String(o) ? " selected" : ""}>${esc(o)}</option>`).join("") + `</select>`;
+    if (type === "number") return `<input name="${name}" data-type="number" type="number" step="any" value="${esc(v)}">`;
+    if (type === "date") return `<input name="${name}" data-type="date" type="date" value="${esc(v)}">`;
+    if (type === "list") return `<textarea name="${name}" data-type="list" rows="2" placeholder="줄마다 하나">${esc(Array.isArray(v) ? v.join("\n") : v)}</textarea>`;
+    if (type === "json") return `<textarea name="${name}" data-type="json" class="json" rows="5">${esc(v === "" ? "" : JSON.stringify(v, null, 2))}</textarea>`;
+    if (type === "textarea") return `<textarea name="${name}" data-type="text" rows="3">${esc(v)}</textarea>`;
+    return `<input name="${name}" data-type="text" type="text" value="${esc(v)}">`;
+  }
+  function getPath(o, path) { return path.split(".").reduce((a, k) => (a == null ? undefined : a[k]), o); }
+  function setPath(o, path, v) { const ks = path.split("."); let a = o; for (let i = 0; i < ks.length - 1; i++) { if (a[ks[i]] == null || typeof a[ks[i]] !== "object") a[ks[i]] = {}; a = a[ks[i]]; } a[ks[ks.length - 1]] = v; }
+  function subFieldset(kind, data) {
+    const rows = SCHEMA.subs[kind] || [], basic = [], adv = [];
+    for (const f of rows) {
+      const h = `<label>${esc(f.label)}${inputHtml("sub:" + f.key, f.type === "text" && /condition|fact|rationale|note/.test(f.key) ? "textarea" : f.type, getPath(data, f.key), f.options)}</label>`;
+      (f.adv ? adv : basic).push(h);
+    }
+    return `<fieldset data-kind="${kind}"><legend>${esc(SCHEMA.sub_labels[kind] || kind)}</legend>${basic.join("")}` +
+      (adv.length ? `<button type="button" class="advtoggle">세부 필드 (기준일·출처·근거) 보기/숨기기</button><div class="adv">${adv.join("")}</div>` : "") + `</fieldset>`;
+  }
+  function valueBlock(ed) {
+    const vt = valueType(ed);
+    const opts = vt === "enum" ? ed.enum_options : null;
+    const typeSel = `<label>값 형식${inputHtml("value_type", "select", ed.value_type || "text", SCHEMA.enums.value_type)}</label>`;
+    const unit = `<label>단위${inputHtml("unit", "text", ed.unit)}</label>`;
+    const v0 = (vt === "json" && ed.value == null) ? jsonTemplate(ed) : ed.value;
+    const valueIn = `<label>값${vt === "json" ? " (JSON — 질문에 적힌 키 구조)" : ""}${vt === "text" ? inputHtml("value", "textarea", ed.value) : inputHtml("value", vt, v0, opts)}</label>`;
+    return `<fieldset data-kind="value"><legend>값</legend>${valueIn}<div class="row two">${typeSel}${unit}</div></fieldset>`;
+  }
+  // ----- 리포트 기반 제안값 (설계 v4 §6): 빈 칸 옆에 근거와 「채우기」. 받아들인 것은 _accepted 로 보내 history 출처가 된다
+  const accepted = new Map();   // 입력 칸 이름 → {field, kind, report_ids, value}
+  function inputNameOf(field) { if (field === "value") return "value"; const m = /^(driver|scenario|rule|event)\.(.+)$/.exec(field || ""); return m ? "sub:" + m[2] : null; }
+  function suggText(v) { return (v != null && typeof v === "object") ? JSON.stringify(v, null, 2) : (v == null ? "" : String(v)); }
+  function renderSuggestions(ed) {
+    accepted.clear();
+    (ed.suggest || []).forEach((s, i) => {
+      const name = inputNameOf(s.field); if (!name) return;
+      const el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (!el || !el.closest("label")) return;
+      const box = document.createElement("div"); box.className = "sugg";
+      box.innerHTML = `<span>제안: <b>${esc(s.label)}</b>${s.accepted ? " · 이미 수락" : ""}${s.prefilled ? " · 미리 채움(suggested)" : ""}</span><button type="button" class="fill" data-i="${i}">채우기</button>`;
+      el.closest("label").appendChild(box);
+    });
+  }
+  function fillSuggestion(i) {
+    const s = (editor._ed.suggest || [])[i]; if (!s) return;
+    const name = inputNameOf(s.field), el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (!el) return;
+    el.value = suggText(s.value);
+    accepted.set(name, { field: s.field, kind: s.kind, report_ids: s.report_ids || [], value: s.value });
+    el.focus();
+    showToast("제안값을 넣었다 — 그대로 두면 '리포트 제안 수락' 으로, 고치면 내 값으로 기록된다");
+  }
+  function acceptedNow() {
+    const out = [];
+    for (const [name, a] of accepted) { const el = eform.querySelector(`[name="${CSS.escape(name)}"]`); if (el && el.value === suggText(a.value)) out.push(a); }
+    return out;
+  }
+  function buildForm(ctx) {
+    const ed = ctx.ed, isNew = ctx.mode === "add", canType = isNew || (ed.tags || []).includes("user");
+    const subSel = isNew ? `<label class="inline">하위 스키마 ${inputHtml("subkind", "select", ed.sub ? ed.sub.kind : "", SUBS)} <span class="note">드라이버·시나리오·규칙·이벤트는 값 대신 구조화된 필드를 가진다</span></label>` : "";
+    const sub = ed.sub ? subFieldset(ed.sub.kind, ed.sub.data || {}) : valueBlock(ed);
+    const src = ed.source || {};
+    eform.innerHTML =
+      `<label>라벨${inputHtml("label", "text", ed.label)}</label>` + subSel + `<div id="subarea">${sub}</div>` +
+      `<label>질문 (이 노드가 답해야 할 것)${inputHtml("question", "textarea", ed.question)}</label>` +
+      `<div class="row two"><label>출처 이름${inputHtml("source.name", "text", src.name)}</label><label>출처 URL${inputHtml("source.url", "text", src.url)}</label></div>` +
+      `<div class="row two"><label>기준일${inputHtml("as_of", "date", ed.as_of)}</label><label>다음 확인일${inputHtml("next_check", "date", ed.next_check)}</label></div>` +
+      `<div class="row two"><label>상태${inputHtml("status", "select", ed.status, SCHEMA.enums.status)}</label><label>확신도${inputHtml("confidence", "select", ed.confidence, SCHEMA.enums.confidence)}</label></div>` +
+      `<div class="row two"><label>태그 (쉼표)${inputHtml("tags", "text", (ed.tags || []).join(", "))}</label><label>연결 노드 (쉼표)${inputHtml("links", "text", (ed.links || []).join(", "))}</label></div>` +
+      `<div class="row two"><label>노드 종류${canType ? inputHtml("node_type", "select", ed.node_type, SCHEMA.enums.node_type) : `<input type="text" value="${esc(ed.node_type)}" disabled title="템플릿 노드의 종류는 바꾸지 않는다">`}</label><label>가중치 (0~1)${inputHtml("weight", "number", ed.weight)}</label></div>` +
+      (ed.node_type === "computed" || ed.formula ? `<label>계산식${inputHtml("formula", "text", ed.formula)}</label>` : "") +
+      `<div class="err" id="eerr"></div>`;
+    editor.dataset.mode = ctx.mode; editor.dataset.id = ctx.id || ""; editor.dataset.parent = ctx.parent || "";
+    editor._orig = clone(ed); editor._ed = ed;
+    renderSuggestions(ed);
+    document.getElementById("editor-title").textContent = ctx.title;
+    document.getElementById("ed-delete").style.display = (ctx.mode === "edit" && nodes.get(ctx.id) && nodes.get(ctx.id).depth > 0) ? "" : "none";
+    editor.classList.add("show"); panel.classList.remove("show");
+    const first = eform.querySelector('input[name="label"]'); if (first) { first.focus(); if (isNew) first.select(); }
+  }
+  function openEditor(id) {
+    if (!EDIT) return;
+    const n = nodes.get(id); if (!n || n.d.locked) { showToast("이 항목은 고칠 수 없다"); return; }
+    select(id);
+    buildForm({ mode: "edit", id, ed: clone(n.d.edit), title: "편집 — " + (n.d.text.length > 60 ? n.d.text.slice(0, 60) + "…" : n.d.text) });
+  }
+  function openAdder(parentId) {
+    if (!EDIT) return;
+    const p = nodes.get(parentId); if (!p) return;
+    if (!p.open) { p.open = true; render(); }
+    buildForm({ mode: "add", parent: parentId, ed: blankEdit(), title: "새 자식 노드 ← " + (p.d.text.length > 40 ? p.d.text.slice(0, 40) + "…" : p.d.text) });
+  }
+  function closeEditor() { editor.classList.remove("show"); }
+  function readInputs() {
+    const out = {}; let bad = null;
+    for (const el of eform.querySelectorAll("[name]")) {
+      const t = el.dataset.type || "text", raw = el.value; let v;
+      try {
+        if (t === "bool") v = raw === "true";
+        else if (t === "number") { v = raw === "" ? null : Number(raw); if (v !== null && !Number.isFinite(v)) throw new Error("숫자가 아니다"); }
+        else if (t === "date") v = raw || null;
+        else if (t === "list") v = raw.split(/[\n,]/).map(s => s.trim()).filter(Boolean);
+        else if (t === "json") v = raw.trim() ? JSON.parse(raw) : null;
+        else if (t === "select") v = raw === "" ? null : raw;
+        else v = raw;
+      } catch (e) { const lb = el.closest("label"); bad = (lb && lb.firstChild && lb.firstChild.nodeType === 3 ? lb.firstChild.textContent.trim() : el.name) + ": " + e.message; break; }
+      out[el.name] = v;
+    }
+    return { out, bad };
+  }
+  function collect() {
+    const { out, bad } = readInputs(); if (bad) return { error: bad };
+    const ed = editor._ed, fields = {};
+    const splitList = s => String(s || "").split(",").map(x => x.trim()).filter(Boolean);
+    fields.label = out.label; fields.question = out.question || "";
+    fields.source = (out["source.name"] || out["source.url"]) ? { name: out["source.name"] || "", url: out["source.url"] || "", retrieved_at: (ed.source && ed.source.retrieved_at) || EDIT.today } : null;
+    fields.as_of = out.as_of; fields.next_check = out.next_check; fields.status = out.status || "unverified"; fields.confidence = out.confidence;
+    fields.tags = splitList(out.tags); fields.links = splitList(out.links); fields.weight = out.weight;
+    if ("node_type" in out) fields.node_type = out.node_type;
+    if ("formula" in out) fields.formula = out.formula || null;
+    const kindSel = out.subkind !== undefined ? out.subkind : (ed.sub ? ed.sub.kind : null);
+    if (kindSel) {
+      const data = clone((ed.sub && ed.sub.kind === kindSel && ed.sub.data) || {});
+      const origData = (ed.sub && ed.sub.kind === kindSel && ed.sub.data) || {};
+      for (const [k, v] of Object.entries(out)) if (k.startsWith("sub:")) {
+        const key = k.slice(4);
+        // 비운 글 칸: 원래 비어 있던(null) 필드는 null 로 두고, 값이 있던 필드만 "" 로 지운다 (필수 str 필드는 "" 가 맞다)
+        setPath(data, key, (v === "" && getPath(origData, key) == null) ? null : v);
+      }
+      (function fixSources(o) { if (!o || typeof o !== "object") return; for (const [k, v] of Object.entries(o)) { if (v && typeof v === "object" && !Array.isArray(v)) { if ("name" in v && "url" in v && !v.name && !v.url) o[k] = null; else fixSources(v); } } })(data);
+      fields[kindSel] = data;
+      for (const other of SUBS) if (other !== kindSel && ed.sub && ed.sub.kind === other) fields[other] = null;
+    } else {
+      if ("value_type" in out) fields.value_type = out.value_type || "text";
+      if ("unit" in out) fields.unit = out.unit || null;
+      if ("value" in out) fields.value = (out.value === "" ? null : out.value);
+      if (ed.sub) fields[ed.sub.kind] = null;
+    }
+    if (!String(fields.label || "").trim()) return { error: "라벨이 비어 있다" };
+    const acc = acceptedNow();
+    if (acc.length) fields._accepted = acc;
+    return { fields };
+  }
+  function changedOnly(fields, orig) {
+    const o = clone(orig), out = {};
+    const before = {};
+    for (const k of Object.keys(fields)) {
+      if (SUBS.includes(k)) before[k] = (o.sub && o.sub.kind === k) ? o.sub.data : null; else before[k] = o[k];
+    }
+    for (const [k, v] of Object.entries(fields)) {
+      if (k === "_accepted") continue;
+      if (JSON.stringify(v == null ? null : v) !== JSON.stringify(before[k] == null ? null : before[k])) out[k] = v;
+    }
+    if (fields._accepted && Object.keys(out).length) out._accepted = fields._accepted;
+    return out;
+  }
+  async function applyForm() {
+    const r = collect(); const errEl = document.getElementById("eerr");
+    if (r.error) { errEl.textContent = r.error; return; }
+    let op;
+    if (editor.dataset.mode === "add") op = { op: "add", parent: editor.dataset.parent, id: "new:" + (++tempSeq), fields: r.fields };
+    else {
+      const diff = changedOnly(r.fields, editor._orig);
+      if (!Object.keys(diff).length) { closeEditor(); showToast("바뀐 것이 없다"); return; }
+      op = { op: "set", id: editor.dataset.id, fields: diff };
+    }
+    const err = await commit(op);
+    if (err) { errEl.textContent = err; return; }
+    closeEditor(); showToast((op.op === "add" ? "추가했다" : "고쳤다") + " (저장 전) — 「저장」 으로 맵에 반영");
+  }
+  if (EDIT) {
+    eform.addEventListener("click", e => {
+      if (e.target.classList.contains("advtoggle")) e.target.closest("fieldset").classList.toggle("showadv");
+      else if (e.target.classList.contains("fill")) fillSuggestion(Number(e.target.dataset.i));
+    });
+    eform.addEventListener("change", e => {
+      const ed = editor._ed;
+      if (e.target.name === "subkind") {
+        const kind = e.target.value; ed.sub = kind ? { kind, data: ed.sub && ed.sub.kind === kind ? ed.sub.data : {} } : null;
+        document.getElementById("subarea").innerHTML = ed.sub ? subFieldset(kind, ed.sub.data) : valueBlock(ed);
+        renderSuggestions(ed);
+      } else if (e.target.name === "value_type" && !ed.sub) {
+        const { out } = readInputs(); ed.value_type = e.target.value; ed.value = out.value === "" ? null : out.value; ed.unit = out.unit;
+        document.getElementById("subarea").innerHTML = valueBlock(ed);
+        renderSuggestions(ed);
+      }
+    });
+    eform.addEventListener("submit", e => { e.preventDefault(); applyForm(); });
+    document.getElementById("ed-apply").addEventListener("click", applyForm);
+    document.getElementById("ed-cancel").addEventListener("click", closeEditor);
+    document.getElementById("editor-close").addEventListener("click", closeEditor);
+    document.getElementById("ed-delete").addEventListener("click", () => askDelete(editor.dataset.id));
+    document.getElementById("ed-undo").addEventListener("click", undo);
+    document.getElementById("ed-save").addEventListener("click", save);
+    document.getElementById("ed-discard").addEventListener("click", discard);
+    document.getElementById("ed-save").textContent = EDIT.server ? "저장" : "편집 파일 내려받기";
+    window.addEventListener("beforeunload", e => { if (edits.length && edits.length !== savedLen) { e.preventDefault(); e.returnValue = ""; } });
+    window.addEventListener("keydown", e => {
+      const tag = document.activeElement && document.activeElement.tagName, typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      if (e.key === "Escape") { closeEditor(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); if (editor.classList.contains("show")) applyForm(); else save(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !typing) { e.preventDefault(); undo(); return; }
+      if (typing) return;
+      if (e.key === "F2" && selectedId) { e.preventDefault(); openEditor(selectedId); }
+      else if (e.key === "Delete" && selectedId) { e.preventDefault(); askDelete(selectedId); }
+      else if (e.key === "Insert" && selectedId) { e.preventDefault(); openAdder(selectedId); }
+    });
+  }
+
+  // ---------- 밸류에이션 & 시나리오 계산기 (설계 v6) — 가정 묶음을 편집 연산(set A3.2 · set A4.2~4 scenario) 으로 만들고,
+  // 계산은 서버 /preview 의 통합 모델이 한다 (클라이언트에 식을 복제하지 않는다 — 단일 진실). 서버가 없으면 「적용」 만 되고 결과는 저장 뒤 CLI 로.
+  const calc = document.getElementById("calc"), calcBody = document.getElementById("calc-body"), calcRes = document.getElementById("calc-res");
+  const SCEN = ["Bear", "Base", "Bull"], SCEN_ID = { Bear: "A4.2", Base: "A4.3", Bull: "A4.4" };
+  const V = EDIT && EDIT.valuation ? EDIT.valuation : null;
+  function cur(id) { const n = nodes.get(id); return n ? n.d : null; }
+  function calcDrivers() {
+    const a1 = cur("A1"); if (!a1) return [];
+    return a1.children.filter(d => d && d.edit && d.edit.sub && d.edit.sub.kind === "driver" && d.edit.sub.data.role === "cause")
+      .map(d => ({ id: d.id, label: (d.edit.label || d.id).split(" (")[0], kind: d.edit.sub.data.kind, meta: (V && V.drivers && V.drivers[d.id]) || {} }));
+  }
+  function scenData(name) { const d = cur(SCEN_ID[name]); return d && d.edit.sub && d.edit.sub.kind === "scenario" ? clone(d.edit.sub.data) : null; }
+  function critData() { const d = cur("A3.2"); return d && d.edit.value && typeof d.edit.value === "object" ? clone(d.edit.value) : {}; }
+  function numOr(v) { return (v == null || v === "") ? null : Number(v); }
+  function tplOf(dr) { return dr.meta.template || ({ asp: "price_volume", volume: "price_volume", cost: "cost_ratio", margin: "cost_ratio", op: "direct_op", fcf: "payout", orders: "orders" }[dr.meta.variable] || (dr.kind === "qualitative" ? "cost_ratio" : "price_volume")); }
+  function unitOf(tpl) { return tpl === "cost_ratio" ? "%p" : "%"; }
+  function buildCalc() {
+    const drivers = calcDrivers(), crit = critData();
+    const scs = {}; SCEN.forEach(n => { scs[n] = scenData(n); });
+    const p0 = V && V.p0 != null ? fmtNum(V.p0) + "원" : "현재가 없음";
+    let h = `<div class="note">현재가 ${p0} · 기준 연도 ${esc((V && V.year) || "표 기준")} · 컨센 EPS ${V && V.eps != null ? fmtNum(Math.round(V.eps)) : "-"} · 목표 PER 기본값 ${V && V.per != null ? V.per.toFixed(2) : "-"}` +
+      (V && V.line ? `<br>${esc(V.line)}` : "") + (V && V.basis ? `<br>회계 기준: ${esc(V.basis)}` : "") + `</div>`;
+    h += `<table><thead><tr><th>드라이버 (가정은 컨센 경로 대비)</th>` + SCEN.map(n => `<th>${n}${scs[n] && scs[n].price_source !== "computed" && scs[n].target_price != null ? ` <span class="src">(${esc(scs[n].price_source)} ${fmtNum(scs[n].target_price)})</span>` : ""}</th>`).join("") + `</tr></thead><tbody>`;
+    for (const dr of drivers) {
+      const tpl = tplOf(dr), unit = unitOf(tpl);
+      if (tpl === "payout" || tpl === "orders") { h += `<tr><td>${esc(dr.id)} ${esc(dr.label)} <span class="src">${esc(tpl)} — 가격 경로 밖 (주주환원·수주는 민감도로만)</span></td>` + SCEN.map(() => `<td class="src">—</td>`).join("") + `</tr>`; continue; }
+      const seg = dr.meta.segment ? ` <span class="src">${esc(dr.meta.segment)} · ${esc(tpl)}</span>` : ` <span class="src warn">사업부 없음 — 가정을 적용할 수 없다</span>`;
+      h += `<tr><td>${esc(dr.id)} ${esc(dr.label)}${seg}</td>` + SCEN.map(n => {
+        const das = (scs[n] && scs[n].driver_assumptions) || [];
+        const da = das.find(x => x.node_id === dr.id && !x.variable) || das.find(x => x.node_id === dr.id);
+        const u = da && da.unit ? da.unit : unit;
+        const unitSel = tpl === "direct_op" ? `<select name="u:${n}:${dr.id}"><option value="%"${u === "%" ? " selected" : ""}>%</option><option value="억원"${u === "억원" ? " selected" : ""}>억원</option></select>` : `<span class="src">${unit}</span>`;
+        return `<td><input name="d:${n}:${dr.id}" type="number" step="any" placeholder="0" value="${da && da.delta_pct != null ? da.delta_pct : ""}"> ${unitSel}</td>`;
+      }).join("") + `</tr>`;
+    }
+    h += `<tr><td>적용 PER <span class="src">비우면 기본값</span></td>` + SCEN.map(n => `<td><input name="per:${n}" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${scs[n] && scs[n].per != null ? scs[n].per : ""}"></td>`).join("") + `</tr>`;
+    h += `<tr><td>EPS 기준</td>` + SCEN.map(n => `<td><select name="eb:${n}"><option value="">(A3.2 기준)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${scs[n] && scs[n].eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></td>`).join("") + `</tr>`;
+    h += `<tr><td>확률 (%) <span class="src">사람 몫 · 합 100</span></td>` + SCEN.map(n => `<td><input name="p:${n}" type="number" step="any" min="0" max="100" value="${scs[n] && scs[n].probability != null ? Math.round(scs[n].probability * 1000) / 10 : ""}"></td>`).join("") + `</tr>`;
+    h += `</tbody></table>`;
+    const mult = crit.sotp_multiples ? Object.entries(crit.sotp_multiples).map(([k, v]) => `${k}=${v}`).join(", ") : "";
+    h += `<fieldset><legend>평가 기준 (A3.2) — 비우면 기본값(표시됨)</legend><div class="row">` +
+      `<label>EPS 기준 <select name="c:eps_basis"><option value="">consensus(기본)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${crit.eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></label>` +
+      `<label>EPS(입력) <input name="c:eps" type="number" step="any" value="${crit.eps != null ? crit.eps : ""}"></label>` +
+      `<label>적용 PER <input name="c:per" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${crit.per != null ? crit.per : ""}"></label>` +
+      `<label>주식 수 <input name="c:shares" type="number" step="any" placeholder="${V && V.shares_out != null ? V.shares_out : ""}" value="${crit.shares != null ? crit.shares : ""}"></label>` +
+      `<label>순현금(억원) <input name="c:net_cash" type="number" step="any" placeholder="${V && V.net_cash != null ? Math.round(V.net_cash) : "표"}" value="${crit.net_cash != null ? crit.net_cash : ""}"></label>` +
+      `<label>DPS <input name="c:dps" type="number" step="any" placeholder="${V && V.dps != null ? V.dps : "표"}" value="${crit.dps != null ? crit.dps : ""}"></label>` +
+      `<label>배당 <select name="c:dividend_in_return"><option value="">separate(기본)</option>` + ["separate", "include", "exclude"].map(b => `<option value="${b}"${crit.dividend_in_return === b ? " selected" : ""}>${b}</option>`).join("") + `</select></label></div>` +
+      `<label>SOTP 멀티플 (사용자 입력만) <input class="wide" name="c:sotp" type="text" placeholder="메모리=6, 파운드리=0, DX=8, SDC=6, Harman=10 — 사업부: ${esc(((V && V.segments) || []).join(" · "))}" value="${esc(mult)}"></label></fieldset>`;
+    calcBody.innerHTML = h;
+    calcRes.style.display = "none";
+    document.getElementById("calc-note").textContent = EDIT.server ? "" : "편집 서버가 없어 미리보기는 안 된다 — 「적용」 뒤 저장(edits.json) 하고 `mindmap scenario <맵>` 으로 본다";
+    document.getElementById("calc-preview").disabled = !EDIT.server;
+  }
+  function calcOps() {
+    const q = name => calcBody.querySelector(`[name="${CSS.escape(name)}"]`);
+    const ops = [];
+    const crit = critData();
+    const setOrDel = (k, v) => { if (v == null || v === "") delete crit[k]; else crit[k] = v; };
+    setOrDel("eps_basis", q("c:eps_basis").value || null); setOrDel("eps", numOr(q("c:eps").value)); setOrDel("per", numOr(q("c:per").value));
+    setOrDel("shares", numOr(q("c:shares").value)); setOrDel("net_cash", numOr(q("c:net_cash").value)); setOrDel("dps", numOr(q("c:dps").value));
+    setOrDel("dividend_in_return", q("c:dividend_in_return").value || null);
+    const mt = {}; for (const kv of q("c:sotp").value.split(/[,;\n]/)) { const [k, v] = kv.split("="); if (k && k.trim() && v != null && v.trim() !== "" && Number.isFinite(Number(v))) mt[k.trim()] = Number(v); }
+    if (Object.keys(mt).length) crit.sotp_multiples = mt; else delete crit.sotp_multiples;
+    const before = critData();
+    if (JSON.stringify(crit) !== JSON.stringify(before)) ops.push({ op: "set", id: "A3.2", fields: { value: Object.keys(crit).length ? crit : null } });
+    const norm = o => { if (Array.isArray(o)) return o.map(norm); if (o && typeof o === "object") { const r = {}; for (const [k, v] of Object.entries(o)) { if (k === "model" || v == null || v === "" || (Array.isArray(v) && !v.length)) continue; r[k] = norm(v); } return r; } return o; };
+    for (const n of SCEN) {
+      const sc = scenData(n) || { name: n, assumptions: [], probability: null, target_price: null, horizon_months: 12, valuation_method: "" };
+      const orig = JSON.stringify(norm(scenData(n)));
+      sc.price_source = "computed";
+      sc.driver_assumptions = [];
+      for (const dr of calcDrivers()) {
+        const el = q(`d:${n}:${dr.id}`); if (!el) continue;   // 가격 경로 밖(주주환원·수주) 행은 입력이 없다
+        const v = numOr(el.value); if (v == null) continue;
+        const us = q(`u:${n}:${dr.id}`);
+        sc.driver_assumptions.push({ node_id: dr.id, driver_id: dr.meta.driver_id || null, variable: null, delta_pct: v, value: null, unit: us ? us.value : null, note: "" });
+      }
+      sc.per = numOr(q(`per:${n}`).value); sc.eps_basis = q(`eb:${n}`).value || null;
+      const pv = numOr(q(`p:${n}`).value); sc.probability = pv == null ? null : (pv > 1 ? pv / 100 : pv);
+      delete sc.model;
+      if (JSON.stringify(norm(sc)) !== orig) ops.push({ op: "set", id: SCEN_ID[n], fields: { scenario: sc } });
+    }
+    return ops;
+  }
+  function renderCalcResult(tree, errs, warns) {
+    const L = [];
+    for (const n of SCEN) {
+      const d = findIn(tree, SCEN_ID[n]); const sc = d && d.edit.sub && d.edit.sub.kind === "scenario" ? d.edit.sub.data : null; const r = sc && sc.model;
+      if (!r) { L.push(`${n}: 시나리오 없음`); continue; }
+      if (r.status !== "계산됨") { L.push(`${n}: 미계산 — 필요: ${(r.missing || []).join("; ")}`); }
+      else L.push(`${n}: OP ${(r.op / 1e4).toFixed(1)}조 · EPS ${fmtNum(Math.round(r.eps))} × PER ${r.per.toFixed(2)} → ${fmtNum(Math.round(r.price))}원 (${r.price_vs_p0_pct >= 0 ? "+" : ""}${r.price_vs_p0_pct.toFixed(0)}%)` + (sc.probability != null ? ` · p=${sc.probability}` : " · p=미입력"));
+      for (const w of (r.warnings || [])) L.push(`   ⚠ ${w}`);
+      const by = r.op_delta_by_node || {}; const ks = Object.keys(by); if (ks.length) L.push("   ΔOP: " + ks.map(k => `${k} ${(by[k] / 1e4 >= 0 ? "+" : "")}${(by[k] / 1e4).toFixed(1)}조`).join(" · "));
+    }
+    for (const id of ["A3.3", "A4.7", "A3.4"]) { const d = findIn(tree, id); if (d && d.edit.value) L.push(`${id} ${d.edit.label}: ${d.edit.value}`); }
+    if (errs && errs.length) L.push("⚠ 저장하면 검증 오류: " + errs.join(" · "));
+    if (warns && warns.length) L.push("⚑ " + warns.filter(w => /밸류|시나리오|Bear|Bull|미계산/.test(w)).join(" · "));
+    calcRes.innerHTML = L.map(x => x.startsWith("   ⚠") || x.startsWith("⚠") ? `<span class="warn">${esc(x)}</span>` : esc(x)).join("\n");
+    calcRes.style.display = "";
+  }
+  async function calcPreview() {
+    const ops = calcOps();
+    if (!EDIT.server) { showToast("편집 서버가 없다 — 「적용」 뒤 저장하고 CLI 로 본다"); return; }
+    let r;
+    try { r = await api("/preview", { edits: [...edits, ...ops] }); } catch (e) { showToast("편집 서버에 닿지 않는다 — " + e); return; }
+    if (!r.ok) { calcRes.innerHTML = `<span class="warn">${esc(r.error || "적용 실패")}</span>`; calcRes.style.display = ""; return; }
+    renderCalcResult(r.tree, r.new_errors, r.warnings);
+  }
+  async function calcApply() {
+    const ops = calcOps();
+    if (!ops.length) { showToast("바뀐 것이 없다"); return; }
+    for (const op of ops) { const err = await commit(op); if (err) { showToast("거절 — " + err); return; } }
+    showToast(`가정 묶음 ${ops.length}건을 편집 목록에 넣었다 (저장 전) — 「저장」 으로 맵에 반영`);
+    buildCalc();
+    if (EDIT.server) await calcPreview();
+  }
+  function openCalc() { if (!EDIT) return; buildCalc(); calc.classList.add("show"); editor.classList.remove("show"); panel.classList.remove("show"); }
+  function closeCalc() { calc.classList.remove("show"); }
+  // 성립 조건 패널 (설계 v7) — OPTS.conditions 에 서버가 만든 HTML 이 있다 (편집 모드가 아니어도 보인다)
+  const cond = document.getElementById("cond"), condBody = document.getElementById("cond-body"), condBtn = document.getElementById("condbtn");
+  function openCond() { condBody.innerHTML = OPTS.conditions || "<div class='note'>성립 조건 미계산 — 리포트로 다시 만들거나 CLI mindmap path</div>"; cond.classList.add("show"); calc.classList.remove("show"); panel.classList.remove("show"); }
+  function closeCond() { cond.classList.remove("show"); }
+  condBtn.addEventListener("click", openCond);
+  document.getElementById("cond-close").addEventListener("click", closeCond);
+  window.addEventListener("keydown", e => { if (e.key === "Escape") closeCond(); });
+  if (!OPTS.conditions) condBtn.style.display = "none";
+  if (EDIT) {
+    document.getElementById("calcbtn").addEventListener("click", openCalc);
+    document.getElementById("calc-close").addEventListener("click", closeCalc);
+    document.getElementById("calc-preview").addEventListener("click", calcPreview);
+    document.getElementById("calc-apply").addEventListener("click", calcApply);
+    document.getElementById("calc-reset").addEventListener("click", buildCalc);
+    window.addEventListener("keydown", e => { if (e.key === "Escape") closeCalc(); });
+  } else {
+    document.getElementById("calcbtn").style.display = "none";
   }
 
   // ---------- 상호작용

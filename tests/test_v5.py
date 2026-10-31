@@ -1,4 +1,4 @@
-"""설계 v5 — 핵심 드라이버 재설계: 사업부 표(R4) · 원인 변수 셀·선택(R2) · 결과 지표 A3.7(R1) · 민감도(R3) · 평가(R5) · 옛 맵 호환."""
+"""설계 v5 — 핵심 드라이버 재설계: 사업부 표(R4) · 원인 변수 셀·선택(R2) · 결과 지표 A3.1(R1) · 민감도(R3) · 평가(R5) · 옛 맵 호환."""
 
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ class TestCauseCells(unittest.TestCase):
         self.assertIn("선택 근거", m["A1.1"].question)
         self.assertEqual(m.meta["draft"]["drivers"]["A1.1"]["driver_id"], "dram_price")
         self.assertTrue(any("원인 드라이버 5개" in n for n in notes))
-        self.assertIn("DRAMeXchange", m.value("A4.5"))
+        self.assertIn("DRAMeXchange", m.value("A5.5"))
         # 검증: 정성 드라이버는 숫자 대신 무효화 조건을 요구한다
         errs = {(i.node_id, i.message) for i in validate_new_map(m, today=TODAY) if i.level == "error"}
         self.assertIn(("A1.3", "정성 드라이버 — 무효화 조건(invalidation_condition) 이 없다"), errs)
@@ -202,7 +202,8 @@ class TestCauseCells(unittest.TestCase):
                   consensus_direction="negative", display=IssueDisplay.independent),
         ])
         m = new_map_skeleton("035420", "NAVER", "growth", TODAY, n_drivers=5)
-        notes = fill_cause_drivers(m, sector="KR-INTERNET", claimsets=css, issue_set=iss, today=TODAY)
+        # 설계 v7 T10 에서 KR-INTERNET 사전이 생겼으므로 '사전 없는 섹터' 는 KR-ENT 로 본다 (쟁점 테마 폴백 검사)
+        notes = fill_cause_drivers(m, sector="KR-ENT", claimsets=css, issue_set=iss, today=TODAY)
         labels = [n.label.split(" (")[0] for n in m.drivers()]
         self.assertEqual(labels[0], "광고 성장")                                  # 핵심 이견 2곳 (3×2) + 수치 > 커머스 공통 2곳 (2×2)
         self.assertIn("커머스", labels)
@@ -218,13 +219,15 @@ class TestResultMetricsAndCompat(unittest.TestCase):
         r = draft_from_reports(FIX, ticker="005930", name="삼성전자", today=TODAY, claims="rules", fetch_price=False)
         m = r.map
         self.assertEqual([n.driver.role for n in m.drivers()], ["cause"] * 5)
-        res = [n for n in m.children("A3.7") if n.driver is not None]
+        res = [n for n in m.children("A3.1") if n.driver is not None]
         self.assertTrue(res)
         self.assertTrue(all(n.driver.role == "result" and n.driver.metric in ("revenue", "op", "eps", "opm") for n in res))
-        self.assertEqual(m["A3.7.2"].driver.current.value, 107.4)
+        self.assertEqual(m["A3.1.2"].driver.current.value, 107.4)
         self.assertEqual(set(result_kpis()[0].role for _ in [0]), {"result"})
         self.assertEqual([k.key for k in cause_kpis("KR-SEMI")], ["dram_asp", "hbm", "memory_cost", "foundry", "fcf_payout", "capex"])
-        self.assertEqual(cause_kpis("KR-INTERNET"), [])                         # v5 로 정의되지 않은 섹터 → 쟁점 테마로
+        self.assertEqual(cause_kpis("KR-ENT"), [])                              # v5 로 정의되지 않은 섹터 → 쟁점 테마로
+        self.assertEqual([k.key for k in cause_kpis("KR-INTERNET")], ["ad_growth", "commerce", "fintech", "marketing_cost", "ai_dc"])   # 설계 v7 T10
+        self.assertEqual([k.key for k in cause_kpis("KR-UTIL")], ["nuclear_orders", "backlog", "gas_turbine", "subsidiaries", "cost"])
         self.assertTrue(RESULT_DRIVER_IDS >= {"earnings", "opm"})
         # 스냅숏: 정성 드라이버(at_entry None) 도 B 맵으로 넘어간다
         b = snapshot_to_holding(m, Position(entry_date=TODAY, entry_price=258000, quantity=10, w_target=0.05), today=TODAY)
@@ -237,10 +240,11 @@ class TestResultMetricsAndCompat(unittest.TestCase):
         self.assertIn("미계산", sensitivity_line(s))
 
     def test_old_maps_still_load_and_render(self):
-        m = load_map_file(Path(__file__).resolve().parents[1] / "examples" / "gaon_A.json")
+        m = load_map_file(Path(__file__).resolve().parent / "fixtures" / "maps_v1" / "gaon_A.json")
         self.assertIsNone(m["A1.1"].driver.role)                               # 옛 맵: 판정 전
         self.assertEqual(m["A1.1"].driver.kind, "quant")
-        self.assertNotIn("A3.7", m)
+        self.assertNotIn("A3.1", m)                                            # 옛 맵엔 재무 전망(A3.1) 이 없다 — 2.0 번호로 옮겨 읽힌다
+        self.assertEqual((m.schema_version, m["A4.2"].label, m["A5.4"].label), ("2.0", "Bear", "Kill criteria"))
         from kstock.render import to_html
 
         self.assertIn("핵심 드라이버", to_html(m))

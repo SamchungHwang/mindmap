@@ -38,7 +38,7 @@ def _short(n: Node) -> str:
 
 
 def to_mermaid(m: MindMap, *, max_depth: int = 3, skip: set[str] | None = None) -> str:
-    skip = skip or {"A8", "B2.4", "C1.1", "C6.1"}
+    skip = skip or {"A9", "B2.4", "C1.1", "C6.1"}
     root = m.root()
     lines = ["mindmap", f"  root(({_clean(root_title(m).replace('*', ''), 40)}))"]
 

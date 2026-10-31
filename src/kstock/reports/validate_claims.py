@@ -219,7 +219,7 @@ def mark_review_required(claimsets: list[ClaimSet], *, facts_by_report: dict[str
     """규칙으로 review_required 를 단다 (상태는 바꾸지 않는다 — 초안에는 쓰되 ⚑ 로 보인다). 설계 v4 V2.
     ① 전사 수준·미래 기간(…E) 의 판단 지표 수치가 그 리포트 표에도 없을 때 (facts 가 있을 때만 판정; 없으면 앞선 판정 보존)
     ② 같은 (metric, col) 의 **전사 수준·미래 기간** 수치가 다른 증권사와 15% 넘게 다를 때 (단위 환산; 사업부 수치·목표가는 제외 —
-       목표가 차이는 A3.6.4 분포가 보여 준다)
+       목표가 차이는 A3.5.4 분포가 보여 준다)
     ③ 조건부(conditional) 리스크 Claim
     ④ 애널리스트가 '사실(fact/realized)' 로 단정한 논거 Claim
     ⑤ (check_numbers 가 단) 인용 밖 본문 수치 — 보존"""

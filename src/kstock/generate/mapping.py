@@ -3,11 +3,11 @@
     A0        공통 견해·핵심 이견으로 만든 논제 초안 ("증권사 종합" 표기)
     A1.x      빈 슬롯이 있으면 상위 테마를 드라이버로 (수치가 있을 때만 current/consensus)
     A2.1.x    쟁점 — [공통 견해 | 핵심 이견 | 독립 주장 | 미해결 쟁점] 테마, 증권사별 ↑↓·– 행렬, 근거 claim_ids
-    A3.6.3    리비전 사유 (revision_reason Claim 인용) 또는 '사유 확인 불가'
-    A4.1~3    verified 리스크 Claim (조건부·수치 우선) — 확률·영향은 비움(사람)
-    A4.4.1    조건부 리스크 Claim 에 수치가 있고 드라이버 지표와 맞으면 Rule 제안, 아니면 질문에 제안문만
-    A5.1.x    촉매 Claim (날짜가 읽히는 것만)
-    A8.4.x    리포트별 verified Claim 목록 (페이지·인용)
+    A3.5.3    리비전 사유 (revision_reason Claim 인용) 또는 '사유 확인 불가'
+    A5.1~3    verified 리스크 Claim (조건부·수치 우선) — 확률·영향은 비움(사람)
+    A5.4.1    조건부 리스크 Claim 에 수치가 있고 드라이버 지표와 맞으면 Rule 제안, 아니면 질문에 제안문만
+    A6.1.x    촉매 Claim (날짜가 읽히는 것만)
+    A9.4.x    리포트별 verified Claim 목록 (페이지·인용)
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from ..models import (
 )
 from ..reports.digest import ReportDigest
 from .issues import mechanisms_of, themes
-from .rules import DRAFT_TAG, _date_in_sentence, mark_draft
+from .rules import DRAFT_TAG, mark_draft
 from .scenarios import PENDING_TAG
 
 SYM = {"positive": "↑", "negative": "↓", "neutral": "·", "mixed": "±"}
@@ -82,13 +82,13 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
         return notes
     if quality == "rules":
         # v4 V8: 키워드 분류 Claim 으로는 정성 노드를 만들지 않는다 — 저품질이 정상 맵처럼 보이면 안 된다.
-        for nid in ("A2.1", "A4.1", "A4.2", "A4.3", "A4.4.1", "A5.1", "A3.6.3", "A0"):
+        for nid in ("A2.1", "A5.1", "A5.2", "A5.3", "A5.4.1", "A6.1", "A3.5.3", "A0"):
             if nid in m:
                 q = m[nid].question or ""
                 if RULES_NOTE not in q:
                     m[nid].question = (q + " | " + RULES_NOTE).strip(" |")[:500]
         m.meta["draft"]["rules_mode"] = True
-        notes.append("⚠ 규칙 모드 — Claim 기반 노드(A0 논제·A2.1 쟁점·A3.6.3·A4 리스크·A5 촉매) 미생성. 숫자 노드만 채웠다")
+        notes.append("⚠ 규칙 모드 — Claim 기반 노드(A0 논제·A2.1 쟁점·A3.5.3·A5 리스크·A6 촉매) 미생성. 숫자 노드만 채웠다")
         _apply_report_nodes(m, claimsets, today=today, rules_mode=True)
         return notes
     ts = themes(issue_set) if issue_set is not None else []
@@ -105,7 +105,7 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
         body = head + "; ".join(parts) + ". 시장이 아직 반영하지 않은 것(A2.2) 과 판단은 논제의 주인이 쓴다."
         m["A0"].set(body, as_of=today, status=NodeStatus.unverified, source=d.source_all())
         mark_draft(m["A0"])
-    # A1 원인 드라이버는 generate.cause.fill_cause_drivers 가 채운다 (설계 v5 — 결과 지표는 A3.7, 테마 → A1 자동 배정은 거기서)
+    # A1 원인 드라이버는 generate.cause.fill_cause_drivers 가 채운다 (설계 v5 — 결과 지표는 A3.1, 테마 → A1 자동 배정은 거기서)
     # ---------------------------------------------------------------- A2.1.x 쟁점
     for old in [x for x in m.nodes.values() if x.parent == "A2.1"]:
         del m.nodes[old.id]
@@ -137,15 +137,15 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
             dn.links = sorted(set(dn.links) | {nid})
     if k:
         notes.append(f"A2.1 아래 쟁점 {k}개 (공통 {len(common)} · 이견 {len(dis)})")
-    # ---------------------------------------------------------------- A3.6.3 리비전 사유
+    # ---------------------------------------------------------------- A3.5.3 리비전 사유
     reasons = [c for c in usable if c.has_role(ClaimRole.revision_reason)]
     if reasons:
         txt = " / ".join(f"{c.broker}: {_tagged(c, 90)}" for c in reasons[:3])
-        m["A3.6.3"].question = ("리비전 사유 (리포트 인용): " + txt)[:500]
-        notes.append(f"A3.6.3 리비전 사유 {len(reasons)}건 (Claim)")
+        m["A3.5.3"].question = ("리비전 사유 (리포트 인용): " + txt)[:500]
+        notes.append(f"A3.5.3 리비전 사유 {len(reasons)}건 (Claim)")
     else:
-        m["A3.6.3"].question = (m["A3.6.3"].question + " | 리비전 사유: 리포트에서 확인 불가").strip(" |")
-    # ---------------------------------------------------------------- A4 리스크
+        m["A3.5.3"].question = (m["A3.5.3"].question + " | 리비전 사유: 리포트에서 확인 불가").strip(" |")
+    # ---------------------------------------------------------------- A5 리스크
     risks = [c for c in usable if c.has_role(ClaimRole.risk) and c.direction.value == "negative"]
     risks.sort(key=lambda c: (bool(c.condition), bool(c.quant_refs), len(c.proposition)), reverse=True)
     picked: list[Claim] = []
@@ -158,7 +158,7 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
         picked.append(c)
         if len(picked) == 3:
             break
-    for nid, c in zip(("A4.1", "A4.2", "A4.3"), picked, strict=False):
+    for nid, c in zip(("A5.1", "A5.2", "A5.3"), picked, strict=False):
         n = m[nid]
         n.value = {"probability": None, "impact_pct": None,
                    "text": _tagged(c) + (f" [조건: {c.condition}]" if c.condition else "") + f" ({c.broker})"}
@@ -166,12 +166,12 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
         n.question = (n.question.split(" | 인용:")[0] + " | 인용: " + _quote(c, cs_by_id))[:400]
         n.tags = sorted(set(n.tags) | {DRAFT_TAG, PENDING_TAG})
     if picked:
-        notes.append(f"A4 리스크 {len(picked)}건 ← Claim (확률·영향은 사람이)")
-    # ---------------------------------------------------------------- A4.4 Kill — 후보까지만 (v4 V6)
+        notes.append(f"A5 리스크 {len(picked)}건 ← Claim (확률·영향은 사람이)")
+    # ---------------------------------------------------------------- A5.4 Kill — 후보까지만 (v4 V6)
     # 리포트의 "수율이 60% 미달이면 수익성 개선 지연" 은 논제 붕괴 조건이 아니다. 자동으로는 Risk Trigger 후보만 만들고,
     # 관측 가능 여부·갱신 주기·위반 시 행동 세 칸을 사람이 채워 확정한다 (ops.apply_kill_candidate).
     kill_src = [c for c in risks if c.condition]
-    drivers = {n.label: n for n in (m.children("A1") + (m.children("A3.7") if "A3.7" in m else [])) if n.driver is not None}
+    drivers = {n.label: n for n in (m.children("A1") + (m.children("A3.1") if "A3.1" in m else [])) if n.driver is not None}
     cands: list[dict] = []
     for c in kill_src[:6]:
         q = c.quant_refs[0] if c.quant_refs else None
@@ -185,32 +185,56 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
                       "quote": _quote(c, cs_by_id, 160), "observable": None, "update_cadence": None, "action": None})
     m.meta["draft"]["kill_candidates"] = cands
     if cands:
-        m["A4.4.1"].question = (m["A4.4.1"].question.split(" | 후보:")[0]
+        m["A5.4.1"].question = (m["A5.4.1"].question.split(" | 후보:")[0]
                                 + f" | 후보: {len(cands)}건 — 콘솔 「Kill 후보…」/텍스트 K 에서 관측 지표·갱신 주기·위반 시 행동을 채워 확정 (자동 생성 안 함)")[:400]
-    notes.append("A4.4 Kill: " + (f"조건부 리스크 후보 {len(cands)}건 — 사람이 확정" if cands else "근거 부족 — 질문으로 남김"))
-    # ---------------------------------------------------------------- A5 촉매
-    cats = [c for c in usable if c.has_role(ClaimRole.catalyst)]
-    existing = {(n.event.date, n.event.fact[:20]) for n in m.nodes.values() if n.parent == "A5.1" and n.event}
-    i = sum(1 for n in m.nodes.values() if n.parent == "A5.1")
-    added = 0
-    for c in cats:
-        dt = _date_in_sentence(c.horizon or "", today) or _date_in_sentence(c.proposition, today)
-        if dt is None or dt <= today:
+    notes.append("A5.4 Kill: " + (f"조건부 리스크 후보 {len(cands)}건 — 사람이 확정" if cands else "근거 부족 — 질문으로 남김"))
+    # ---------------------------------------------------------------- A6 촉매
+    # 2026-10-31: **회사가 발표·계획한 것만 이벤트**가 된다 (certainty announced/planned 또는 asserted_by company). 날짜뿐 아니라
+    # 기간(「1H27 55MW」 「2028년까지 200MW」) 도 읽고, 제목은 시점이 든 절만 (긴 전망 문장을 노드 제목으로 쓰지 않는다).
+    # 증권사 전망 문장은 이벤트가 아니라 **증거**다 — 원인 드라이버가 채워진 뒤 `apply_analyst_catalysts` 가 bull/bear/precheck 로 붙인다.
+    from ..models.claims import Certainty as ClaimCertainty
+    from .catalysts import EventCertainty, event_program, find_stage, merge_into_map, parse_when, time_clause
+    from .event_text import PLAN_WORDS
+
+    incoming: list[Event] = []
+    skipped_delivery: list[str] = []
+    seen_fact: set[str] = set()
+    for c in [c for c in usable if c.has_role(ClaimRole.catalyst)]:
+        company = c.certainty in (ClaimCertainty.announced, ClaimCertainty.planned) or c.asserted_by.value == "company"
+        if not company:
             continue
-        if (dt, c.proposition[:20]) in existing:
+        anchor = c.effective_as_of or today
+        key = c.proposition[:40]
+        if key in seen_fact:
             continue
-        i += 1
-        if i > 6:
+        seen_fact.add(key)
+        ms = milestone_events(c, cs_by_id, today=today, sector=(m.meta.get("draft") or {}).get("sector"))
+        if ms:
+            incoming += ms
+            continue
+        w = parse_when(c.proposition, today, anchor=anchor) or parse_when(c.horizon or "", today, anchor=anchor)
+        if w is None or w.date <= today:
+            continue
+        if w.role == "delivery" and not PLAN_WORDS.search(c.proposition):
+            # 납기·출하 시점만 있는 문장(「가스터빈은 2031년 출하분까지 예약·협상 진행 중」) 은 사건이 아니다 — 2031 에 노드가 서지 않게 (2026-10-31 두산에너빌리티)
+            skipped_delivery.append(f"{c.claim_id} {w.period or w.date.isoformat()} {c.proposition[:40]}")
+            continue
+        # 접두어는 이벤트 등급과 같은 말을 쓴다 — 「회사 계획」 (Claim 의 [기업 계획] 표기는 A9.4 에 남긴다)
+        prefix = "회사 발표" if c.certainty == ClaimCertainty.announced else "회사 계획"
+        # 사업명(X-energy · 폴란드 AP1000 …) 을 적어 두면 본문 이벤트와 같은 사건인지 `same_event` 가 주체로 가른다 (2026-10-31 두산에너빌리티)
+        delivery = (w.delivery.period or w.delivery.date.isoformat()[:7]) if w.delivery else None
+        incoming.append(Event(date=w.date, period=w.period, fact=f"[{prefix}] {time_clause(c.proposition, w)}", affects=[], direction="미정",
+                              priced_in="미판단", materiality="H", certainty=EventCertainty.회사계획인용, source=_src(c, cs_by_id),
+                              program=event_program(c.proposition), stage=find_stage(c.proposition), delivery_period=delivery,
+                              evidence=[f"(·) [{c.broker}] {' '.join(c.proposition.split())[:140]}"], event_id=f"claim:{c.claim_id}"))
+        if len(incoming) >= 6:
             break
-        ev = Event(date=dt, fact=_tagged(c, 110) + f" ({c.broker})", affects=[], direction="강화" if c.direction.value == "positive" else "약화" if c.direction.value == "negative" else "중립",
-                   priced_in="아니오", materiality="M", source=_src(c, cs_by_id))
-        node = Node(id=f"A5.1.{i}", map=MapKind.NEW, parent="A5.1", label=c.proposition[:30], node_type="event", value_type="text", as_of=today, event=ev)
-        mark_draft(node)
-        m.add(node)
-        added += 1
-    if added:
-        notes.append(f"A5.1 촉매 {added}건 ← Claim")
-    # ---------------------------------------------------------------- A8.4 리포트별 주장
+    if incoming:
+        merge_notes = merge_into_map(m, incoming[:10], today=today)
+        notes.append(f"A6.1 회사 계획(리포트 인용) {len(incoming)}건 ← Claim" + (" · " + "; ".join(merge_notes) if merge_notes else ""))
+    if skipped_delivery:
+        notes.append("A6.1 납기만 있는 Claim 은 사건이 아니라 뺌: " + "; ".join(skipped_delivery))
+    # ---------------------------------------------------------------- A9.4 리포트별 주장
     _apply_report_nodes(m, claimsets, today=today, rules_mode=False)
     m.meta["draft"]["issues"] = [{"id": t.issue_id, "label": t.driver_label, "display": t.display.value if t.display else None,
                                   "direction": t.consensus_direction, "brokers": t.n_brokers, "basis": t.coverage_basis} for t in ts]
@@ -221,12 +245,12 @@ def apply_claims_to_map(m, claimsets: list[ClaimSet], issue_set: IssueSet | None
 
 
 def _apply_report_nodes(m, claimsets: list[ClaimSet], *, today: date, rules_mode: bool) -> None:  # noqa: ANN001
-    """A8.4.x — 리포트별 Claim 목록 (출처). 규칙 모드에서는 '키워드 분류·미검증' 을 머리에 적는다."""
-    if "A8.4" not in m.nodes:
-        m.add(Node(id="A8.4", map=MapKind.NEW, parent="A8", label="리포트별 주장 (Claim)", node_type="fact", value_type="text",
+    """A9.4.x — 리포트별 Claim 목록 (출처). 규칙 모드에서는 '키워드 분류·미검증' 을 머리에 적는다."""
+    if "A9.4" not in m.nodes:
+        m.add(Node(id="A9.4", map=MapKind.NEW, parent="A9", label="리포트별 주장 (Claim)", node_type="fact", value_type="text",
                    question="verified Claim 만 — 인용·페이지로 원문까지 되짚는다"))
     for j, cs in enumerate(claimsets, start=1):
-        nid = f"A8.4.{j}"
+        nid = f"A9.4.{j}"
         rows = []
         for c in cs.usable()[:12]:
             sp = cs.span(c.span_ids[0]) if c.span_ids else None
@@ -236,8 +260,96 @@ def _apply_report_nodes(m, claimsets: list[ClaimSet], *, today: date, rules_mode
         if nid in m.nodes:
             m[nid].value = val
         else:
-            m.add(Node(id=nid, map=MapKind.NEW, parent="A8.4", label=f"{cs.broker} {cs.report_date or ''}".strip(), node_type="fact", value_type="text",
+            m.add(Node(id=nid, map=MapKind.NEW, parent="A9.4", label=f"{cs.broker} {cs.report_date or ''}".strip(), node_type="fact", value_type="text",
                        value=val, as_of=today, source=Source(name=f"{cs.broker} 리포트 · Claim {len(cs.usable())}/{len(cs.claims)} ({cs.quality})", url=cs.path, retrieved_at=cs.report_date)))
 
 
-__all__ = ["apply_claims_to_map"]
+_CAPACITY_UNITS = ("MW", "GW", "MWh", "GWh", "기", "대", "척", "호기")
+
+
+def milestone_events(c: Claim, cs_by_id: dict[str, ClaimSet], *, today: date, sector: str | None) -> list[Event]:
+    """한 Claim 의 수치 칸에 **기간이 붙은 용량·수량**이 있으면 마일스톤 이벤트로 쪼갠다 (2026-10-31).
+
+    하나증권 c9 「2027년 상반기 55MW, 2027년 말 100MW, 2028년 말 200MW」 는 quant_refs 에 (capacity_1h27 55 MW 1H27) ·
+    (capacity_2027 100 MW 2027E) · (capacity_2028 200 MW 2028E) 로 이미 갈라져 있다. 문장 하나를 이벤트 하나로 만들면 첫 기간만
+    남고 나머지는 사라진다. 같은 사업(`project` = 드라이버 id) 으로 묶어 2027~2028 진척을 한 줄로 본다.
+    """
+    from ..models.claims import Certainty as ClaimCertainty
+    from .catalysts import EventCertainty, parse_when
+    from .kpi_catalog import _DRIVER_BY_ID, normalize_driver
+
+    out: list[Event] = []
+    did = c.driver_id if c.driver_id in _DRIVER_BY_ID else None
+    did = normalize_driver(c.proposition, sector=sector) or normalize_driver(c.proposition.replace(" ", ""), sector=sector) or did
+    label = _DRIVER_BY_ID[did].label if did in _DRIVER_BY_ID else (c.driver_label or "")
+    company = (c.certainty in (ClaimCertainty.announced, ClaimCertainty.planned, ClaimCertainty.realized) or c.asserted_by.value == "company"
+               or any(w in c.proposition for w in ("목표", "계획", "약정", "예정")))
+    mark = {"positive": "(+)", "negative": "(−)"}.get(c.direction.value, "(·)")
+    sentence = f"{mark} [{c.broker}] {' '.join(c.proposition.split())[:140]}"
+    for q in c.quant_refs:
+        metric = (q.metric or "").strip()
+        unit = (q.unit or "").strip()
+        if q.value is None or not (metric.startswith("capacity") or unit in _CAPACITY_UNITS):
+            continue
+        w = parse_when(q.col or "", today) or parse_when(metric.replace("_", " "), today)
+        if w is None or w.date <= today:
+            continue
+        # 리포트가 「회사 계획」 이라 적어도 회사 원문을 본 건 아니다 — 「회사 계획 (리포트 인용)」. 「회사 목표」 는 DART·회사 자료로 확인된 것만 (2026-10-31)
+        fact = f"[{'회사 계획' if company else '증권사 전망'}] {label or '사업'} {q.value:g}{unit} ({w.period or w.date.isoformat()})"
+        ev = Event(date=w.date, period=w.period, fact=fact, affects=[], direction="미정", priced_in="미판단", materiality="H" if company else "M",
+                   certainty=EventCertainty.회사계획인용 if company else EventCertainty.리포트전망, source=_src(c, cs_by_id),
+                   evidence=[sentence], project=did, event_id=f"{did or 'claim'}:{metric or 'capacity'}:{(w.period or w.date.isoformat()).lower()}")
+        if company:
+            # 사전 확인은 **주제별** — AI 인프라(MW·GPU) 와 일반 증설·LTA 비중은 봐야 할 것이 다르다 (2026-10-31 삼성전자: LTA 목표에 GPU 가동률이 붙었다)
+            from .catalysts import default_precheck
+
+            ev = ev.model_copy(update={"precheck": default_precheck(ev)})
+        out.append(ev)
+    return out
+
+
+def apply_analyst_catalysts(m, claimsets: list[ClaimSet], *, today: date) -> list[str]:  # noqa: ANN001
+    """증권사 전망 촉매 Claim → 기존 이벤트의 **증거**(bull·bear·precheck). 붙일 이벤트가 없고 시점이 읽히면 「리포트 전망」
+    이벤트를 하나 만든다 — 제목은 시점이 든 절만, 문장 전체는 그 이벤트의 증거 칸에. 원인 드라이버(A1) 가 채워진 뒤에 부른다
+    (같은 드라이버를 가리키는 이벤트에 붙이려면 driver_id → A1 노드 연결이 있어야 한다)."""
+    from ..models.claims import Certainty as ClaimCertainty
+    from .catalysts import EventCertainty, attach_evidence, merge_into_map, parse_when, time_clause
+    from .cause import driver_node_for
+
+    cs_by_id = {cs.report_id: cs for cs in claimsets}
+    usable = [c for cs in claimsets for c in cs.usable()]
+    attached, standalone = 0, []
+    for c in [c for c in usable if c.has_role(ClaimRole.catalyst)]:
+        company = c.certainty in (ClaimCertainty.announced, ClaimCertainty.planned) or c.asserted_by.value == "company"
+        if company:
+            continue
+        anchor = c.effective_as_of or today
+        ms = milestone_events(c, cs_by_id, today=today, sector=(m.meta.get("draft") or {}).get("sector"))
+        if ms:
+            standalone += ms
+            continue
+        w = parse_when(c.proposition, today, anchor=anchor) or parse_when(c.horizon or "", today, anchor=anchor)
+        future = w if (w is not None and w.date > today) else None
+        dn = driver_node_for(m, c.driver_id, c.driver_label)
+        text = f"[{c.broker}] {' '.join(c.proposition.split())}"
+        nid = attach_evidence(m, when=future, driver_node=dn, text=text, direction=c.direction.value, today=today)
+        if nid:
+            attached += 1
+            continue
+        if future is None:
+            continue
+        mark = {"positive": "(+)", "negative": "(−)"}.get(c.direction.value, "(·)")
+        ev = Event(date=future.date, period=future.period, fact=f"[증권사 전망] {time_clause(c.proposition, future)} ({c.broker})", affects=[dn] if dn else [],
+                   direction="미정", priced_in="미판단", materiality="M", certainty=EventCertainty.리포트전망, source=_src(c, cs_by_id),
+                   event_id=f"claim:{c.claim_id}", evidence=[f"{mark} {text[:140]}"])
+        standalone.append(ev)
+    notes: list[str] = []
+    if standalone:
+        merge_notes = merge_into_map(m, standalone[:8], today=today)
+        notes.append(f"A6.1 리포트 전망·마일스톤 {min(len(standalone), 8)}건 ← Claim" + (" · " + "; ".join(merge_notes) if merge_notes else ""))
+    if attached:
+        notes.append(f"A6.1 증거 {attached}건 ← 증권사 촉매 Claim (기존 이벤트의 상방·하방·사전 확인에)")
+    return notes
+
+
+__all__ = ["apply_claims_to_map", "apply_analyst_catalysts", "milestone_events"]

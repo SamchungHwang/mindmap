@@ -61,7 +61,7 @@ def new_map_skeleton(ticker: str, name: str, invest_type: InvestType | str, toda
     m["A0.1"].set(it.value)
     m["A0"].label = f"{name} 투자 논제"
     # 시나리오 이름을 미리 박아 둔다 (확률·목표가는 비움 → 검증에서 걸림)
-    for nid, nm in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, nm in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         m[nid].label = nm
     # 프로파일 힌트
     m["A1"].question += f"  예시({it.value}): " + " / ".join(prof.driver_examples)

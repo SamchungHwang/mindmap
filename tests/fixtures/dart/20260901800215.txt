@@ -1,0 +1,91 @@
+.xforms * { font-family: 돋움체;}
+.xforms_title * { font-size: 13pt; padding : 0 0 10 0;}
+.xforms table {
+font-size: 10px;
+padding:0px;
+border-collapse:collapse;
+color: #3D3D3D;
+}
+.xforms td {
+padding-left:0px;
+padding-top:0px;
+border-collapse:collapse;
+line-height:22px;
+color: #3D3D3D;
+/*text-align:right;*/
+vertical-align:middle;
+border: 1px solid #7f7f7f;
+}
+.xforms span {
+/*display: inline-block;*/
+padding-left:3px;
+padding-right: 1px;
+line-height:22px;
+padding-top:0px;
+padding-bottom:0px;
+text-align:left;
+vertical-align:middle;
+border: 0px solid #DBDBDB;
+}
+.xforms.img{
+border : 0px;
+}
+.xforms a:link {
+color: #194866;
+text-decoration: none;
+}
+.xforms a:active {
+color: #194866;
+text-decoration: none;
+}
+.xforms a:visited {
+color: #194866;
+text-decoration: none;
+}
+.xforms A:hover {
+color:008BE3;
+text-decoration: none;
+}
+.xforms_input{
+border: 0px solid #DBDBDB;
+padding-left:3px;
+padding-right: 1px;
+height:22px;
+padding-top:0px;
+padding-bottom:0px;
+text-align:left;
+}
+NAVER/기업설명회(IR) 개최(안내공시)/(2026.09.01)기업설명회(IR) 개최(안내공시)
+기업설명회(IR) 개최(안내공시)
+1. 일시 및 장소
+일시
+2026-09-09
+--:--
+장소
+-
+2. 참가 대상자
+기관투자자
+3. 개최목적
+9월 컨퍼런스 참석
+4. 개최방법
+대면 미팅 실시
+5. 후원기관
+KB증권, 현대차증권, 신영증권, CLSA증권, BofA증권
+6. 주요 설명회내용(요약)
+기관투자자 대상 사업현황 설명
+7. 결정일자
+2026-09-01
+8. IR 자료
+게재일시
+-
+관련 웹페이지
+https://www.navercorp.com/investment/irEvents
+9. 기타 투자판단과 관련한 중요사항
+- 상기 1. 일시 및 장소와 관련하여, 당사가 참가하는 대면 컨퍼런스의 종류 및 일정은 다음과 같습니다.
+1) 9월 9일 KB Corp Day
+2) 9월 10일 현대차증권 Corp Day
+3) 9월 15일 신영증권 Corp Day
+4) 9월 21-22일 CLSA HK Conference
+5) 9월 23일 BofA HK Conference
+※ 관련공시
+-

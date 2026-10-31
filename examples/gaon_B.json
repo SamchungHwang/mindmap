@@ -6,7 +6,7 @@
   "profile": "growth",
   "created_at": "2026-10-19",
   "updated_at": "2027-01-15",
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "nodes": {
     "B0": {
       "id": "B0",
@@ -92,7 +92,7 @@
       "map": "HOLD",
       "parent": "B0",
       "label": "목표 비중",
-      "question": "A6.1 스냅숏, 리밸런싱 시 갱신",
+      "question": "A7.1 스냅숏, 리밸런싱 시 갱신",
       "node_type": "judgment",
       "value": 0.05,
       "value_type": "percent",
@@ -203,7 +203,7 @@
       "map": "HOLD",
       "parent": "B1",
       "label": "당시 목표가/기간",
-      "question": "A3 스냅숏",
+      "question": "A4 스냅숏",
       "node_type": "fact",
       "value": {
         "Bear": {
@@ -224,7 +224,7 @@
       },
       "value_type": "range",
       "source": {
-        "name": "A3 snapshot",
+        "name": "A4 snapshot",
         "url": "",
         "retrieved_at": "2026-10-19"
       },
@@ -240,7 +240,7 @@
       "map": "HOLD",
       "parent": "B1",
       "label": "당시 무효화 조건",
-      "question": "A4.4 스냅숏",
+      "question": "A5.4 스냅숏",
       "node_type": "question",
       "value_type": "text",
       "status": "unverified",
@@ -275,7 +275,7 @@
       "map": "HOLD",
       "parent": "B1",
       "label": "섹터·매크로 링크",
-      "question": "A8.2 / A8.3 링크 복사 — C2 집계의 키",
+      "question": "A9.2 / A9.3 링크 복사 — C2 집계의 키",
       "node_type": "link",
       "value": [
         "S.KR-ROBOT",
@@ -417,7 +417,11 @@
         "probability": 0.25,
         "target_price": 62000.0,
         "horizon_months": 12,
-        "valuation_method": ""
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
       }
     },
     "B3.2": {
@@ -442,7 +446,11 @@
         "probability": 0.5,
         "target_price": 85000.0,
         "horizon_months": 12,
-        "valuation_method": ""
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
       }
     },
     "B3.3": {
@@ -467,7 +475,11 @@
         "probability": 0.25,
         "target_price": 110000.0,
         "horizon_months": 12,
-        "valuation_method": ""
+        "valuation_method": "",
+        "driver_assumptions": [],
+        "conditions": [],
+        "indicators": [],
+        "price_source": "user"
       }
     },
     "B3.4": {
@@ -984,7 +996,11 @@
         "next_check": "2027-02-14",
         "at_entry": 8.1,
         "direction": "강화",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "B2.1.2": {
@@ -1034,7 +1050,11 @@
         "next_check": "2027-02-14",
         "at_entry": 4200.0,
         "direction": "강화",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "B2.1.3": {
@@ -1074,7 +1094,11 @@
         "next_check": "2027-02-14",
         "at_entry": 55.0,
         "direction": "강화",
-        "higher_is_better": true
+        "higher_is_better": true,
+        "kind": "quant",
+        "proxies": [],
+        "sensitivity_inputs": {},
+        "observations": []
       }
     },
     "B1.4.1": {
@@ -1097,7 +1121,10 @@
         "action": "exit",
         "escalate_to": "RED",
         "status": "armed",
-        "note": "수주잔고가 매수 시점보다 줄면 논제 폐기"
+        "note": "수주잔고가 매수 시점보다 줄면 논제 폐기",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
       }
     },
     "B7.1": {
@@ -1119,7 +1146,10 @@
         "condition": "drawdown > 0.25",
         "action": "review",
         "escalate_to": "YELLOW",
-        "status": "armed"
+        "status": "armed",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
       }
     },
     "B7.2": {
@@ -1141,7 +1171,10 @@
         "condition": "price > 110000",
         "action": "trim",
         "size": "50%",
-        "status": "armed"
+        "status": "armed",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
       }
     },
     "B7.3": {
@@ -1166,7 +1199,10 @@
         "escalate_to": "YELLOW",
         "status": "fired",
         "fired_at": "2027-01-15",
-        "note": "템플릿 §4.4 비중 밴드 — 자동 생성"
+        "note": "템플릿 §4.4 비중 밴드 — 자동 생성",
+        "side": "bear",
+        "persistence": 2,
+        "proposal": {}
       }
     },
     "B2.4.001": {
@@ -1269,7 +1305,7 @@
     "cash_yield": 0.03
   },
   "source_map_id": "A:000000:2026-10-19",
-  "snapshot_hash": "1d7988afbb29e39a",
+  "snapshot_hash": "36a6eb7042775ee6",
   "decision_log": [
     {
       "date": "2027-01-15",

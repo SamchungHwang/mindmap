@@ -1,0 +1,421 @@
+{
+ "report_id": "hk_97300",
+ "path": "tests/fixtures/reports/doosan/company_97300.txt",
+ "broker": "신한투자증권",
+ "report_date": "2026-10-30",
+ "ticker": "034020",
+ "quality": "llm",
+ "spans": [
+  {
+   "span_id": "sp_04c40b07e9",
+   "report_id": "hk_97300",
+   "page": 1,
+   "start": 1283,
+   "end": 1349,
+   "text": "AP1000은 미국 에너지부의 장납기 기자재 금융지원과 폴란드 초도호기\n발주 절차 진입으로 수주 기회 구체화되는 흐름."
+  },
+  {
+   "span_id": "sp_58d9d65689",
+   "report_id": "hk_97300",
+   "page": 1,
+   "start": 1350,
+   "end": 1409,
+   "text": "웨스팅하우스와 공급 품\n목 확대도 협의 중으로 향후 발주 물량과 함께 기당 수주 규모의 동반 확\n대 기대."
+  },
+  {
+   "span_id": "sp_0d131be05d",
+   "report_id": "hk_97300",
+   "page": 1,
+   "start": 1410,
+   "end": 1462,
+   "text": "SMR은 X-energy 초도사업 4개 모듈의 주단소재·전열관 후속 발\n주도 추가 수주 기회."
+  },
+  {
+   "span_id": "sp_366c431912",
+   "report_id": "hk_97300",
+   "page": 1,
+   "start": 1463,
+   "end": 1491,
+   "text": "가스터빈은 2031년 출하분까지 예약·협상 진행 중"
+  },
+  {
+   "span_id": "sp_f51cf4a814",
+   "report_id": "hk_97300",
+   "page": 2,
+   "start": 2612,
+   "end": 2688,
+   "text": "영업이익 358.1 309.8 114.8 234.9 142.5 271.1 137.1 212.1 233.5 314.3 261.2 351.8"
+  },
+  {
+   "span_id": "sp_186055d001",
+   "report_id": "hk_97300",
+   "page": 2,
+   "start": 2689,
+   "end": 2766,
+   "text": "YoY % (1.8) (37.4) (63.1) (20.8) (60.2) (12.5) 19.4 (9.7) 63.9 15.9 90.6 65.9"
+  },
+  {
+   "span_id": "sp_f25efc1798",
+   "report_id": "hk_97300",
+   "page": 4,
+   "start": 7024,
+   "end": 7053,
+   "text": "2026년 5월 DOE가 175억 달러 금융지원 발표"
+  },
+  {
+   "span_id": "sp_76cb3ea868",
+   "report_id": "hk_97300",
+   "page": 4,
+   "start": 7081,
+   "end": 7113,
+   "text": "개발사 선정 및 공급망 구축 단계.\n2030년경 건설 목표"
+  },
+  {
+   "span_id": "sp_cf4091fee3",
+   "report_id": "hk_97300",
+   "page": 4,
+   "start": 7613,
+   "end": 7635,
+   "text": "2026년 12월까지 EPC 계약 목표."
+  },
+  {
+   "span_id": "sp_e495b9b463",
+   "report_id": "hk_97300",
+   "page": 4,
+   "start": 7636,
+   "end": 7673,
+   "text": "2026년 10월 기준 장납기 품목\n및 기타 기자재 구매 진행 중."
+  }
+ ],
+ "claims": [
+  {
+   "claim_id": "hk_97300:c7",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "AP1000은 미국 에너지부의 장납기 기자재 금융지원과 폴란드 초도호기 발주 절차 진입으로 수주 기회가 구체화되고 있다",
+   "epistemic_type": "opinion",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "nuclear_orders",
+   "driver_label": "AP1000 수주 기회",
+   "target_metric_id": null,
+   "mechanism": "미국 DOE 금융지원, 폴란드 발주 절차 진입 → 수주 기회 구체화",
+   "direction": "positive",
+   "condition": null,
+   "horizon": null,
+   "quant_refs": [],
+   "span_ids": [
+    "sp_04c40b07e9"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 명제가 인용 문장과 사실상 동일"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97300:c8",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "웨스팅하우스와 공급 품목 확대를 협의 중이며 향후 발주 물량과 함께 기당 수주 규모의 동반 확대가 기대된다",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "nuclear_orders",
+   "driver_label": "웨스팅하우스 공급 품목 확대",
+   "target_metric_id": null,
+   "mechanism": "공급 품목 확대 협의 → 기당 수주 규모 확대",
+   "direction": "positive",
+   "condition": null,
+   "horizon": null,
+   "quant_refs": [],
+   "span_ids": [
+    "sp_58d9d65689"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 웨스팅하우스 품목 확대 협의와 기당 수주 규모 확대 기대가 인용에 있음"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97300:c9",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "X-energy 초도사업 4개 모듈의 주단소재·전열관 후속 발주가 SMR 추가 수주 기회이다",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "smr",
+   "driver_label": "X-energy SMR 후속 발주",
+   "target_metric_id": null,
+   "mechanism": "X-energy 초도사업 후속 발주 → 추가 수주 기회",
+   "direction": "positive",
+   "condition": null,
+   "horizon": null,
+   "quant_refs": [],
+   "span_ids": [
+    "sp_0d131be05d"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: X-energy 4개 모듈 후속 발주가 추가 수주 기회라고 인용에 명시"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97300:c10",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "가스터빈은 2031년 출하분까지 예약·협상이 진행 중이다",
+   "epistemic_type": "fact",
+   "roles": [
+    "catalyst",
+    "business"
+   ],
+   "driver_id": "gas_turbine",
+   "driver_label": "가스터빈 예약·협상",
+   "target_metric_id": null,
+   "mechanism": "2031년 출하분까지 예약·협상 진행 → 수주 가시성",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2031",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_366c431912"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 2031년 출하분 예약·협상 진행 중이 인용에 그대로 있음"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "planned",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97300:c22",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "4Q26F 연결 영업이익은 351.8십억원, 영업이익률 6.8%로 추정되어 전년 동기(212.1십억원) 대비 65.9% 증가할 전망이다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "business",
+    "catalyst"
+   ],
+   "driver_id": "earnings",
+   "driver_label": "4Q26F 영업이익 전망",
+   "target_metric_id": "op",
+   "mechanism": "4Q 계절적 매출 증가와 에너빌리티 부문 개선 → 영업이익 증가",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "4Q26",
+   "quant_refs": [
+    {
+     "metric": "op",
+     "col": "4Q26F",
+     "value": 351.8,
+     "unit": "십억원",
+     "source": "text"
+    },
+    {
+     "metric": "op_yoy",
+     "col": "4Q26F",
+     "value": 65.9,
+     "unit": "%",
+     "source": "text"
+    },
+    {
+     "metric": "opm",
+     "col": "4Q26F",
+     "value": 6.8,
+     "unit": "%",
+     "source": "text"
+    }
+   ],
+   "span_ids": [
+    "sp_f51cf4a814",
+    "sp_186055d001"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "ok",
+    "support": "insufficient",
+    "note": "인용 밖 본문(표) 수치 1개: 6.8% — 확인 권고 · 의미: 4Q26F 351.8, 4Q25 212.1, +65.9%는 확인되나 영업이익률 6.8%는 인용에 없음"
+   },
+   "status": "needs_review",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch2"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "",
+   "review_required": true,
+   "review_reason": "인용 밖 본문 수치"
+  },
+  {
+   "claim_id": "hk_97300:c30",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "미국 AP1000 10기 Fleet Project에서 2026년 5월 DOE가 175억 달러 금융지원을 발표했고 개발사 선정과 공급망 구축 단계이며 2030년경 건설을 목표로 한다.",
+   "epistemic_type": "fact",
+   "roles": [
+    "catalyst",
+    "business"
+   ],
+   "driver_id": "nuclear_orders",
+   "driver_label": "미국 AP1000 Fleet Project",
+   "target_metric_id": null,
+   "mechanism": "DOE 금융지원 → 개발사 선정·공급망 구축 → 원전 기자재 발주 기대",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2030",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_f25efc1798",
+    "sp_76cb3ea868"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: DOE 175억 달러 금융지원, 개발사 선정·공급망 구축 단계, 2030년경 건설 목표가 인용과 일치"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch2"
+   },
+   "asserted_by": "authority",
+   "certainty": "announced",
+   "as_of": "2026-05-31",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97300:c31",
+   "report_id": "hk_97300",
+   "broker": "신한투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "폴란드 Lubiatowo-Kopalino 원전 3기는 2026년 12월까지 EPC 계약을 목표로 하며 2026년 10월 기준 장납기 품목 및 기타 기자재 구매가 진행 중이다.",
+   "epistemic_type": "fact",
+   "roles": [
+    "catalyst",
+    "business"
+   ],
+   "driver_id": "nuclear_orders",
+   "driver_label": "폴란드 AP1000 원전",
+   "target_metric_id": null,
+   "mechanism": "EPC 계약 체결 목표 → 기자재 발주 구체화",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2026-12",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_cf4091fee3",
+    "sp_e495b9b463"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 2026년 12월 EPC 계약 목표와 2026년 10월 기준 기자재 구매 진행이 인용과 일치 (원전 3기는 인용 밖)"
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "밸류에이션",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch2"
+   },
+   "asserted_by": "company",
+   "certainty": "planned",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  }
+ ],
+ "notes": [
+  "시험용 발췌 — 촉매(catalyst) 역할 Claim 만 (7건)"
+ ],
+ "created_at": "2026-10-31T13:44:33.465403",
+ "analyzed_chars": 15050,
+ "total_chars": 15110
+}

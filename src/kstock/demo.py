@@ -69,29 +69,29 @@ def build_new_map(today: date = D0) -> NewMap:
     a["A2.2"].set("양산 라인 가동률 80% 도달 시 OPM 13%. 2027년 해외 고객 수주가 잔고에 아직 없음", as_of=today)
     a["A2.3"].set("시간축", as_of=today)
 
-    a["A3.1"].scenario = Scenario(name="Bear", probability=0.25, target_price=48000,
+    a["A4.2"].scenario = Scenario(name="Bear", probability=0.25, target_price=48000,
                                   assumptions=["양산 지연 6개월", "OPM 7%"], valuation_method="PER 12배 × 2027E EPS")
-    a["A3.2"].scenario = Scenario(name="Base", probability=0.50, target_price=85000,
+    a["A4.3"].scenario = Scenario(name="Base", probability=0.50, target_price=85000,
                                   assumptions=["OPM 13%", "PER 18배"], valuation_method="PER 밴드 중앙값 × 2027E EPS")
-    a["A3.3"].scenario = Scenario(name="Bull", probability=0.25, target_price=120000,
+    a["A4.4"].scenario = Scenario(name="Bull", probability=0.25, target_price=120000,
                                   assumptions=["해외 고객 추가", "PER 25배"], valuation_method="PER 25배 × 2027E EPS")
-    a["A3.6.1"].set(45, as_of=today, source=krx)
-    a["A3.6.3"].set("up", as_of=today, source=Source(name="컨센서스 집계", retrieved_at=today))
+    a["A3.5.1"].set(45, as_of=today, source=krx)
+    a["A3.5.3"].set("up", as_of=today, source=Source(name="컨센서스 집계", retrieved_at=today))
 
-    a["A4.1"].set({"probability": 0.3, "impact_pct": -25, "text": "양산 수율 문제로 전환 지연"}, as_of=today)
-    a["A4.2"].set({"probability": 0.2, "impact_pct": -15, "text": "경쟁사 가격 인하"}, as_of=today)
-    a["A4.4.1"].rule = Rule(trigger_type="fact", condition="driver[A1.2].current < 3500", action="exit",
+    a["A5.1"].set({"probability": 0.3, "impact_pct": -25, "text": "양산 수율 문제로 전환 지연"}, as_of=today)
+    a["A5.2"].set({"probability": 0.2, "impact_pct": -15, "text": "경쟁사 가격 인하"}, as_of=today)
+    a["A5.4.1"].rule = Rule(trigger_type="fact", condition="driver[A1.2].current < 3500", action="exit",
                             escalate_to="RED", note="수주잔고가 매수 시점보다 줄면 논제 폐기")
-    a["A4.5"].set("월별 수출 단가, 공급사 가동률 코멘트", as_of=today)
+    a["A5.5"].set("월별 수출 단가, 공급사 가동률 코멘트", as_of=today)
 
-    a["A5.1"].question = "날짜가 박힌 사건만"
-    a["A6.2"].set({"price_range": [55000, 60000], "tranches": 3}, as_of=today)
-    a["A6.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action="review", escalate_to="YELLOW")
-    a["A6.4"].rule = Rule(trigger_type="price", condition="price > 110000", action="trim", size="50%")
-    a["A6.5"].set("BUY", as_of=today)
-    a["A8.2"].links = ["S.KR-ROBOT"]
-    a["A8.3"].links = ["M0"]
-    a["A8.1.1"].set("휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급", as_of=today, source=rep)
+    a["A6.1"].question = "날짜가 박힌 사건만"
+    a["A7.2"].set({"price_range": [55000, 60000], "tranches": 3}, as_of=today)
+    a["A7.3"].rule = Rule(trigger_type="price", condition="drawdown > 0.25", action="review", escalate_to="YELLOW")
+    a["A7.4"].rule = Rule(trigger_type="price", condition="price > 110000", action="trim", size="50%")
+    a["A7.5"].set("BUY", as_of=today)
+    a["A9.2"].links = ["S.KR-ROBOT"]
+    a["A9.3"].links = ["M0"]
+    a["A9.1.1"].set("휴머노이드·협동로봇용 고정밀 액추에이터 모듈 B2B 공급", as_of=today, source=rep)
     return a
 
 
@@ -101,7 +101,7 @@ def build_all(out_dir: str | Path | None = None) -> tuple[NewMap, HoldingMap, Po
     a = build_new_map()
     a_issues = validate(a, today=D0)
     ev = evaluate_new_map(a, today=D0)
-    a["A6.1"].value = {**(a["A6.1"].value or {}), "confirmed": 0.05, "reason": "신규 섹터 — 보수적으로 5%"}
+    a["A7.1"].value = {**(a["A7.1"].value or {}), "confirmed": 0.05, "reason": "신규 섹터 — 보수적으로 5%"}
     report["A"] = {"issues": [str(i) for i in a_issues], "expected_return": ev.expected_return,
                    "risk_reward": ev.risk_reward, "suggested_weight": ev.suggested_weight,
                    "gate": ev.rr_gate_passed, "decision": a.decision.value if a.decision else None}

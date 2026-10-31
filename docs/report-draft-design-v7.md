@@ -15,7 +15,7 @@
 | **Q3** 어떤 증거가 나오면 판단을 바꿔야 하는가 | 드라이버마다 관측 지표·다음 확인일, Kill 조건 문장 | **증거 계획**: 관측값은 지표·기간·기준·출처·검증 등급이 붙은 **같은 자(尺)** 로만 비교 — 날짜별 필요 경로 대비 신호등. **판단 수정 규칙**: 드라이버의 **논제 역할**(필수·핵심·보조·Kill) 에 따라 다른 대응, 발동 → 검증 → 제안 → 승인 순 |
 | **Q4** 그래서 지금 무엇을 하나 | 판단·비중·진입·손절 (사람) | 그대로 — 다만 "분석 판단"(BUY/WATCH/PASS) 과 "보유 대응"(B 맵) 과 "주문" 을 구분한 상태 전이표. 주문을 막는 기능은 없다 |
 
-새로 생기는 것은 **표 다섯 개**(가정 표 · 역산 표 · 필요 경로 · 증거 계획 · 판단 수정 규칙) 와 **드라이버별 신호등**, 그리고 **관측값의 데이터 계약**이다. 노드 번호는 그대로 두고 두 개(A2.4 · A4.6) 만 더한다. 숫자는 전부 코드가 계산하고, 경계값·역할·판단은 사람이 적는다. LLM 은 리포트에서 "증권사가 무엇을 가정했는가" 를 읽어 올 뿐 가정 숫자를 만들지 않는다.
+새로 생기는 것은 **표 다섯 개**(가정 표 · 역산 표 · 필요 경로 · 증거 계획 · 판단 수정 규칙) 와 **드라이버별 신호등**, 그리고 **관측값의 데이터 계약**이다. 노드 번호는 그대로 두고 두 개(A2.4 · A5.6) 만 더한다. 숫자는 전부 코드가 계산하고, 경계값·역할·판단은 사람이 적는다. LLM 은 리포트에서 "증권사가 무엇을 가정했는가" 를 읽어 올 뿐 가정 숫자를 만들지 않는다.
 
 v6 검토에서 나온 세 가지 기반 수정(회계 기준 정규화 · 역산의 조건부 해석 · Claim 품질 게이트, v6 §11) 은 v7 의 **전제 조건**이다. 기준이 섞인 EPS 위에 필요 경로를 세우면 경로도 틀린다.
 
@@ -46,7 +46,7 @@ v6 검토에서 나온 세 가지 기반 수정(회계 기준 정규화 · 역�
 - **증거는 같은 자로만 잰다.** 지표·기간·값의 종류(절대값/증감률/누적/상태)·기준(QoQ/YoY/컨센 대비)·관측일·출처·검증 등급이 붙지 않은 숫자는 관측값이 아니다. 분기 증감률을 연간 경로와 비교하지 않고, 전망치를 실적처럼 쓰지 않는다.
 - **판단 수정은 규칙으로 미리 적고, 발동과 판단 변경을 분리한다.** 규칙이 발동하면 먼저 검증(진위·기간·지속성) 을 거쳐 제안이 만들어지고, 사람이 승인해야 판단이 바뀐다. 자동으로 바뀌는 것은 "신규 BUY 보류" 플래그 하나뿐이고 그것도 필수 조건 위반일 때만이다.
 - **드라이버는 역할이 다르다.** 필수 조건 · 핵심 수익 변수 · 보조 변수 · Kill 조건. 신호등을 세거나 점수로 더하지 않고 역할별로 대응한다.
-- **숫자는 코드, 경계값·역할·판단은 사람, 추출은 LLM. 주가는 증거가 아니다.** 주가는 A6.3 손절 규칙에서만 쓰고, 증거 계획에는 사업 지표만 넣는다.
+- **숫자는 코드, 경계값·역할·판단은 사람, 추출은 LLM. 주가는 증거가 아니다.** 주가는 A7.3 손절 규칙에서만 쓰고, 증거 계획에는 사업 지표만 넣는다.
 
 ## 2. 지금(v6) 과 목표 사이의 거리
 
@@ -169,7 +169,7 @@ v6 검토에서 나온 세 가지 기반 수정(회계 기준 정규화 · 역�
 | **필수 조건** | 이것 없이는 논제가 성립하지 않는다 (예: HBM4 양산) | **신규 BUY 보류** 플래그 자동 · 재검토 제안 |
 | **핵심 수익 변수** | 기업가치를 크게 움직인다 (예: DRAM ASP) | 시나리오 재계산 · 확률 이동 **제안** |
 | **보조 변수** | 영향이 제한적 (예: 파운드리 손익) | 경고 · 모니터링 주기 단축 제안 |
-| **Kill 조건** | 논제를 근본적으로 무효화하는 **사실** (기존 A4.4) | 사람 확인 후 폐기 |
+| **Kill 조건** | 논제를 근본적으로 무효화하는 **사실** (기존 A5.4) | 사람 확인 후 폐기 |
 
 검증 규칙: 필수 또는 핵심이 하나도 없으면 미확정. 역할을 점수로 더하지 않는다.
 
@@ -193,7 +193,7 @@ v6 검토에서 나온 세 가지 기반 수정(회계 기준 정규화 · 역�
 
 | 층 | 상태 | 무엇이 바꾸나 | 자동 변경 |
 |---|---|---|---|
-| **A 맵 분석 판단** | BUY / WATCH / PASS + 플래그 {신규 BUY 보류, 재검토, 증거 없음} | 사람 (A6.5) · 플래그는 규칙 | 플래그만. 신규 BUY 보류 = 필수 조건 🔴 검증됨 ∨ RR 미달 ∨ 재검토 중. 판단값 자체는 사람이 바꾼다(보류 중엔 BUY 로 **저장되지 않음**, 기존 BUY 는 "BUY(보류)" 로 표시) |
+| **A 맵 분석 판단** | BUY / WATCH / PASS + 플래그 {신규 BUY 보류, 재검토, 증거 없음} | 사람 (A7.5) · 플래그는 규칙 | 플래그만. 신규 BUY 보류 = 필수 조건 🔴 검증됨 ∨ RR 미달 ∨ 재검토 중. 판단값 자체는 사람이 바꾼다(보류 중엔 BUY 로 **저장되지 않음**, 기존 BUY 는 "BUY(보류)" 로 표시) |
 | **B 맵 보유 대응** | hold / add / trim / exit / hedge / review | 대응 매트릭스(결과 상태등 × 원인 신호등) → 사람 | 없음. 매트릭스는 제안만 |
 | **주문** | — | 사람, 시스템 밖 | 없음 |
 
@@ -218,16 +218,16 @@ v6 검토에서 나온 세 가지 기반 수정(회계 기준 정규화 · 역�
 
 | 노드 | 지금 | v7 |
 |---|---|---|
-| A1.x 핵심 드라이버 | 현재값·컨센·내 추정·관측 지표·다음 확인일·무효화 조건·민감도 | + **논제 역할** · **관측값 목록**(데이터 계약 8칸) · **필요 경로**(날짜별, 출처) · **허용 띠** · **경계값(Bear/Bull)** · **신호등**. 무효화 조건은 A4.6 규칙으로 올릴 수 있다 |
+| A1.x 핵심 드라이버 | 현재값·컨센·내 추정·관측 지표·다음 확인일·무효화 조건·민감도 | + **논제 역할** · **관측값 목록**(데이터 계약 8칸) · **필요 경로**(날짜별, 출처) · **허용 띠** · **경계값(Bear/Bull)** · **신호등**. 무효화 조건은 A5.6 규칙으로 올릴 수 있다 |
 | A2.1 현재 주가에 내재된 가정 | 사람이 쓰는 문장(비워 둠) | **가정 표**(§3.1) 를 코드가 채우고, 문장은 그 밑에 사람이 쓴다. 역산은 여기 들어오지 않는다 |
 | **A2.4 가격이 성립하기 위한 조건** (신설) | — | **역산 표**(§3.2 한 변수 해 · 두 변수 조합, 해석 범위 표시) + **필요 경로**(§3.3). 기준 가격과 변수 쌍은 사람이 고른다 |
 | A2.2 내 뷰 · A2.3 시장이 틀린 이유 | 사람 | 그대로 사람. 편집 폼이 "증권사 경로 vs 내 경로가 갈리는 드라이버" 와 두 변수 조합표를 옆에 보여 준다 |
-| A3.1~3 시나리오 | 가정 묶음 + 조건·지표·반증(문장) | 조건·지표·반증이 **증거 계획의 행과 비교 시점**을 가리킨다. 확률 옆에 "마지막 수정: ○○ 규칙 승인" 이력 |
-| A4.5 조기 경보 지표 | 문장 | **증거 계획**(§3.4) 그 자체 — 코드가 A1 에서 모아 표로 만든다 |
-| **A4.6 판단 수정 규칙** (신설) | — | §3.5 의 규칙(역할별). Kill 은 A4.4 그대로 |
-| A7.1 체크포인트 | 날짜 목록 | **증거 일정**: 날짜마다 "무엇을 · 어디서 · 어느 비교 시점의 필요값과" |
-| A7.2 업데이트 로그 | 자유 기록 | 종류가 생긴다: 관측값 / 규칙 감지 / 검증 / 제안 / 승인·거절 / 확률 변경 / 논제 수정 / 리포트 반영. 규칙 쪽은 자동 |
-| A6.5 판단 | RR 미달이면 BUY 금지 | + 플래그 3개(§3.6). 보류 중엔 BUY 저장 불가, ⚪ 가 필수·핵심에 있으면 "증거 없는 판단" 표시 |
+| A4.2~4 시나리오 | 가정 묶음 + 조건·지표·반증(문장) | 조건·지표·반증이 **증거 계획의 행과 비교 시점**을 가리킨다. 확률 옆에 "마지막 수정: ○○ 규칙 승인" 이력 |
+| A5.5 조기 경보 지표 | 문장 | **증거 계획**(§3.4) 그 자체 — 코드가 A1 에서 모아 표로 만든다 |
+| **A5.6 판단 수정 규칙** (신설) | — | §3.5 의 규칙(역할별). Kill 은 A5.4 그대로 |
+| A8.1 체크포인트 | 날짜 목록 | **증거 일정**: 날짜마다 "무엇을 · 어디서 · 어느 비교 시점의 필요값과" |
+| A8.2 업데이트 로그 | 자유 기록 | 종류가 생긴다: 관측값 / 규칙 감지 / 검증 / 제안 / 승인·거절 / 확률 변경 / 논제 수정 / 리포트 반영. 규칙 쪽은 자동 |
+| A7.5 판단 | RR 미달이면 BUY 금지 | + 플래그 3개(§3.6). 보류 중엔 BUY 저장 불가, ⚪ 가 필수·핵심에 있으면 "증거 없는 판단" 표시 |
 
 B 맵의 상태등은 **결과**(주가·손익) 를, A 의 신호등은 **원인**(사업 지표) 을 본다. v7 에서 B 의 대응 매트릭스에 원인 신호등 열이 들어간다(제안만).
 
@@ -273,7 +273,7 @@ B 맵의 상태등은 **결과**(주가·손익) 를, A 의 신호등은 **원�
 
 - **자동 확률 갱신** (베이즈·점수 모델): 규칙에 적힌 %p 제안까지만.
 - **LLM 이 경계값·띠·필요값·관측값을 쓰는 것**: 숫자 생성 금지 원칙 그대로.
-- **주가를 증거로 쓰는 것**: 손절 규칙(A6.3) 에만.
+- **주가를 증거로 쓰는 것**: 손절 규칙(A7.3) 에만.
 - **자동 Kill · 자동 판단 변경**: 자동은 보류 플래그 하나뿐.
 - **신호등·역할의 점수 합산**: 역할별 대응만.
 - **주문 차단·승인**: 이 시스템엔 주문이 없다.
@@ -286,7 +286,7 @@ B 맵의 상태등은 **결과**(주가·손익) 를, A 의 신호등은 **원�
 | **W0 기반** | v6 §11 의 세 가지 — EPS·주식 수 정규화, 역산의 조건부 표현, Claim 품질 게이트 | 삼성 85,798 / PER 6.18 · "가정 의존" 표시 · `claims stats`·`compare` |
 | **W1 증거 데이터 계약** | 관측값 모델(8칸) · 같은 자 검사 · 검증 등급 · 필요 경로의 시계열(증권사 분기 추정 → 컨센 경로 · 보간 표시) · 관측값 입력(편집 폼 · CLI) · 드라이버 논제 역할 | 삼성 DRAM ASP 분기 경로 + 확인된 관측값 한 점이 같은 자로 비교되는 맵 |
 | **W2 역산 구조** | 가정 표(§3.1, 역산 분리) · 역산 표(한 변수 닫힌 식 · 두 변수 조합 · 해석 범위 · 해 없음/범위 밖) · A2.4 신설 · CLI `mindmap path` | 삼성 가정 표 · 역산 표 (§5) |
-| **W3 규칙 엔진 · 상태 전환** | A4.6 · 감지→검증→영향→제안→승인 · 로그 종류 · 보류 플래그 · 판단 상태 전이 · B 매트릭스에 원인 신호등 열 · `mindmap alerts` | 규칙 발동 → 검증 → 제안 → 승인 로그, 보류 중 BUY 저장 불가 |
+| **W3 규칙 엔진 · 상태 전환** | A5.6 · 감지→검증→영향→제안→승인 · 로그 종류 · 보류 플래그 · 판단 상태 전이 · B 매트릭스에 원인 신호등 열 · `mindmap alerts` | 규칙 발동 → 검증 → 제안 → 승인 로그, 보류 중 BUY 저장 불가 |
 | **W4 화면** | HTML 「성립 조건」 패널(표 다섯 + 신호등), 편집 폼(관측값·띠·역할·규칙), 계산기 연결 | 사람이 맵 하나로 Q1~Q4 를 읽는다 |
 | **W5 확장·운영** | 섹터 원인 KPI 사전·사업부 표 일반화(NAVER·두산, v6 §10 A1·A2) · 관측값 수집 어댑터(계약가·공시) · 에이전트 `batch`·`alerts` | 두 종목 더 · 무인 운영 |
 
@@ -301,7 +301,7 @@ W0 는 승인된 것(v6 §11). W1 이 v7 의 기초이고 2 세션, W2·W3 각 1
 5. **지속성 기준** — 규칙 검증의 연속 횟수 기본 2(권고).
 6. **역할 기본값** — 섹터 KPI 사전의 첫 번째를 핵심, 정성 드라이버를 필수 후보로 제안(권고 — 사람이 확정) / 전부 공란.
 7. **관측값 입력 경로** — 처음엔 사람 입력(편집 폼·CLI) 만(권고), 수집기·에이전트 입력은 W5.
-8. **신설 노드** — A2.4 · A4.6 신설(권고).
+8. **신설 노드** — A2.4 · A5.6 신설(권고).
 
 결정이 오면 W0 → W1 순으로 간다.
 
@@ -319,17 +319,17 @@ W0 는 승인된 것(v6 §11). W1 이 v7 의 기초이고 2 세션, W2·W3 각 1
 |---|---|
 | 관측값 데이터 계약 | `Observation(metric_id, period: str, value_type: abs \| pct \| cum \| state, basis: none \| qoq \| yoy \| vs_consensus, value: float \| str, as_of: date, compare_at: str, source: str, verification: confirmed \| reported \| forecast)`; `Driver.observations: list[Observation]` |
 | 필요 경로 | `RequiredPath(ruler: Ruler(metric_id, value_type, basis, index_base), points: list[PathPoint(at, value, source: broker \| consensus \| interpolated \| user, band)])`; `Driver.required: RequiredPath \| None`; `engine/path.py::required_paths(m, price)` — 사업부 표의 분기 열에서, 없으면 `interpolate(kind)` + 표시 |
-| 역할 · 띠 · 경계 · 신호등 | `Driver.thesis_role: required \| core \| secondary`(Kill 은 A4.4) · `band` · `bound_bear` · `bound_bull` · `light` · `light_reason` · `trend` |
+| 역할 · 띠 · 경계 · 신호등 | `Driver.thesis_role: required \| core \| secondary`(Kill 은 A5.4) · `band` · `bound_bear` · `bound_bull` · `light` · `light_reason` · `trend` |
 | 가정 표 | `engine/assumptions.py::assumption_table(m, claimsets)` — 증권사별 전망 셀(`certainty=expected`) × TP · 컨센(기준 통일) · 내 가정 → `meta.draft.assumptions` + A2.1 |
 | 역산 표 | `engine/path.py::solve_one(m, node_id, price, fixed)`(닫힌 식 · 범위 · 해 없음) · `solve_pair(m, x_node, y_node, price, grid)` · `InversionResult(scope: single \| pair \| broker \| consensus)` → A2.4 |
-| 같은 자 비교 · 신호등 | `engine/evidence.py::comparable(obs, path) -> bool \| reason` · `light_for(driver) -> (Light \| None, reason)` · `trend_for` · A4.5 표 · A7.1 = `evidence_schedule(m)` |
+| 같은 자 비교 · 신호등 | `engine/evidence.py::comparable(obs, path) -> bool \| reason` · `light_for(driver) -> (Light \| None, reason)` · `trend_for` · A5.5 표 · A8.1 = `evidence_schedule(m)` |
 | 판단 수정 규칙 | `Rule` + `driver_id` · `role` · `threshold` · `persistence: int` · `proposal: {kind: hold_new_buy \| shift \| review \| warn, scenario_from, scenario_to, pct_points}`; `engine/revision.py::detect → verify → impact → propose`; `RuleEvent(status: detected \| verified \| proposed \| approved \| rejected)`; 로그 `LogEntry(kind)` |
 | 판단 상태 | `NewMap.flags: {hold_new_buy, review, no_evidence}`; `lifecycle.evaluate_new_map` 이 플래그를 계산, `ops.set_decision` 이 보류 중 BUY 저장을 거부(OpsError); B 매트릭스 입력에 `cause_lights` 열 |
 | 관측값 입력 | `ops.observe(m, node_id, Observation)` · CLI `mindmap observe <map> A1.1 --value 107 --as-of 2026-10-31 --period 2026-10 --type abs --basis none --compare-at 26Q4 --source DRAMeXchange --verified confirmed` · 편집 폼 |
 | 검증 | 규칙 조건에 driver_id·경계값·지속성 없으면 오류; 필수·핵심 없으면 미확정; 자 불일치 관측값은 저장되되 비교 제외(경고); 보간 경로는 `source=interpolated` 필수 |
 | 알림 | `mindmap alerts <map>`(v6 §10 D2) — 규칙 감지/검증/제안 · 증거 일정 도래 · 관측값 노후 |
 
-전부 기본값이 있어 저장된 맵은 그대로 읽힌다. 새 노드 A2.4 · A4.6 은 `ensure_*` 로 없으면 만든다(v6 의 A3.8~A3.11 과 같은 방식).
+전부 기본값이 있어 저장된 맵은 그대로 읽힌다. 새 노드 A2.4 · A5.6 은 `ensure_*` 로 없으면 만든다(v6 의 A3.2~A3.4 과 같은 방식).
 
 ## 12. 결정 사항과 구현 작업 목록 (2026-10-27)
 
@@ -341,7 +341,7 @@ W0 는 승인된 것(v6 §11). W1 이 v7 의 기초이고 2 세션, W2·W3 각 1
 | 경계값 제안 | 코드가 민감도로 "Base→Bear 가격 차이의 절반에 해당하는 값" 을 **제안값**(제안 표시) 으로 넣는다 — 사용자가 바꿀 수 있다. 허용 띠 기본 = 경계의 절반(가격 차이의 1/4) |
 | 확률 이동 제안 | 규칙에 적힌 %p 를 편집 폼에 제안값으로 띄운다 — 사용자가 바꿀 수 있다 |
 | 관측값 입력 경로 | 수집기·에이전트 입력을 처음부터 지원(CLI·JSON) — 사용자가 고칠 수 있다 |
-| 신설 노드 | A2.4 · A4.6 신설 |
+| 신설 노드 | A2.4 · A5.6 신설 |
 | "증거 없는 판단" 기준 | ⚪ 가 드라이버 과반 |
 | (권고값 그대로) | 두 변수 기본 쌍 = 핵심 수익 변수 × 적용 PER · 보간 = 등비(표시) · 지속성 = 연속 2회 · 역할 기본값 = 섹터 사전 첫째 = 핵심, 정성 = 필수 후보 (사람이 확정) |
 
@@ -350,21 +350,60 @@ W0 는 승인된 것(v6 §11). W1 이 v7 의 기초이고 2 세션, W2·W3 각 1
 | # | 작업 | 내용 | 완료 기준 |
 |---|---|---|---|
 | **T1** | W0-1 회계 기준 정규화 | 증권사별 순이익·주식 수 기준 분류, EPS^std = 지배 순이익 ÷ 공시 보통주(전체만 적은 곳은 측정 지배 비율), `check_basis` 상태(comparable/mixed/not_comparable/unavailable) → 평가 모델·시나리오·검증·신뢰도, N 이원화 폐지, 표 단위 ×1000 보정 | 삼성 컨센 EPS 86,693(3곳) · PER 6.11 · 골든 갱신 · 테스트 — **완료 (아래 12.3)** |
-| **T2** | W0-2 역산의 조건부 표현 | `per_source` 열거 · `implied_status=assumption_dependent` · 문구에서 "내재" 제거 · 역산 표(여러 PER) 를 `meta.draft.valuation.implied_table` 에 · Base 순환 라벨 | A3.9 한 줄과 HTML 에 조건부 문구·표, 테스트 |
-| **T3** | W0-3 Claim 품질 게이트 | `mindmap claims stats` · `mindmap claims compare` · `draft_status=needs_claim_review`(핵심 Claim 검증률 < 50% ∨ 재현율 < 70%) · 요약·HTML 배지 | Spark Nano 결과(5/26) 의 단계별 분해 표가 나온다 |
-| **T4** | W1-1 관측값 데이터 계약 | `Observation`(8칸) · `Driver.observations` · 같은 자 검사 · 검증 등급 · `ops.observe` · CLI `mindmap observe` · JSON 일괄 입력(`--from-file`, 수집기·에이전트용) · 편집 폼 | 관측값 저장·거부(자 불일치)·나이 계산 테스트 |
-| **T5** | W1-2 필요 경로 시계열 · 역할 | `RequiredPath`(자 · 날짜별 점 · 출처 broker/consensus/interpolated/user) — 사업부 표 분기 열에서, 없으면 등비 보간 표시 · `Driver.thesis_role` · 역할 기본값 제안 | 삼성 DRAM ASP 분기 경로가 관측값과 같은 자로 비교된다 |
-| **T6** | W2 역산 구조 | 가정 표(증권사 전망 셀 × TP · 컨센 · 내 가정) · 역산 표(한 변수 닫힌 식 · 두 변수 조합 · 해석 범위 · 해 없음/범위 밖 · 템플릿 예외) · A2.4 신설 · CLI `mindmap path` | §5 의 삼성 가정 표·역산 표 재현 |
-| **T7** | W2-2 신호등 · 띠 · 경계 제안 | `light_for`(띠 안/밖·추세·나이·확인됨만) · 경계값 제안(가격 차이 절반) · 띠 제안(1/4) · A4.5 증거 계획 표 · A7.1 증거 일정 | 신호등이 켜진 삼성 맵 |
-| **T8** | W3 규칙 엔진 · 상태 전환 | A4.6 규칙(역할·지표·경계·지속성·제안) · 감지→검증→영향→제안→승인 · 로그 종류 · `flags{hold_new_buy, review, no_evidence}` · 보류 중 BUY 저장 거부 · B 매트릭스 원인 신호등 열 · `mindmap alerts` | 규칙 발동 → 로그 · 제안 · 승인 · WATCH 강제 테스트 |
-| **T9** | W4 화면 | HTML 「성립 조건」 패널(표 다섯 + 신호등) · 편집 폼(관측값·띠·역할·규칙·확률 제안) · 계산기 연결 | Playwright 로 패널·편집 확인 |
-| **T10** | W5 확장·운영 | 섹터 원인 KPI 사전(KR-INTERNET·KR-UTIL) · 사업부 표 일반화 · 관측값 수집 어댑터 · `batch` · `export-knowledge` · Spark 에이전트 스킬 | NAVER·두산 맵에서 T6~T8 이 돈다 |
+| **T2** | W0-2 역산의 조건부 표현 | `per_source` 열거 · `implied_status=assumption_dependent` · 문구에서 "내재" 제거 · 역산 표(여러 PER) 를 `meta.draft.valuation.implied_table` 에 · Base 순환 라벨 | A3.3 한 줄과 HTML 에 조건부 문구·표, 테스트 — **완료 (12.4)** |
+| **T3** | W0-3 Claim 품질 게이트 | `mindmap claims stats` · `mindmap claims compare` · `draft_status=needs_claim_review`(핵심 Claim 검증률 < 50% ∨ 재현율 < 70%) · 요약·HTML 배지 | Spark Nano 결과(5/26) 의 단계별 분해 표가 나온다 — **완료 (12.5)** |
+| **T4** | W1-1 관측값 데이터 계약 | `Observation`(8칸) · `Driver.observations` · 같은 자 검사 · 검증 등급 · `ops.observe` · CLI `mindmap observe` · JSON 일괄 입력(`--from-file`, 수집기·에이전트용) · 편집 폼 | 관측값 저장·거부(자 불일치)·나이 계산 테스트 — **완료 (12.5)** |
+| **T5** | W1-2 필요 경로 시계열 · 역할 | `RequiredPath`(자 · 날짜별 점 · 출처 broker/consensus/interpolated/user) — 사업부 표 분기 열에서, 없으면 등비 보간 표시 · `Driver.thesis_role` · 역할 기본값 제안 | 삼성 DRAM ASP 분기 경로가 관측값과 같은 자로 비교된다 — **완료 (12.5)** |
+| **T6** | W2 역산 구조 | 가정 표(증권사 전망 셀 × TP · 컨센 · 내 가정) · 역산 표(한 변수 닫힌 식 · 두 변수 조합 · 해석 범위 · 해 없음/범위 밖 · 템플릿 예외) · A2.4 신설 · CLI `mindmap path` | §5 의 삼성 가정 표·역산 표 재현 — **완료 (12.5)** |
+| **T7** | W2-2 신호등 · 띠 · 경계 제안 | `light_for`(띠 안/밖·추세·나이·확인됨만) · 경계값 제안(가격 차이 절반) · 띠 제안(1/4) · A5.5 증거 계획 표 · A8.1 증거 일정 | 신호등이 켜진 삼성 맵 — **완료 (12.5)** |
+| **T8** | W3 규칙 엔진 · 상태 전환 | A5.6 규칙(역할·지표·경계·지속성·제안) · 감지→검증→영향→제안→승인 · 로그 종류 · `flags{hold_new_buy, review, no_evidence}` · 보류 중 BUY 저장 거부 · B 매트릭스 원인 신호등 열 · `mindmap alerts` | 규칙 발동 → 로그 · 제안 · 승인 · WATCH 강제 테스트 — **완료 (12.5)** |
+| **T9** | W4 화면 | HTML 「성립 조건」 패널(표 다섯 + 신호등) · 편집 폼(관측값·띠·역할·규칙·확률 제안) · 계산기 연결 | Playwright 로 패널·편집 확인 — **완료 (12.5)** |
+| **T10** | W5 확장·운영 | 섹터 원인 KPI 사전(KR-INTERNET·KR-UTIL) · 사업부 표 일반화 · 관측값 수집 어댑터 · `batch` · `export-knowledge` · Spark 에이전트 스킬 | NAVER·두산 맵에서 T6~T8 이 돈다 — **완료 (12.5; 수집 어댑터·Spark 스킬은 남음)** |
 
 ### 12.3 T1 구현 결과 (2026-10-27)
 
 - `reports/extract.py`: 순이익 행을 기준별로 따로도 둔다(`np_ctrl` 지배 · `np_total` 전체, 이익률 행 제외) — 한 표에 두 행이 다 있으면 지배 비율을 **잴** 수 있다. `np` 는 예전 그대로(첫 행).
 - `reports/digest.py`: `BrokerBasis`(순이익 기준 · 머리 발행주식수 · 주식 수 기준 보통주/보통주+우선주/자기주식 제외, 라벨 또는 추정: 최소값 대비 +6~30% → 우선주 포함, 최대값 대비 −1.5~−10% → 자기주식 제외, 30% 초과 → 불명) · `shares_std()`(공시 보통주 중앙값, 사용자 > 라벨/추정 > 머리 중앙값) · `control_ratio(year)`(지배/전체 두 행을 다 적은 증권사들의 중앙값, 없으면 최근 실적 연도) · `eps_std(year)`(① 지배 행 ② 지배 기준 순이익 행 ③ 전체 × 측정 비율(≥0.9) — 그 밖은 제외) · `basis_check()`(status · per_broker · notes). 표 단위 보정: 단위를 못 읽은 리포트의 매출·OP 가 다른 증권사와 ×1000 어긋나면 보정 + 경고(B2). 표 아래 "EPS 기준 통일" 줄.
-- `engine/sensitivity.py::financial_snapshot`: `financials.basis` · `shares_std` · `eps`(basis=std, by_broker 정규화, reported, excluded, approx) · 연도별 `years[yr].eps` 도 정규화(정상화 EPS 가 같은 기준). `engine/valuation.py::common_tail`: 환산 N = 표준 주식 수(이원화 폐지, 옛 맵은 유도 N 그대로) · `Tail.basis_status`; `ValuationModel.basis_status` · `ScenarioResult.basis_status`; not_comparable 이면 한 줄 머리에 "⚠ 기준 불일치 — 참고값", 검증 오류(A3.9, 미확정), 신뢰도 L 고정; mixed·unavailable 은 경고. `Criteria.earnings_basis`·`share_count_basis`(기본 지배·보통주). `ops.valuation_text` 에 회계 기준 줄, A3.8 설명 갱신.
+- `engine/sensitivity.py::financial_snapshot`: `financials.basis` · `shares_std` · `eps`(basis=std, by_broker 정규화, reported, excluded, approx) · 연도별 `years[yr].eps` 도 정규화(정상화 EPS 가 같은 기준). `engine/valuation.py::common_tail`: 환산 N = 표준 주식 수(이원화 폐지, 옛 맵은 유도 N 그대로) · `Tail.basis_status`; `ValuationModel.basis_status` · `ScenarioResult.basis_status`; not_comparable 이면 한 줄 머리에 "⚠ 기준 불일치 — 참고값", 검증 오류(A3.3, 미확정), 신뢰도 L 고정; mixed·unavailable 은 경고. `Criteria.earnings_basis`·`share_count_basis`(기본 지배·보통주). `ops.valuation_text` 에 회계 기준 줄, A3.2 설명 갱신.
 - 삼성전자 실측(리포트 현재주가 262,000): 표의 EPS 평균 83,320 → **정규화 86,693(3곳: IBK 79,614 · DS 91,988 정확, 유진 88,475 = 전체 529.4조 × 측정 지배 비율 0.977)** · PER 6.36 → 6.11 · Base 530,000 그대로 · 정상화 480,717 → 502,545(26E~28E 정규화 평균 82,202) · 역산 EPS 41,188 → 42,856(−51%) · DRAM ASP 경로 −57% 그대로 · 민감도 +47,316 → +47,420 · 사이클 Bear 212,553 → 221,157 · SOTP 537,428 그대로. NAVER: 5곳 정규화 13,983(표 평균 14,216; 교보는 비율 0.995 환산; 한화·유진 머리값은 자기주식 제외로 분류) · 두산: 2곳 1,201.
 - 테스트 209 → 217(`tests/test_v7_basis.py` 8건: 기준 분류 · exact/ratio/excluded · 상태 전파 · not_comparable 차단 · mixed/unavailable 경고 · 옛 맵 unchecked · 단위 보정 · 지배/전체 행 분리), 골든 `005930.json` 갱신.
 - 설계와 달라진 점: §11.1 은 "전체만 있으면 제외" 였으나, 같은 리포트 묶음에서 **측정된** 지배 비율(두 행을 다 적은 증권사) 이 0.9 이상이면 환산해 넣는다(표시 '전체×비율', 신뢰도 경고). 추정이 아니라 측정값이라 §11.1 의 취지("검증 가능한 자료로 동일 기준에 정규화") 안이고, NAVER 처럼 대부분 전체만 적는 종목에서 컨센이 1곳으로 쪼그라드는 것을 막는다. 발행주식수 머리가 하나도 없으면 `unavailable` — 예전 규칙(유도 N) 으로 돌아가고 경고만 낸다.
+
+### 12.4 T2 구현 결과 (2026-10-27) — 역산의 조건부 표현
+
+- `ValuationModel` 에 `per_source`(`broker_target_implied` | `user` | `historical_normalized`·`peer` 자리만 | `missing`) · `implied_status`(`assumption_dependent` | `anchored` | `none`) · `implied_table`(PER 마다 EPS · 컨센 대비 · 필요 OP · 가격 드라이버 변화 · 출처 라벨). `engine/valuation.py::implied_for_per`(한 PER 역산) · `implied_table`(목표가 유도 PER · 증권사 PER 행 중앙값(각 리포트 가격 기준) · 실적 컨센 그대로일 때의 PER(현재가 ÷ 컨센 EPS) · 사용자 PER · 지정 목록 · 양 끝이 1.5배 넘게 벌어지면 기하 중간점) · `implied_line`(조건부 문구) · `implied_table_lines`(CLI·콘솔 표).
+- 문구: "역산: 현재가는 EPS 41,188 · DRAM ASP 경로 −57% 내재" → **"역산(PER 6.11(목표가 유도)·다른 변수 고정 가정): 현재가 262,000 를 설명하는 EPS 42,856 (컨센 −51%) · DRAM ASP (k=1.0) 변화 −57% · 다른 PER 면: 4.28→−33% / 3.02→−0% / 3.00→+1% [가정 의존 — 독립 PER 를 넣으면 바뀜] · Base = 목표가 중앙값 재현 (순환 — 내 PER 입력 전 참고)"**. "내재" 는 어디에도 없다. 사용자가 A3.2 `per` 를 넣으면 `anchored` 가 되어 "가정 의존" 과 순환 라벨이 사라지고, 표에는 목표가 유도 PER 줄이 비교용으로 남는다. 가정 없는 Base 시나리오 줄에도 "(= 목표가 중앙값 재현 — 순환, 내 PER 입력 전 참고)".
+- 역산 표(삼성, 현재가 262,000): PER 6.11 → EPS 42,856 · DRAM ASP −57% / 4.28(중간) → 61,215 · −33% / 3.02(실적 컨센 그대로) → 86,693 · 0% / 3.00(증권사 PER 행 중앙값) → 87,333 · +1%. 같은 가격을 "이익은 컨센대로 + PER 3" 도 "ASP −33% + PER 4.3" 도 설명한다는 것이 표 하나로 보인다. 두 변수 격자 조합표(DRAM ASP × PER 를 사용자가 지정) 는 T6 에서.
+- 보이는 곳: A3.3 값 한 줄(HTML 노드·계산기 머리말·초안 요약) · `mindmap valuation`·텍스트 콘솔 「V」 의 역산 표 · `mindmap implied <맵> [--per 4.5/3.5]` 가 같은 표를 쓴다. A3.3 질문 문구 갱신. 테스트 220(`TestImpliedConditional` 2건 + test_v6 보강).
+- T1 의 콘솔 노출도 함께: `engine/valuation.py::basis_table`(증권사 | 순이익 기준 | 발행주식수 | 주식 수 기준(추정은 ?) | EPS(표) | EPS 정규화 | 비고) 를 `mindmap valuation`, 텍스트 콘솔 「V」(평가 모델) 와 신설 「E」(회계 기준 표), GUI 「개요」 탭의 "회계 기준:" 줄, HTML 계산기 머리말의 "회계 기준:" 줄에서 본다.
+
+### 12.5 T3~T10 구현 결과 (2026-10-28) — 콘솔에서 보는 법과 함께
+
+구현은 설계 §3 의 표 다섯 개를 코드가 만들고 사람이 고치는 모양 그대로다. 모든 결과는 맵 JSON(`meta.draft.conditions` · `evidence_plan` · `lights` · `evidence_schedule` · `rule_events`, `meta.flags`, 드라이버의 `observations`·`required`·`band`·`bound_bear`·`thesis_role`·`light`) 에 저장되고, 저장(초안 생성 · 편집 저장 · CLI · 콘솔) 때마다 `engine/decision.py::compute_v7_all` 이 평가 모델 다음에 다시 계산한다. 테스트 220 → **247**(`tests/test_v7_evidence.py` 27건), ruff 통과.
+
+| 작업 | 코드 | 콘솔·CLI 에서 보는 곳 |
+|---|---|---|
+| **T3 Claim 품질 게이트** | `reports/claim_stats.py` — `claim_stats`(① 인용 ② 숫자 ③ 의미 단계별 교차표 · 첫 실패 단계 `stage_fail` · 검토 사유 · 추출기별 · 핵심 Claim 기준), `claim_compare`(기준 대비 원인 KPI 셀 재현율 · 증권사별 방향 일치 · 핵심 테마 누락 · 인용 위치 겹침), `claim_gate`(핵심 검증률 < 50% ∨ 재현율 < 70% → `needs_claim_review`; 규칙 분류만이면 n/a). 초안은 `meta.draft.claim_gate` 에 적고 미달이면 `draft_status=needs_claim_review` · 요약 첫 줄 ⚠ · `DraftResult.complete=False` | 텍스트 콘솔 **「T」** · `mindmap claims-stats <폴더> [--ref 기준폴더] [--json]`(미달이면 종료 코드 1) · `mindmap claims-compare <기준> <비교>` · `mindmap draft --claims-ref 기준폴더 / --no-claim-gate` · HTML 「성립 조건」 상태 줄의 "Claim 품질 게이트 미달" |
+| **T4 관측값 데이터 계약** | `models/sub.py` `Ruler`(지표·값의 종류·기준·단위·지수 기준) · `Observation`(8칸: metric_id · period · value_type · basis · value · as_of · compare_at · source + verification confirmed/reported/forecast) — 칸이 빠지면 저장되지 않는다(pydantic). `engine/evidence.py::observe`(같은 자가 아니면 저장은 하되 경고 · 전망값 경고 · 같은 기간은 교체 · 기간 표기 통일 4Q26E→26Q4) · `observation_from_dict`(수집기·에이전트 JSON). `ops.observe / observe_file` 은 저장 뒤 신호등·규칙을 다시 돌리고 A8.2 에 `observe` 로그 | 텍스트 콘솔 **「O」**(직접 8칸 / JSON 파일) · `mindmap observe <맵> A1.1 --metric DRAM_revenue_index --period 26Q4 --value 112 --compare-at 26Q4 --source "실적 공시" [--as-of --type --basis --verified]` · `mindmap observe <맵> --from-file obs.json`(목록 `[{node_id, metric_id, …}]` 또는 `{node_id: [...]}`; 틀린 항목은 "건너뜀") · 편집 폼 드라이버 `observations` |
+| **T5 필요 경로 · 역할** | `RequiredPath`(자 · 기준 가격 = 목표가 중앙값 · 날짜별 점 `PathPoint`(출처 broker/consensus/interpolated/user · 띠) · 만든 방법). `engine/path.py::build_required_path` — ① Claim 의 분기 QoQ 전망 셀(같은 분기는 증권사 값을 합쳐 한 점, 실현 셀 제외) 을 이은 지수 경로 ② 사업부 표 분기 열(같은 분기의 `3Q26/3Q26E/3Q26P` 는 증권사 수 n 이 큰 셀, **기준 = 오늘 이전에 끝난 마지막 분기 = 100**, ASP·물량·OP 변수만; 원가율·환원·수주는 매출 지수로 잴 수 없어 만들지 않는다) ③ 연간 두 점이면 등비 보간(모든 보간 점에 `interpolated` 표시). `required_paths` 는 사용자 점이 있거나 **관측값이 쌓인 경로의 기준(지수 100) 을 옮기지 않는다**(새 리포트로 다시 만들 때 `overwrite`). `Driver.thesis_role`(required/core/secondary) 과 `propose_roles`(섹터 사전 첫 KPI = 핵심 · 정성 = 필수 후보 · 나머지 보조, `thesis_role_source=proposed`) | 콘솔 **「D」**(성립 조건 — 필요 경로 표) · **「G」** role (역할 확정 → `user`) · `mindmap path <맵>` · `mindmap evidence <맵> --node A1.1 --role core` · HTML 「성립 조건」 ③ |
+| **T6 역산 구조 · A2.4** | `assumption_table`(증권사별 Claim 전망 셀 × 목표가 · 컨센 · 내 가정 = Base 시나리오 · 적용 PER 행 — **역산 숫자는 들어오지 않는다**), `solve_one`(통합 1차 모델에서 가격은 변수에 선형 → 두 점 닫힌 식, 기울기 0 = 해 없음, 변수별 허용 범위 밖 = 범위 밖, 환원·수주 = 역산 없음), `solve_pair`(x 격자 × 적용 PER: y = 가격 ÷ EPS(x); 다른 드라이버를 y 로도), `inversion_table`(기본 쌍 = 핵심 수익 변수 × PER · 해석 범위 라벨), `write_conditions` → `meta.draft.conditions` + **A2.4 값**. A2.4·A5.6 노드는 없으면 만든다(`ensure_v7_nodes`) | 콘솔 **「D」**(기준 가격 · 두 변수 x 바꾸기) — Q 는 콘솔 종료 키라 D 를 쓴다 · `mindmap path <맵> [--price 262000] [--pair A1.2] [--save]` · 초안 요약 "성립 조건(A2.4): …" · HTML 「성립 조건」 ①② |
+| **T7 신호등 · 띠 · 경계 제안** | `light_for`: 확인됨 · 같은 자 · 비교 시점의 점이 있을 때만 켜진다 — 🔴 Bear 경계 초과 / 🟡 띠 밖·띠 미입력·연속 2회 Bear 쪽으로 멀어짐(`trend=drifting`)·관측값 주기의 2배 넘게 오래됨 / 🟢 띠 안 / ⚪ 증거 없음(사유 표시: 전망값·보도 등급·자가 다름·점 없음). 상태형(`value_type=state`) 은 단계 도달·기한 경과·Bear 상태로. `propose_bounds`: Bear 경계 = 이 변수 하나로 Base→Bear 가격 차이의 절반을 만드는 변화(x = −(gap/2)/기울기; Bear 시나리오가 없으면 Base × 0.8 을 임시 Bear 로 표시), 띠 = |x|/2, 다음 비교 시점의 필요값 × (1+x%) 를 경계값으로; 범위 밖이면 "경계는 사람이 정한다"; 환원·수주·정성 드라이버는 제안하지 않는다. `apply_proposed_bounds` 는 사용자 값을 덮어쓰지 않는다(`bounds_source=user`). `evidence_plan` → A5.5 표 + `meta.draft.evidence_plan/lights`(역할별 수 — 합산 없음), `no_evidence` = ⚪ 과반, `evidence_schedule` → A8.1 (다음 확인일 · 경로의 점 · 촉매) | 콘솔 **「G」**(증거 계획 표 · 신호등 · 일정 · 규칙 · 알림; role 로 띠·경계 확정) · `mindmap evidence <맵> [--node A1.1 --band 5 --bear 95 --bull 130]` · 초안 요약 "증거(A5.5): 필수 ⚪2 · 핵심 ⚪1 …" · GUI 「개요」 "증거·판단(v7)" · "다음 증거" 줄 · HTML 「성립 조건」 ④ · 증거 일정 |
+| **T8 규칙 엔진 · 상태 전환** | `Rule(trigger_type=evidence)` + `grade`(shift/review/warn/kill) · `driver_id` · `threshold` · `side` · `persistence`(기본 2) · `proposal`; `rule_problems` 가 빠진 칸을 검증 오류로. `add_rule` → A5.6.x(필수 조건 드라이버면 제안 종류 `hold_new_buy`; 드라이버 경계가 비어 있으면 경계값을 넣는다). `evaluate_rules`: 감지(🔴) → 검증(확인됨 · 같은 자 · 연속 n 회 `streak`) → 영향(가정에 쓰는 시나리오 · 논제 언급) → 제안(`meta.draft.rule_events` ev1… detected/proposed/approved/rejected/cleared). **자동으로 바뀌는 것은 `flags.hold_new_buy` 뿐**. `approve_event`: shift 승인 = 확률 이동(%p 는 고칠 수 있다, 확률이 비어 있으면 못 옮긴다고 말한다), review/hold 승인 = `flags.review`, 거절 = 보류 해제. `compute_flags{hold_new_buy, review, no_evidence, pending_proposals}`; `lifecycle`: 보류·재검토 중 BUY 는 WATCH 강제, `validate`: A7.5 오류. A8.2 로그 종류 observe · rule · approval · probability · thesis · flag. `alerts`: 제안 대기 · 감지 · 🔴/🟡 추세 · 일정 도래(기본 7일) · 관측값 노후 · 상태 | 콘솔 **「G」** rule(추가) · decide(승인/거절, %p 수정) · flag(해제) · `mindmap rule add <맵> --driver A1.1 --grade shift --threshold 95 --persistence 2 --pct 10` · `rule list` · `rule decide --event ev1 [--reject] [--pct 15] [--note]` · `rule clear` · `mindmap alerts <맵> [--days 7] [--json]`(알림이 있으면 종료 코드 1 — 에이전트가 쓴다) · HTML 「성립 조건」 ⑤ + 이벤트 표 + 상태 줄 |
+| **T9 화면** | `render/conditions.py::conditions_html` — 서버가 표 다섯 + 신호등 + 상태(보류·재검토·⚪ 과반·제안 대기·게이트) 를 HTML 로 만들어 `OPTS.conditions` 로 넘긴다(클라이언트에 식 복제 없음, 내려받기 모드에서도 보인다; 요약 뷰는 제외). `render/native.py`: 툴바 **「성립 조건」** 버튼 + 패널(계산기와 배타), 계산기 머리말 "회계 기준" 줄. 편집 폼: `generate/edits.py` 의 열거(thesis_role · verification · value_type · basis · source) 와 한글 라벨, 드라이버 `observations`·`required`·`band`·`bound_bear/bull`·`thesis_role`, A5.6.x 규칙 필드; 저장 때 `compute_v7_all`. Playwright: 버튼 보임 · 패널 표 8개 · JS 오류 0 | HTML 툴바 「성립 조건」 · GUI 「개요」 |
+| **T10 확장·운영** | `generate/kpi_catalog.py` KR-INTERNET(광고 성장 · 커머스 · 핀테크 거래액 · 마케팅비 · AI/DC) · KR-UTIL(원전 수주 · 가스터빈 · 자회사 OP · 원가); `reports/segments.py` 별칭(서치플랫폼 · 커머스 · 핀테크/파이낸셜 플랫폼 · 콘텐츠 · 클라우드 · 에너빌리티 · 원자력 · 가스터빈 · 밥캣 …) 과 일반 표 수용. `generate/batch.py::run_batch`(리포트 폴더의 종목별 하위 폴더마다 맵 없음 → draft+HTML, 있음 → 변경안 저장(적용은 사람) → 요약 Markdown/JSON) · `generate/knowledge.py::export_knowledge`(맵 → 종목별 Markdown: 논제 · 드라이버 신호등 · 성립 조건 · 증거 계획 · 일정 · 플래그 — OpenClaw memory 용). 관측값 수집 어댑터는 **JSON 계약(`observe --from-file`) 까지** — 실제 수집기(DRAMeXchange 등) 와 Spark 에이전트 스킬 문서는 남은 일 | `mindmap batch --reports-dir data/reports --maps-dir data/maps [--claims cached --llm --summary out/batch.md --json out/batch.json]` · `mindmap export-knowledge data/maps/A_*.json --out out/knowledge [--claims-dir data/claims]` |
+
+**삼성전자 실측(리포트 3건, 2026-10-28)**: 역할 제안 A1.1 핵심 · A1.3/A1.5 필수 · 나머지 보조. 필요 경로 DRAM 매출 지수(26Q3 = 100 → 27Q4 161.5, 사업부 표 6점) · HBM 매출 지수 · 파운드리 OP(조원). 띠·경계 제안 DRAM Bear −11.2%(띠 ±5.6%) · HBM −56.4%. 역산: 현재가 262,000 = DRAM ASP −57%(나머지 고정) 또는 적용 PER 3.02; 메모리 원가·파운드리는 범위 밖(이 변수만으로는 설명 불가), 환원은 역산 없음. 신호등은 관측값이 없어 전부 ⚪ → "증거 없는 판단" 플래그. 관측값 26Q4 = 104 를 넣으면 🟢, 규칙(확률 이동, 경계 96.46) 뒤 27Q1 = 95 → 감지(1/2), 27Q2 = 93 → 검증 통과 · 제안 · `alerts` 에 "[제안 대기]", `rule decide` 로 승인(확률이 비어 있으면 "확률을 먼저 넣을 것").
+
+**설계와 달라진 점·한계**
+- 드라이버 역할이 하나도 없는 것은 검증 **경고**(오류가 아님) — 옛 맵과 편집 흐름을 막지 않기 위해. 역할 제안은 자동으로 들어가므로 새 초안에서는 비지 않는다.
+- 정성 드라이버(메모리 원가 · FCF·주주환원) 는 띠·경계를 제안하지 않는다 — 상태·문장 경계를 사람이 적고 규칙의 경계값도 문자열로 비교한다(관측값 문자열에 포함되면 발동).
+- 두 변수 조합표의 "계산 주가" 열은 정의상 기준 가격과 같다(x 마다 그 가격에 닿는 PER 을 푼 것) — 표의 뜻은 "이 ASP 라면 PER 이 얼마여야 하나".
+- 필요 경로의 기준 분기는 "오늘 이전에 끝난 마지막 분기" 라 리포트가 오래되면 기준이 뒤로 밀린다. 관측값이 있는 경로는 기준을 유지하므로 비교는 깨지지 않는다.
+- HBM·커머스처럼 사업부 표에 분기 열이 없는 변수는 경로가 없다("경로 없음 — 분기 추정치 또는 사람 입력"). 두산 리포트 3·4 는 사업부 표 자체가 없어 T6 역산이 "해 없음" 으로 나온다 — 민감도 입력(`sensitivity_inputs`) 을 사람이 넣으면 돌아간다.
+- 확률 이동 승인은 시나리오 확률이 있어야 적용된다(없으면 승인 기록만 남고 "확률을 먼저 넣을 것").
+- 텍스트 콘솔 메뉴 글자: 성립 조건은 **D**(Q 는 어디서나 종료). 나머지는 E 회계 기준 · O 관측값 · G 증거·규칙 · T Claim 품질 · V 평가 모델.
+
+### 12.6 노드 번호 개편 — 템플릿 v2.0 (2026-10-28, 사용자 결정)
+
+「밸류에이션 & 시나리오」 를 한 묶음(옛 A3) 으로 둘 이유가 v5~v7 을 거치며 사라졌다(결과 지표 · 평가 모델 · 세 갈래 · 기대수익 · 매력도 · 밸류 근거가 한 가지에 열두 개). 화면에서만 나누는 대신 **id 를 실제로 나눴다**: A3 밸류에이션(A3.1 재무 전망 · A3.2 평가 기준 · A3.3 평가 모델 · A3.4 모델 신뢰도 · A3.5 밸류 근거) · A4 시나리오(A4.1 한눈에 · A4.2~4 Bear/Base/Bull · A4.5 기대수익률 · A4.6 손익비 · A4.7 확률가중 매력도), 옛 A4~A8 은 A5~A9. 이 문서의 노드 번호는 전부 새 번호로 고쳐 적었다(v2~v6 문서는 당시 번호). 저장된 맵은 읽을 때 `models/migrate.py` 가 변환하고(`schema_version` 1.0 → 2.0; id · 부모 · 링크 · 수식 · meta 키 · 문장 속 id), `mindmap migrate [--db --render]` 가 파일을 한꺼번에 다시 쓴다. B·C 맵은 id 가 그대로이고 A 링크만 옮긴다. 테스트 `tests/test_migrate.py`(옛 1.0 맵 픽스처 `tests/fixtures/maps_v1/`).
+

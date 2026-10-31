@@ -14,6 +14,8 @@ STATUS_BADGE = {
     NodeStatus.unverified: "?",
     NodeStatus.stale: "⏳",
 }
+#: 낡은 자료(status=stale) 의 값 앞 표시 — 첨자 ⏳ 와 별개로 본문에 바로 보인다
+STALE_MARK = "⚠ 낡음 "
 
 
 def fmt_num(v: Any, unit: str | None = None, value_type: str | None = None) -> str:
@@ -121,8 +123,8 @@ def node_line(n: Node, *, show_question: bool = True, show_meta: bool = True) ->
         parts.append(f"⚡ `{r.condition}` → {r.action.value}" + (f" {r.size}" if r.size else "") + st)
     elif n.event is not None:
         e = n.event
-        label = f"📅 {e.date.isoformat()}"
-        parts.append(f"{e.fact} ⟨{e.direction.value}, 반영:{e.priced_in.value}, {e.materiality.value}⟩")
+        label = event_label(e)
+        parts.append(event_line(e))
     elif n.value is not None:
         v = n.value
         if n.id in ("B0",) and isinstance(v, str) and v in LIGHT_ICON:
@@ -132,6 +134,9 @@ def node_line(n: Node, *, show_question: bool = True, show_meta: bool = True) ->
     elif show_question and n.question and n.node_type != NodeType.question:
         parts.append(f"_{n.question}_")
 
+    # 낡은 자료는 값 앞에 바로 적는다 — ⏳ 첨자만으로는 「추세 상승」 이 5주 전 시세라는 게 안 읽힌다 (2026-10-31 3차 검토)
+    if n.status == NodeStatus.stale and parts and n.event is None and (n.value is not None or n.driver is not None or n.scenario is not None):
+        parts[0] = STALE_MARK + (f"({n.as_of.isoformat()}) " if n.as_of else "") + parts[0]
     line = f"{label}" + (f": {' '.join(parts)}" if parts else "")
     if show_meta and n.node_type in (NodeType.fact, NodeType.estimate) and (badge or n.as_of):
         meta = " ".join(x for x in (badge, n.as_of.isoformat() if n.as_of else "") if x)
@@ -151,4 +156,97 @@ def root_title(m: MindMap) -> str:
     return title
 
 
-__all__ = ["fmt_num", "node_line", "root_title", "LIGHT_ICON"]
+
+# ---------------------------------------------------------------------------- 이벤트 (2026-10-30 A6 보강)
+#: 화면에 보이는 확실성 말 — 「공시확정」 은 공시가 확정됐다는 건지 일정이 확정됐다는 건지 모호해서 (2026-10-31 검토)
+CERTAINTY_LABEL = {"공시확정": "공시 확인·일정 확정", "공시상 예정": "공시 확인·예정", "과거 주기 추정": "과거 주기 추정", "회사 목표": "회사 목표 (원문 확인)",
+                   "회사 계획 (리포트 인용)": "회사 계획 · 리포트 인용 (원문 미확인)",
+                   "리포트 전망": "리포트 전망", "통상 일정 추정": "통상 일정 추정"}
+STATUS_MARK = {"completed": "✓ ", "delayed": "⏳ ", "cancelled": "✗ ", "scheduled": "예정 "}
+
+
+def event_label(e) -> str:  # noqa: ANN001
+    """한 줄의 머리 — 📅 시점 [확실성]. 기간 사건은 기간을 보이고, 지연·완료·취소는 앞에 표시한다."""
+    tag = f" [{CERTAINTY_LABEL.get(e.certainty.value, e.certainty.value)}]" if e.certainty.value != "미정" else ""
+    mark = STATUS_MARK.get(getattr(e, "status", None) and e.status.value, "")
+    return f"📅 {mark}{e.when_label()}{tag}"
+
+
+def event_line(e) -> str:  # noqa: ANN001
+    """한 줄의 몸 — 사실 ⟨중요도 · 반영⟩ 과 사건 뒤 결과. 방향은 사건 뒤(outcome.verdict) 에만 뜻이 있어 「미정」 이면 안 적는다."""
+    bits = [e.materiality.value, f"반영:{e.priced_in.value}"]
+    if e.direction.value != "미정":
+        bits.insert(0, e.direction.value)
+    if getattr(e, "stage", None):
+        bits.append(f"단계:{e.stage}")
+    if getattr(e, "delivery_period", None):
+        bits.append(f"납기 {e.delivery_period}")
+    s = f"{e.fact} ⟨{', '.join(bits)}⟩"
+    o = e.outcome
+    if o is not None and (o.reaction_d1 is not None or o.verdict is not None or o.actual):
+        res = []
+        if o.verdict is not None:
+            res.append(f"판정 {o.verdict.value}")
+        if o.reaction_d1 is not None:
+            res.append(f"D+1 {o.reaction_d1:+.1%}")
+        if o.reaction_d5 is not None:
+            res.append(f"D+5 {o.reaction_d5:+.1%}" + (f" (시장 대비 {o.vs_market_d5:+.1%})" if o.vs_market_d5 is not None else ""))
+        if o.actual:
+            res.append(o.actual[:40])
+        s += " → " + " · ".join(res)
+    return s
+
+
+def event_detail_lines(e) -> list[str]:  # noqa: ANN001
+    """상세 패널용 여러 줄 — 보강본이 자유 문장으로 적던 것을 칸에서 꺼내 같은 순서로 보인다."""
+    st = getattr(e, "status", None)
+    lines = [f"시점: {e.when_label()} / 구분: {CERTAINTY_LABEL.get(e.certainty.value, e.certainty.value)} / 중요도: {e.materiality.value} / 선반영: {e.priced_in.value}"
+             + (f" / 상태: {st.value}" if st is not None and st.value != "scheduled" else "")]
+    if getattr(e, "event_id", None):
+        lines.append(f"ID: {e.event_id}")
+    if e.direction.value != "미정":
+        lines.append(f"방향: {e.direction.value}")
+    if e.precheck:
+        lines.append("사전 확인: " + " · ".join(e.precheck))
+    if e.bull:
+        lines.append("상방 증거: " + " · ".join(e.bull))
+    if e.bear:
+        lines.append("하방 증거: " + " · ".join(e.bear))
+    if e.rule:
+        lines.append(f"판단 규칙: {e.rule}")
+    if getattr(e, "evidence", None):
+        lines.append("관련 전망·근거 (판정 조건 아님): " + " / ".join(e.evidence[:4]))
+    if getattr(e, "program", None) or getattr(e, "project", None):
+        lines.append("사업: " + " · ".join(x for x in (getattr(e, "program", None), f"묶음 {e.project}" if getattr(e, "project", None) else None) if x))
+    if getattr(e, "stage", None):
+        lines.append(f"진행 단계: {e.stage}")
+    if getattr(e, "delivery_period", None):
+        lines.append(f"납기·운전 시점: {e.delivery_period} (사건 시점이 아니다)")
+    if e.affects:
+        lines.append("영향 노드: " + ", ".join(e.affects))
+    if e.next_check:
+        lines.append(f"체크포인트: {e.next_check.isoformat()}")
+    o = e.outcome
+    if o is not None:
+        res = []
+        if o.actual:
+            res.append(f"실제: {o.actual}")
+        if o.reaction_d1 is not None:
+            res.append(f"D+1 {o.reaction_d1:+.1%}")
+        if o.reaction_d5 is not None:
+            res.append(f"D+5 {o.reaction_d5:+.1%}")
+        if o.vs_market_d5 is not None:
+            res.append(f"시장 대비 {o.vs_market_d5:+.1%}")
+        if o.verdict is not None:
+            res.append(f"판정 {o.verdict.value}")
+        if o.as_of:
+            res.append(f"({o.as_of.isoformat()})")
+        lines.append("사건 뒤: " + " · ".join(res) if res else "사건 뒤: (아직)")
+        if o.note:
+            lines.append(f"  {o.note}")
+    if e.source is not None and (e.source.name or e.source.url):
+        lines.append("출처: " + " ".join(x for x in (e.source.name, e.source.url) if x))
+    return lines
+
+
+__all__ = ["fmt_num", "node_line", "root_title", "LIGHT_ICON", "STALE_MARK", "event_label", "event_line", "event_detail_lines"]

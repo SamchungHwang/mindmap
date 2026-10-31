@@ -1,4 +1,4 @@
-"""밸류에이션 (설계 v6) — A3.8 평가 기준(사람) → A3.9 평가 모델(코드) → A3.10 확률가중 투자 매력도(코드) → A3.11 모델 신뢰도(코드).
+"""밸류에이션 (설계 v6) — A3.2 평가 기준(사람) → A3.3 평가 모델(코드) → A4.7 확률가중 투자 매력도(코드) → A3.4 모델 신뢰도(코드).
 
     PER 가격      = EPS(기준: 컨센 | 내 추정 | 정상화 | 입력) × 적용 PER          (기본: 컨센 × 목표가 중앙값/EPS — 둘 다 "기본값" 표시)
     정상화 가격    = 추정 연도 3개(2026E~2028E) EPS 평균 × 적용 PER                 (사용자 결정 ③ — 1곳 셀은 n 표시)
@@ -23,8 +23,8 @@ from ..models import MapKind, MindMap, NewMap, SensitivityInput, SotpPart, Valua
 EPS_BASES = ("consensus", "my_estimate", "normalized", "user")
 EPS_BASIS_LABEL = {"consensus": "컨센", "my_estimate": "내 추정", "normalized": "정상화", "user": "입력"}
 DIVIDEND_MODES = ("separate", "include", "exclude")
-VALUATION_NODES = ("A3.8", "A3.9", "A3.10", "A3.11")
-RESULT_EPS_NODE = "A3.7.3"
+VALUATION_NODES = ("A3.2", "A3.3", "A3.4", "A4", "A4.1", "A4.7")   # 평가 기준·모델·신뢰도 + 시나리오 묶음·한눈에·매력도 (옛 맵도 열면 생긴다)
+RESULT_EPS_NODE = "A3.1.3"
 NORMALIZE_YEARS = 3                      # 정상화 EPS = 첫 추정 연도부터 3개 연도 평균 (사용자 결정 ③)
 # 사업부 포함 관계 — SOTP 에 부모와 자식을 같이 넣지 않는다 (설계 v6 §3.2). 역산의 가격 드라이버 매출 합에서도 자식을 뺀다
 SEGMENT_CONTAINS: dict[str, list[str]] = {
@@ -34,11 +34,18 @@ SEGMENT_CONTAINS: dict[str, list[str]] = {
     "DX": ["MX", "VD", "네트워크", "생활가전", "DA"],
 }
 SNAP_METRICS = ("revenue", "op", "np", "eps", "dps", "bps", "net_debt", "net_cash", "fcf", "capex", "ocf", "per", "pbr", "roe")
+# 유효세율 가드 (2026-10-31 3차 검토): 1 − NP/OP 는 영업외손익이 섞인 「비율」 이지 세율이 아니다 — 10-31 NAVER 지도에서 2027E NP ≈ OP
+# (지분법·금융수익) 라 t = 0.4% 가 나와 SOTP 세후 OP 를 부풀렸다. 띠(10~35%) 밖이면 버리고 기본값.
+# 한국 법인세 최고 구간 24% + 지방소득세 ≈ 26% 이지만 공제·이연을 감안해 22% 를 기본으로 둔다
+TAX_BAND = (0.10, 0.35)
+TAX_DEFAULT = 0.22
+# 목표가 ÷ EPS 로 역산한 PER 의 상식 범위 — 밖이면 EPS(단위·정규화) 가 틀린 것이라 가격을 계산하지 않는다 (2026-10-31 삼성전자 0.0156배)
+PER_SANE = (1.0, 300.0)
 
 
 # --------------------------------------------------------------------------- 노드
 def ensure_valuation_nodes(m: MindMap) -> list[str]:
-    """A3.8~A3.11 이 없는 옛 스켈레톤에 노드를 만든다 (A 맵만)."""
+    """A3.2~A3.4 이 없는 옛 스켈레톤에 노드를 만든다 (A 맵만)."""
     if not isinstance(m, NewMap) or "A3" not in m:
         return []
     from ..templates.questions import A_SPEC
@@ -46,16 +53,16 @@ def ensure_valuation_nodes(m: MindMap) -> list[str]:
 
     made: list[str] = []
     for nid in VALUATION_NODES:
-        if nid not in m.nodes and nid in A_SPEC:
+        if nid not in m.nodes and nid in A_SPEC and nid.rsplit(".", 1)[0] in m:
             m.add(_node_from_spec(MapKind.NEW, nid, A_SPEC[nid]))
             made.append(nid)
     return made
 
 
-# --------------------------------------------------------------------------- 평가 기준 (A3.8)
+# --------------------------------------------------------------------------- 평가 기준 (A3.2)
 @dataclass
 class Criteria:
-    """A3.8 의 값(dict). 없는 키는 기본값 — 모델이 '기본값' 으로 표시한다."""
+    """A3.2 의 값(dict). 없는 키는 기본값 — 모델이 '기본값' 으로 표시한다."""
 
     eps_basis: str = "consensus"
     eps_year: str | None = None
@@ -74,7 +81,7 @@ class Criteria:
 
     @classmethod
     def from_map(cls, m: MindMap) -> Criteria:
-        v = m["A3.8"].value if "A3.8" in m and isinstance(m["A3.8"].value, dict) else {}
+        v = m["A3.2"].value if "A3.2" in m and isinstance(m["A3.2"].value, dict) else {}
         c = cls(raw=dict(v))
 
         def num(k: str) -> float | None:
@@ -175,7 +182,7 @@ class Tail:
 
 
 def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | None = None, per_override: float | None = None) -> Tail:
-    """OP → NP → EPS → 주가 공통 입력. 우선순위: 드라이버·시나리오의 사용자 입력 > A3.8 평가 기준 > 리포트 머리(발행주식수) > 표 유도 > 기본값."""
+    """OP → NP → EPS → 주가 공통 입력. 우선순위: 드라이버·시나리오의 사용자 입력 > A3.2 평가 기준 > 리포트 머리(발행주식수) > 표 유도 > 기본값."""
     user = {k: v for k, v in (user or {}).items() if v is not None}
     crit = Criteria.from_map(m)
     fin = (m.meta.get("draft") or {}).get("financials") or {}
@@ -194,15 +201,23 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
     # 유효세율 t
     tax = user.get("tax_rate")
     src_t = "user" if tax is not None else "derived"
+    note_t = None
     if tax is None and tl.np and tl.op and tl.op > 0:
-        tax = max(0.0, min(0.5, 1.0 - tl.np / tl.op))
+        raw = 1.0 - tl.np / tl.op
+        cells = f"표 {(np_c or {}).get('n', 0)}·{(op_c or {}).get('n', 0)}곳"
+        if TAX_BAND[0] <= raw <= TAX_BAND[1]:
+            tax, note_t = raw, f"1 − NP/OP ({cells})"
+        else:
+            # 2026-10-31 3차 검토: NP/OP 역산은 영업외손익(지분법·금융·일회성) 이 섞여 세율이 아니다 — 띠 밖이면 버리고 기본값
+            tax, src_t = TAX_DEFAULT, "default"
+            note_t = (f"NP/OP 역산 {raw:.0%} 는 세율 띠 {TAX_BAND[0]:.0%}~{TAX_BAND[1]:.0%} 밖 ({cells}) — 영업외손익 포함이라 버림, "
+                      f"기본 {TAX_DEFAULT:.0%} 적용. 세율은 A3.2 또는 시나리오 tax_rate 로 넣을 것")
     tl.t = float(tax) if tax is not None else None
-    tl.inputs.append(_inp("유효세율 t", tl.t, "", src_t, year,
-                          f"1 − NP/OP (표 {(np_c or {}).get('n', 0)}·{(op_c or {}).get('n', 0)}곳)" if tl.t is not None and src_t == "derived" else None))
+    tl.inputs.append(_inp("유효세율 t", tl.t, "", src_t, year, note_t))
     if tl.t is None:
         tl.missing.append("유효세율 (표의 순이익·영업이익)")
     # 주식 수 — 두 개를 구분한다 (설계 v6 §2.2). ① EPS 환산용 N = NP_E/EPS_E (컨센 EPS 와 기준을 맞춘다: 가정 없는 Base = 컨센 EPS × PER 이 되도록)
-    # ② 공시 발행주식수 N_out (리포트 머리 중앙값, 사용자 결정 ⑦) = SOTP 주당 환산·주당 환원. 사용자(드라이버 입력·A3.8) 가 shares 를 주면 둘 다 그 값
+    # ② 공시 발행주식수 N_out (리포트 머리 중앙값, 사용자 결정 ⑦) = SOTP 주당 환산·주당 환원. 사용자(드라이버 입력·A3.2) 가 shares 를 주면 둘 다 그 값
     hdr = (fin.get("shares_out") or {})
     std = fin.get("shares_std") or {}
     shares_eps: float | None = None
@@ -211,7 +226,7 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
         shares_eps, tl.shares_source = float(user["shares"]), "user"
     elif crit.shares is not None:
         shares_eps, tl.shares_source = crit.shares, "criteria"
-        note = "A3.8 평가 기준"
+        note = "A3.2 평가 기준"
     elif std.get("value") and (eps_c or {}).get("basis") == "std":
         # 설계 v6 §11.1: EPS 가 표준 주식 수로 정규화됐으면 환산 N 도 같은 값 — 유도 N 과의 이원화를 없앤다 (EPS_std × N_std = 지배 NP)
         shares_eps, tl.shares_source = float(std["value"]), "header"
@@ -245,20 +260,24 @@ def common_tail(m: MindMap, user: dict[str, Any] | None = None, *, year: str | N
         per, tl.per_source = float(user["per_target"]), "user"
     elif crit.per is not None:
         per, tl.per_source = crit.per, "criteria"
-        pnote = "A3.8 평가 기준"
+        pnote = "A3.2 평가 기준"
     elif tl.tp_median and tl.eps and tl.eps > 0:
         per, tl.per_source = tl.tp_median / tl.eps, "default"
         pnote = f"기본값 — 목표가 중앙값 {tl.tp_median:,.0f} / EPS_E {tl.eps:,.0f} ({fin.get('tp_n', 0)}곳)"
+        if not (PER_SANE[0] <= per <= PER_SANE[1]):
+            # 2026-10-31 삼성전자: EPS 30,722,739원(단위 오류) → PER 0.0156배로 목표가를 「재현」 했다. 역산 PER 가 상식 밖이면 EPS 가 틀린 것 — 계산을 멈춘다
+            tl.missing.append(f"목표 PER — 목표가 {tl.tp_median:,.0f} / EPS_E {tl.eps:,.0f} = {per:.3g}배는 {PER_SANE[0]:g}~{PER_SANE[1]:g}배 밖 (EPS 단위·정규화 확인 전엔 계산 안 함)")
+            per, tl.per_source, pnote = None, "missing", None
     tl.per = per
     tl.inputs.append(_inp("목표 PER", per, "배", tl.per_source, year, pnote))
-    if per is None:
-        tl.missing.append("목표 PER (A3.8 per 또는 목표가·EPS)")
+    if per is None and not any(x.startswith("목표 PER") for x in tl.missing):
+        tl.missing.append("목표 PER (A3.2 per 또는 목표가·EPS)")
     return tl
 
 
 # --------------------------------------------------------------------------- EPS 기준
 def my_estimate_eps(m: MindMap) -> tuple[float | None, str | None]:
-    """A3.7.3 EPS 결과 지표의 내 추정 (값, 기간)."""
+    """A3.1.3 EPS 결과 지표의 내 추정 (값, 기간)."""
     n = m.get(RESULT_EPS_NODE)
     if n is None or n.driver is None or n.driver.my_estimate.value is None:
         return None, None
@@ -288,7 +307,7 @@ def eps_for_basis(m: MindMap, basis: str, tail: Tail, crit: Criteria) -> tuple[f
         if v is not None:
             warn = None if not period or not tail.year or period == tail.year else f"내 추정 기간 {period} ≠ 모델 연도 {tail.year}"
             return v, "user", f"내 추정 EPS {v:,.0f}", warn
-        return tail.eps, "table", f"컨센 EPS {tail.eps:,.0f}" if tail.eps else "컨센 EPS 없음", "A3.7.3 내 추정이 비어 있어 컨센으로"
+        return tail.eps, "table", f"컨센 EPS {tail.eps:,.0f}" if tail.eps else "컨센 EPS 없음", "A3.1.3 내 추정이 비어 있어 컨센으로"
     if basis == "normalized":
         v, yrs, ns = normalized_eps(fin)
         if v is not None:
@@ -337,9 +356,92 @@ def price_driver_segments(m: MindMap) -> list[str]:
     return segs
 
 
-# --------------------------------------------------------------------------- A3.9 평가 모델
+# --------------------------------------------------------------------------- A3.3 평가 모델
+PER_SOURCE = {"default": "broker_target_implied", "user": "user", "criteria": "user", "missing": "missing"}
+PER_SOURCE_LABEL = {"broker_target_implied": "목표가 유도", "user": "사용자", "historical_normalized": "과거 밴드", "peer": "피어", "missing": "없음",
+                    "broker_per_row": "증권사 PER 행 중앙값"}
+
+
+def implied_for_per(m: MindMap, tail: Tail, p0: float, per: float) -> dict[str, Any]:
+    """PER 하나에 대한 역산 한 줄 — 다른 변수 고정. 돌려주는 dict: implied_eps · vs_consensus_pct · op_required · path_pct · path_label."""
+    out: dict[str, Any] = {"per": per, "implied_eps": p0 / per, "vs_consensus_pct": None, "op_required": None, "path_pct": None, "path_label": None}
+    if tail.eps:
+        out["vs_consensus_pct"] = (out["implied_eps"] / tail.eps - 1.0) * 100.0
+    keep, _ = drop_contained(price_driver_segments(m))
+    rev = segment_values(m, tail.year, "revenue")
+    base_rev = sum(rev[s][0] for s in keep if s in rev)
+    if base_rev > 0 and tail.shares and tail.t is not None and tail.op is not None:
+        op_req = out["implied_eps"] * tail.shares / 1e8 / (1.0 - tail.t)
+        out["op_required"] = op_req
+        out["path_pct"] = (op_req - tail.op) / base_rev * 100.0
+        out["path_label"] = "+".join(s for s in keep if s in rev) + " ASP (k=1.0)"
+    return out
+
+
+def implied_table(m: MindMap, tail: Tail, p0: float, crit: Criteria | None = None, extra: list[float] | None = None) -> list[dict[str, Any]]:
+    """여러 PER 의 역산 표 (설계 v6 §11.2 ③) — 목표가 유도 PER · 증권사 PER 행 중앙값(각 리포트 가격 기준) · 사용자 PER · 지정 목록.
+    같은 가격을 설명하는 (PER, EPS, 경로) 조합이 여럿이라는 것을 보이기 위한 표 — 어느 줄도 '시장의 기대' 가 아니다."""
+    fin = (m.meta.get("draft") or {}).get("financials") or {}
+    rows: list[dict[str, Any]] = []
+    seen: set[float] = set()
+
+    def add(per: float | None, source: str, label: str) -> None:
+        if not per or per <= 0 or round(per, 3) in seen:
+            return
+        seen.add(round(per, 3))
+        r = implied_for_per(m, tail, p0, per)
+        r.update({"source": source, "label": label})
+        rows.append(r)
+
+    if tail.per_source == "default" and tail.tp_median and tail.eps:
+        add(tail.per, "broker_target_implied", f"목표가 유도 (중앙값 {tail.tp_median:,.0f} ÷ EPS {tail.eps:,.0f})")
+    elif tail.per:
+        add(tail.per, "user", "사용자 (A3.2)")
+    if tail.tp_median and tail.eps and tail.per_source != "default":
+        add(tail.tp_median / tail.eps, "broker_target_implied", f"목표가 유도 (중앙값 {tail.tp_median:,.0f} ÷ EPS {tail.eps:,.0f})")
+    per_cell = year_cell(fin, tail.year, "per") if tail.year else None
+    if isinstance(per_cell, dict) and per_cell.get("median"):
+        add(float(per_cell["median"]), "broker_per_row", f"증권사 PER 행 중앙값 ({int(per_cell.get('n') or 0)}곳, 각 리포트 가격 기준)")
+    if tail.eps:
+        add(p0 / tail.eps, "consensus_eps", "실적 컨센 그대로일 때의 PER (현재가 ÷ 컨센 EPS)")
+    for x in extra or []:
+        add(float(x), "user", "지정")
+    # 양 끝 사이가 1.5배 넘게 벌어지면 기하 중간점을 하나 끼운다 — "같은 가격을 설명하는 조합이 연속으로 있다" 를 보이기 위해
+    pers = sorted(r["per"] for r in rows)
+    if len(pers) >= 2 and pers[-1] / pers[0] > 1.5:
+        mid = (pers[0] * pers[-1]) ** 0.5
+        add(round(mid, 2), "midpoint", f"중간 ({pers[0]:.2f} 과 {pers[-1]:.2f} 의 기하 평균)")
+    rows.sort(key=lambda r: -r["per"])
+    return rows
+
+
+def implied_line(vm: ValuationModel, p0: float | None) -> str:
+    """역산 한 줄 — 조건부 문구 (설계 v6 §11.2). '내재' 라는 말을 쓰지 않는다."""
+    if vm.implied_eps is None:
+        return ""
+    src = PER_SOURCE_LABEL.get(vm.per_source, vm.per_source)
+    cond = f"PER {vm.per:.2f}({src})·다른 변수 고정 가정" if vm.per else "다른 변수 고정 가정"
+    s = f"역산({cond}): 현재가" + (f" {p0:,.0f}" if p0 else "") + f" 를 설명하는 EPS {vm.implied_eps:,.0f}"
+    if vm.implied_eps_vs_consensus_pct is not None:
+        s += f" (컨센 {vm.implied_eps_vs_consensus_pct:+.0f}%)"
+    if vm.implied_path_pct is not None:
+        s += f" · {vm.implied_path_label} 변화 {vm.implied_path_pct:+.0f}%"
+    others: list[dict[str, Any]] = []
+    seen_path: set[int] = {int(round(vm.implied_path_pct))} if vm.implied_path_pct is not None else set()
+    for r in vm.implied_table:
+        if r.get("path_pct") is None or abs(r["per"] - (vm.per or 0)) < 1e-6 or int(round(r["path_pct"])) in seen_path:
+            continue
+        seen_path.add(int(round(r["path_pct"])))
+        others.append(r)
+    if others:
+        s += " · 다른 PER 면: " + " / ".join(f"{r['per']:.2f}→{r['path_pct']:+.0f}%" for r in others[:3])
+    if vm.implied_status == "assumption_dependent":
+        s += " [가정 의존 — 독립 PER 를 넣으면 바뀜]"
+    return s
+
+
 def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationModel:
-    """A3.8 기준으로 PER 가격·정상화·SOTP·역산을 계산해 돌려준다 (맵에는 쓰지 않는다 — `write_valuation` 이 쓴다)."""
+    """A3.2 기준으로 PER 가격·정상화·SOTP·역산을 계산해 돌려준다 (맵에는 쓰지 않는다 — `write_valuation` 이 쓴다)."""
     today = today or date.today()
     crit = Criteria.from_map(m)
     tail = common_tail(m)
@@ -360,7 +462,7 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
     if warn:
         warnings.append(warn)
     if eps is None:
-        missing.append("기준 EPS (표의 EPS 또는 A3.8 eps)")
+        missing.append("기준 EPS (표의 EPS 또는 A3.2 eps)")
     if eps is not None and tail.per is not None:
         vm.price_per = eps * tail.per
     if vm.eps_normalized is not None and tail.per is not None:
@@ -404,7 +506,7 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
         nc_year = crit.net_cash_year or fin.get("latest_actual_year")
         if crit.net_cash is not None:
             vm.net_cash, vm.net_cash_year = crit.net_cash, crit.net_cash_year or "입력"
-            inputs.append(_inp("순현금", vm.net_cash, "억원", "criteria", vm.net_cash_year, "A3.8 평가 기준"))
+            inputs.append(_inp("순현금", vm.net_cash, "억원", "criteria", vm.net_cash_year, "A3.2 평가 기준"))
         else:
             nd = year_cell(fin, nc_year, "net_debt")
             ncs = year_cell(fin, nc_year, "net_cash")
@@ -416,7 +518,7 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
                 inputs.append(_inp("순현금", vm.net_cash, "억원", "table", nc_year, f"순현금 행 (표 {ncs.get('n', 0)}곳)"))
             else:
                 inputs.append(_inp("순현금", None, "억원", "missing", nc_year))
-                missing.append("순현금 (표의 순차입금 행 또는 A3.8 net_cash)")
+                missing.append("순현금 (표의 순차입금 행 또는 A3.2 net_cash)")
                 ok = False
         if ok and tail.shares_out:
             vm.shares = tail.shares_out
@@ -426,20 +528,16 @@ def compute_valuation(m: MindMap, *, today: date | None = None) -> ValuationMode
                 if abs(vm.gap_pct) > 15:
                     warnings.append(f"SOTP 와 PER 가격 차이 {vm.gap_pct:+.0f}% — 멀티플 또는 기준 EPS 를 다시 볼 것")
     else:
-        warnings.append("SOTP 미계산 — A3.8 sotp_multiples {사업부: 배} 를 넣으면 검증한다 (사용자 입력만)")
-    # ---- 역산 — 현재가가 내재하는 EPS 와 가격 드라이버 경로
+        warnings.append("SOTP 미계산 — A3.2 sotp_multiples {사업부: 배} 를 넣으면 검증한다 (사용자 입력만)")
+    # ---- 역산 (설계 v6 §11.2 / v7 T2) — "PER 와 다른 변수를 고정하면 현재가를 설명하는 EPS·가격 드라이버 변화" — 수학적 해이지 시장의 기대가 아니다.
+    # 적용 PER 가 목표가 유도값(순환) 이면 assumption_dependent, 사용자·독립 PER 면 anchored. 여러 PER 에 대한 표를 같이 둔다.
+    vm.per_source = PER_SOURCE.get(tail.per_source, tail.per_source)
     if p0 and tail.per:
-        vm.implied_eps = p0 / tail.per
-        if tail.eps:
-            vm.implied_eps_vs_consensus_pct = (vm.implied_eps / tail.eps - 1.0) * 100.0
-        segs = price_driver_segments(m)
-        keep, _ = drop_contained(segs)
-        rev = segment_values(m, tail.year, "revenue")
-        base_rev = sum(rev[s][0] for s in keep if s in rev)
-        if base_rev > 0 and tail.shares and tail.t is not None and tail.op is not None:
-            op_req = vm.implied_eps * tail.shares / 1e8 / (1.0 - tail.t)
-            vm.implied_path_pct = (op_req - tail.op) / base_rev * 100.0
-            vm.implied_path_label = "+".join(s for s in keep if s in rev) + " ASP 경로 (k=1.0)"
+        vm.implied_status = "anchored" if vm.per_source == "user" else "assumption_dependent"
+        row = implied_for_per(m, tail, p0, tail.per)
+        vm.implied_eps, vm.implied_eps_vs_consensus_pct = row["implied_eps"], row["vs_consensus_pct"]
+        vm.implied_path_pct, vm.implied_path_label = row["path_pct"], row["path_label"]
+        vm.implied_table = implied_table(m, tail, p0, crit)
     # 설계 v6 §11.1: 회계 기준 호환성 — not_comparable 이면 값은 남기되 '확정' 으로 표시하지 않는다 (valuation_line · 검증 · 신뢰도가 읽는다)
     if tail.basis_status == "not_comparable":
         warnings.insert(0, "EPS 기준 불일치 — 정규화된 증권사 0곳: 가격은 참고값 (" + "; ".join(tail.basis_notes)[:160] + ")")
@@ -469,8 +567,37 @@ def basis_summary(fin: dict[str, Any]) -> str:
     return " · ".join(parts)
 
 
+def basis_table(fin: dict[str, Any]) -> str:
+    """회계 기준 표 (설계 v6 §11.1 / v7 T1) — 증권사별 순이익 기준 · 발행주식수 · 주식 수 기준 · 증권사 EPS · 정규화 EPS · 비고. 콘솔·CLI 용 여러 줄."""
+    bc = fin.get("basis") or {}
+    if not bc:
+        return "회계 기준 검사 없음 — 옛 맵 (리포트로 다시 만들면 생긴다)"
+    e = bc.get("eps") or {}
+    year = bc.get("year") or fin.get("year") or ""
+    rows = [f"회계 기준 ({year}) — " + basis_summary(fin)]
+    rows.append(f"  {'증권사':<10} {'순이익':<5} {'발행주식수(천주)':>14} {'주식 수 기준':<12} {'EPS(표)':>9} {'EPS 정규화':>10}  비고")
+    per = bc.get("per_broker") or {}
+    for key, b in per.items():
+        rep = (e.get("reported") or {}).get(key)
+        std = (e.get("by_broker") or {}).get(key)
+        note = (e.get("approx") or {}).get(key) or (e.get("excluded") or {}).get(key) or (b.get("note") or "")
+        sb = b.get("share_basis") or "불명"
+        if b.get("share_basis_source") == "inferred":
+            sb += "?"
+        sh = f"{b['shares_header'] / 1e3:,.0f}" if b.get("shares_header") else "—"
+        rows.append(f"  {key[:10]:<10} {(b.get('np_basis') or '—'):<5} {sh:>14} {sb:<12} {(f'{rep:,.0f}' if rep else '—'):>9} {(f'{std:,.0f}' if std else '제외'):>10}  {note}")
+    if e.get("n"):
+        rep_vals = list((e.get("reported") or {}).values())
+        rows.append(f"  → 모델이 쓰는 컨센 EPS {e['mean']:,.0f} ({e['n']}곳)" + (f" · 표의 단순 평균 {sum(rep_vals) / len(rep_vals):,.0f}" if rep_vals else "")
+                    + f" · 표준 주식 수 {bc['shares_std'] / 1e3:,.0f}천주 ({bc.get('shares_note') or ''})")
+    for n in bc.get("notes") or []:
+        rows.append("  · " + n)
+    rows.append("  ('?' = 다른 증권사와 비교해 추정한 기준 · '전체×비율' = 전체 순이익에 같은 리포트 묶음에서 측정한 지배 비율을 곱한 값)")
+    return "\n".join(rows)
+
+
 def valuation_line(vm: ValuationModel | None, p0: float | None = None) -> str:
-    """A3.9 한 줄 (값 칸)."""
+    """A3.3 한 줄 (값 칸)."""
     if vm is None:
         return "평가 모델 없음"
     if vm.status != "계산됨":
@@ -489,12 +616,9 @@ def valuation_line(vm: ValuationModel | None, p0: float | None = None) -> str:
     else:
         parts.append("SOTP 미계산 (멀티플 입력)")
     if vm.implied_eps is not None:
-        s = f"역산: 현재가는 EPS {vm.implied_eps:,.0f}"
-        if vm.implied_eps_vs_consensus_pct is not None:
-            s += f" (컨센 {vm.implied_eps_vs_consensus_pct:+.0f}%)"
-        if vm.implied_path_pct is not None:
-            s += f" · {vm.implied_path_label} {vm.implied_path_pct:+.0f}% 내재"
-        parts.append(s)
+        parts.append(implied_line(vm, p0))
+    if vm.per_basis == "default" and vm.price_per is not None and vm.eps_basis == "consensus":
+        parts.append("Base = 목표가 중앙값 재현 (순환 — 내 PER 입력 전 참고)")
     return " · ".join(parts)
 
 
@@ -513,6 +637,7 @@ def valuation_table(vm: ValuationModel | None, p0: float | None = None) -> str:
         rows.append(f"  SOTP 기타(전사 OP − 사업부 합) {vm.sotp_other_op / 1e4:+,.1f}조 — 가치에 넣지 않음")
     if vm.sotp and vm.net_cash is not None:
         rows.append(f"  SOTP 순현금 {vm.net_cash / 1e4:,.1f}조 ({vm.net_cash_year})")
+    rows.extend(implied_table_lines(vm, p0))
     for w in vm.warnings:
         rows.append(f"  ⚠ {w}")
     for x in vm.missing:
@@ -521,19 +646,37 @@ def valuation_table(vm: ValuationModel | None, p0: float | None = None) -> str:
     return "\n".join(rows)
 
 
+def implied_table_lines(vm: ValuationModel, p0: float | None = None) -> list[str]:
+    """역산 표 (설계 v6 §11.2 ③) — PER 마다 현재가를 설명하는 EPS·컨센 대비·가격 드라이버 변화. 모든 줄이 '다른 변수 고정' 의 수학적 해다."""
+    if not vm.implied_table:
+        return []
+    rows = [f"  역산 표 — 현재가{(' ' + format(p0, ',.0f')) if p0 else ''} 를 설명하는 (PER, EPS, 가격 드라이버) 조합 · 다른 변수 고정 · "
+            + ("가정 의존 (PER 에 독립 근거 없음)" if vm.implied_status == "assumption_dependent" else "사용자 PER 기준")]
+    rows.append(f"    {'적용 PER':>8} {'EPS':>9} {'vs 컨센':>8} {'필요 OP(조)':>11} {'드라이버 변화':>10}  PER 출처")
+    for r in vm.implied_table:
+        op = f"{r['op_required'] / 1e4:,.0f}" if r.get("op_required") is not None else "-"
+        path = f"{r['path_pct']:+.0f}%" if r.get("path_pct") is not None else "-"
+        vs = f"{r['vs_consensus_pct']:+.0f}%" if r.get("vs_consensus_pct") is not None else "-"
+        rows.append(f"    {r['per']:>8.2f} {r['implied_eps']:>9,.0f} {vs:>8} {op:>11} {path:>10}  {r.get('label') or r.get('source') or ''}")
+    lab = next((r.get("path_label") for r in vm.implied_table if r.get("path_label")), None)
+    if lab:
+        rows.append(f"    (드라이버 변화 = {lab} 를 컨센 대비 %로 — 전가율 k=1.0, 그 밖은 컨센 고정. 시장이 그렇게 본다는 뜻이 아니라 그 조합이 현재가를 설명한다는 뜻)")
+    return rows
+
+
 def _hash(obj: Any) -> str:
     return hashlib.sha256(json.dumps(obj, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()[:12]
 
 
 def write_valuation(m: MindMap, *, today: date | None = None) -> ValuationModel:
-    """A3.9 값·meta.draft.valuation 을 갱신하고 valuation_log 에 (입력 해시가 바뀐 때만) 한 줄 남긴다."""
+    """A3.3 값·meta.draft.valuation 을 갱신하고 valuation_log 에 (입력 해시가 바뀐 때만) 한 줄 남긴다."""
     today = today or date.today()
     ensure_valuation_nodes(m)
     vm = compute_valuation(m, today=today)
     draft = m.meta.setdefault("draft", {})
     draft["valuation"] = vm.model_dump(mode="json")
-    if "A3.9" in m:
-        n = m["A3.9"]
+    if "A3.3" in m:
+        n = m["A3.3"]
         n.value = valuation_line(vm, getattr(m, "current_price", None))
         n.as_of = today
     key = _hash({"inputs": [(i.name, i.value, i.source) for i in vm.inputs], "basis": vm.eps_basis, "mult": sorted((p.segment, p.multiple) for p in vm.sotp)})
@@ -545,6 +688,6 @@ def write_valuation(m: MindMap, *, today: date | None = None) -> ValuationModel:
     return vm
 
 
-__all__ = ["basis_summary", "Criteria", "Tail", "common_tail", "compute_valuation", "write_valuation", "valuation_line", "valuation_table", "ensure_valuation_nodes",
+__all__ = ["basis_summary", "basis_table", "implied_for_per", "implied_table", "implied_line", "implied_table_lines", "PER_SOURCE_LABEL", "Criteria", "Tail", "common_tail", "compute_valuation", "write_valuation", "valuation_line", "valuation_table", "ensure_valuation_nodes",
            "eps_for_basis", "normalized_eps", "my_estimate_eps", "segment_values", "drop_contained", "price_driver_segments", "year_cell",
            "EPS_BASES", "EPS_BASIS_LABEL", "DIVIDEND_MODES", "VALUATION_NODES", "SEGMENT_CONTAINS", "SNAP_METRICS"]

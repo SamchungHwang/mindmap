@@ -368,7 +368,7 @@ class Change(BaseModel):
     user_touched: bool = False
     note: str = ""
     decision: ChangeDecision = ChangeDecision.pending
-    affects: list[str] = Field(default_factory=list)     # v4 V7: 이 변경과 함께 바뀌어야 하는 노드 (A1.i → A3.6.4, A2.1.x …)
+    affects: list[str] = Field(default_factory=list)     # v4 V7: 이 변경과 함께 바뀌어야 하는 노드 (A1.i → A3.5.4, A2.1.x …)
 
 
 class ChangeSet(BaseModel):

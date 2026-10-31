@@ -280,6 +280,12 @@ class Ops:
                 row["next_check"] = nxt[0].isoformat() if nxt else ""
         return row
 
+    def basis_text(self, m: NewMap) -> str:
+        """회계 기준 표 (설계 v6 §11.1 / v7 T1) — 콘솔 「E」."""
+        from .engine.valuation import basis_table
+
+        return basis_table((m.meta.get("draft") or {}).get("financials") or {})
+
     def overview_text(self, ticker: str) -> str:
         it = self.store.get_watch(ticker)
         a = self.store.latest_map(ticker, MapKind.NEW)
@@ -295,14 +301,32 @@ class Ops:
         if isinstance(a, NewMap):
             out.append(f"[A 신규 투자 맵] {a.map_id} · 판단 {a.decision.value if a.decision else '작성중'}")
             out.append(f"  논제: {a.thesis or '(비어 있음)'}")
-            er, rr = a.value("A3.4"), a.value("A3.5")
-            w = a["A6.1"].value if isinstance(a["A6.1"].value, dict) else {}
+            er, rr = a.value("A4.5"), a.value("A4.6")
+            w = a["A7.1"].value if isinstance(a["A7.1"].value, dict) else {}
             out.append(f"  기대수익률 {er:+.1%} · 손익비 {rr}" if er is not None else "  기대수익률 미계산")
             if w:
                 out.append(f"  비중 제안 {w.get('suggested', 0):.2%} → 확정 {w.get('confirmed', 0) or 0:.2%}")
             issues = validate(a, today=self.now)
             errs = [i for i in issues if i.level == "error"]
             out.append(f"  검증: 오류 {len(errs)} / 경고 {len(issues) - len(errs)}" + (" — " + "; ".join(i.message for i in errs[:3]) if errs else ""))
+            fin = (a.meta.get("draft") or {}).get("financials") or {}
+            if fin.get("basis"):
+                from .engine.valuation import basis_summary
+
+                out.append("  회계 기준: " + basis_summary(fin))
+            dm = a.meta.get("draft") or {}
+            if dm.get("lights") is not None:
+                from .engine.evidence import light_counts_text
+
+                fl = a.meta.get("flags") or {}
+                gate = dm.get("claim_gate") or {}
+                out.append("  증거·판단(v7): " + light_counts_text(dm.get("lights") or {})
+                           + (" · 신규 BUY 보류" if fl.get("hold_new_buy") else "") + (" · 재검토" if fl.get("review") else "")
+                           + (" · 증거 없는 판단" if fl.get("no_evidence") else "") + (f" · 제안 대기 {fl.get('pending_proposals')}" if fl.get("pending_proposals") else "")
+                           + (" · ⚠ Claim 품질 게이트 미달" if gate.get("status") == "needs_claim_review" else ""))
+                sched = dm.get("evidence_schedule") or []
+                if sched:
+                    out.append("  다음 증거: " + " · ".join(f"{x['date']} {x['what'][:16]}" for x in sched[:3]))
         else:
             out.append("[A 신규 투자 맵] 없음 — 「작업 → A 맵 생성」")
         out.append("")
@@ -339,8 +363,8 @@ class Ops:
             raise OpsError(f"{ticker} 는 관심종목에 없습니다. 먼저 추가하세요")
         m = new_map_skeleton(it.ticker, it.name, it.invest_type or "growth", self.now, n_drivers=max(3, min(5, n_drivers)))
         if it.sector:
-            m["A8.2"].links = [f"S.{it.sector}"]
-        m["A8.3"].links = ["M0"]
+            m["A9.2"].links = [f"S.{it.sector}"]
+        m["A9.3"].links = ["M0"]
         self.store.save_map(m)
         self.log(f"A 맵 생성 {m.map_id}")
         return m
@@ -349,8 +373,8 @@ class Ops:
         """NewMap → 화면 폼 값 (모두 문자열/리스트)."""
         def s(v: Any) -> str:
             return "" if v is None else str(v)
-        w = m["A6.1"].value if isinstance(m["A6.1"].value, dict) else {}
-        ep = m.value("A6.2") if isinstance(m.value("A6.2"), dict) else {}
+        w = m["A7.1"].value if isinstance(m["A7.1"].value, dict) else {}
+        ep = m.value("A7.2") if isinstance(m.value("A7.2"), dict) else {}
         pr = ep.get("price_range") or [None, None]
         drivers = []
         for n in m.children("A1"):
@@ -363,28 +387,28 @@ class Ops:
                 "next_check": s(d.next_check) if d and d.next_check else "", "higher_is_better": d.higher_is_better if d else True,
             })
         scen = {}
-        for nid, nm in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+        for nid, nm in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
             sc = m[nid].scenario
             scen[nm] = {"probability": s(sc.probability) if sc else "", "target_price": s(sc.target_price) if sc else "",
                         "assumptions": ", ".join(sc.assumptions) if sc else "", "horizon": s(sc.horizon_months) if sc else "12",
                         "method": sc.valuation_method if sc else ""}
         risks = []
-        for nid in ("A4.1", "A4.2", "A4.3"):
+        for nid in ("A5.1", "A5.2", "A5.3"):
             v = m.value(nid) if isinstance(m.value(nid), dict) else {}
             risks.append({"text": s(v.get("text")), "probability": s(v.get("probability")), "impact_pct": s(v.get("impact_pct"))})
-        kill = m["A4.4.1"].rule
+        kill = m["A5.4.1"].rule
         return {
             "thesis": s(m.value("A0")), "horizon": s(m.value("A0.2")) or "1Y", "confidence": s(m.value("A0.3")) or "M",
             "price": s(m.value("A0.4")), "price_source": s(m["A0.4"].source.name) if m["A0.4"].source else "KRX 종가",
             "drivers": drivers,
             "implied": s(m.value("A2.1")), "mine": s(m.value("A2.2")), "why": s(m.value("A2.3")),
-            "scenarios": scen, "band": s(m.value("A3.6.1")), "revision": s(m.value("A3.6.3")) or "flat",
+            "scenarios": scen, "band": s(m.value("A3.5.1")), "revision": s(m.value("A3.5.3")) or "flat",
             "risks": risks, "kill_condition": kill.condition if kill else "", "kill_note": s(kill.note) if kill else "",
-            "early_warning": s(m.value("A4.5")),
+            "early_warning": s(m.value("A5.5")),
             "w_suggested": s(w.get("suggested")), "w_confirmed": "" if w.get("confirmed") is None else f"{w['confirmed'] * 100:g}",
             "w_reason": s(w.get("reason")), "entry_lo": s(pr[0]), "entry_hi": s(pr[1]), "tranches": s(ep.get("tranches") or 3),
-            "stop_dd": _dd_from_rule(m["A6.3"].rule), "tp_price": _price_from_rule(m["A6.4"].rule),
-            "tp_size": s(m["A6.4"].rule.size) if m["A6.4"].rule else "50%", "decision": s(m.value("A6.5")) or "WATCH",
+            "stop_dd": _dd_from_rule(m["A7.3"].rule), "tp_price": _price_from_rule(m["A7.4"].rule),
+            "tp_size": s(m["A7.4"].rule.size) if m["A7.4"].rule else "50%", "decision": s(m.value("A7.5")) or "WATCH",
         }
 
     def apply_a_form(self, m: NewMap, f: dict[str, Any], *, evaluate: bool = True) -> list[str]:
@@ -434,7 +458,7 @@ class Ops:
         if text(f.get("why")) in WHY_WRONG:
             m["A2.3"].set(f["why"], as_of=t)
         # 시나리오
-        for nm, nid in (("Bear", "A3.1"), ("Base", "A3.2"), ("Bull", "A3.3")):
+        for nm, nid in (("Bear", "A4.2"), ("Base", "A4.3"), ("Bull", "A4.4")):
             sf = (f.get("scenarios") or {}).get(nm) or {}
             prob = num(sf.get("probability"), name=f"{nm} 확률")
             tp = num(sf.get("target_price"), name=f"{nm} 목표가")
@@ -446,11 +470,11 @@ class Ops:
             m[nid].as_of = t
         band = num(f.get("band"), name="밴드 백분위")
         if band is not None:
-            m["A3.6.1"].set(band, as_of=t, source=Source(name="밸류 밴드", retrieved_at=t))
+            m["A3.5.1"].set(band, as_of=t, source=Source(name="밸류 밴드", retrieved_at=t))
         if text(f.get("revision")) in REVISIONS:
-            m["A3.6.3"].set(f["revision"], as_of=t, source=Source(name="컨센서스", retrieved_at=t))
+            m["A3.5.3"].set(f["revision"], as_of=t, source=Source(name="컨센서스", retrieved_at=t))
         # 리스크
-        for i, nid in enumerate(("A4.1", "A4.2", "A4.3")):
+        for i, nid in enumerate(("A5.1", "A5.2", "A5.3")):
             rf = (f.get("risks") or [{}] * 3)[i] if i < len(f.get("risks") or []) else {}
             rt = text(rf.get("text"))
             if not rt:
@@ -459,27 +483,27 @@ class Ops:
                         "impact_pct": num(rf.get("impact_pct"), name="리스크 영향") or -20, "text": rt}, as_of=t)
         cond = text(f.get("kill_condition"))
         if cond:
-            m["A4.4.1"].rule = Rule(trigger_type="fact", condition=cond, action=Action.exit, escalate_to="RED",
+            m["A5.4.1"].rule = Rule(trigger_type="fact", condition=cond, action=Action.exit, escalate_to="RED",
                                     note=text(f.get("kill_note")))
-            m["A4.4.1"].as_of = t
+            m["A5.4.1"].as_of = t
         if text(f.get("early_warning")):
-            m["A4.5"].set(text(f["early_warning"]), as_of=t, source=Source(name="직접 입력", retrieved_at=t))
+            m["A5.5"].set(text(f["early_warning"]), as_of=t, source=Source(name="직접 입력", retrieved_at=t))
         # 실행 계획
         wc = pct(f.get("w_confirmed"), name="확정 비중")
-        cur_w = m["A6.1"].value if isinstance(m["A6.1"].value, dict) else {}
+        cur_w = m["A7.1"].value if isinstance(m["A7.1"].value, dict) else {}
         if wc is not None:
-            m["A6.1"].value = {**cur_w, "confirmed": round(wc, 4), "reason": text(f.get("w_reason"))}
+            m["A7.1"].value = {**cur_w, "confirmed": round(wc, 4), "reason": text(f.get("w_reason"))}
         lo, hi = num(f.get("entry_lo"), name="진입 하단"), num(f.get("entry_hi"), name="진입 상단")
         if lo is not None and hi is not None:
-            m["A6.2"].set({"price_range": [lo, hi], "tranches": int(num(f.get("tranches"), name="분할") or 1)}, as_of=t)
+            m["A7.2"].set({"price_range": [lo, hi], "tranches": int(num(f.get("tranches"), name="분할") or 1)}, as_of=t)
         dd = pct(f.get("stop_dd"), name="손절 하락률")
         if dd is not None:
-            m["A6.3"].rule = Rule(trigger_type="price", condition=f"drawdown > {dd:g}", action=Action.review, escalate_to="YELLOW")
+            m["A7.3"].rule = Rule(trigger_type="price", condition=f"drawdown > {dd:g}", action=Action.review, escalate_to="YELLOW")
         tpp = num(f.get("tp_price"), name="익절 가격")
         if tpp is not None:
-            m["A6.4"].rule = Rule(trigger_type="price", condition=f"price > {tpp:g}", action=Action.trim, size=text(f.get("tp_size")) or "50%")
+            m["A7.4"].rule = Rule(trigger_type="price", condition=f"price > {tpp:g}", action=Action.trim, size=text(f.get("tp_size")) or "50%")
         if text(f.get("decision")) in DECISIONS:
-            m["A6.5"].set(f["decision"], as_of=t)
+            m["A7.5"].set(f["decision"], as_of=t)
         if evaluate:
             evaluate_new_map(m, today=t, enforce_gate=True)
         self.store.save_map(m)
@@ -527,16 +551,16 @@ class Ops:
         qty = num(f.get("quantity"), name="수량", required=True)
         w = pct(f.get("w_target"), name="목표 비중")
         if w is None:
-            v = m["A6.1"].value if isinstance(m["A6.1"].value, dict) else {}
+            v = m["A7.1"].value if isinstance(m["A7.1"].value, dict) else {}
             w = v.get("confirmed")
         if w is None:
-            raise OpsError("목표 비중이 필요합니다 (A6.1 확정 비중 또는 직접 입력)")
+            raise OpsError("목표 비중이 필요합니다 (A7.1 확정 비중 또는 직접 입력)")
         pos = Position(entry_date=entry_date, entry_price=price or 0, quantity=qty or 0, w_target=w,
                        eps_fwd_entry=num(f.get("eps_fwd"), name="forward EPS"))
         b = snapshot_to_holding(m, pos, today=entry_date)
         self.store.save_map(b)
         if m.decision is None or m.decision.value != "BUY":
-            m["A6.5"].set("BUY", as_of=entry_date)
+            m["A7.5"].set("BUY", as_of=entry_date)
             self.store.save_map(m)
         self.log(f"B 맵 생성 {b.map_id} (스냅숏 {b.snapshot_hash})")
         return b
@@ -876,10 +900,10 @@ class Ops:
 
     # ------------------------------------------------------------------ 설계 v6: 평가 모델 · 가정 묶음 시나리오 (계산은 engine; 숫자는 사람)
     def valuation_text(self, m: NewMap, *, recompute: bool = True) -> str:
-        """A3.8 기준 · A3.9 평가 모델(PER·정상화·SOTP·역산) · A3.10 매력도 · A3.11 신뢰도 · 시나리오 한 줄씩."""
+        """A3.2 기준 · A3.3 평가 모델(PER·정상화·SOTP·역산) · A4.7 매력도 · A3.4 신뢰도 · 시나리오 한 줄씩."""
         from .engine.attractiveness import attractiveness_line, compute_valuation_all, confidence_line
         from .engine.scenario_model import SCENARIO_IDS, scenario_line
-        from .engine.valuation import Criteria, basis_summary, valuation_table
+        from .engine.valuation import Criteria, basis_table, valuation_table
         from .models import ValuationModel
 
         if recompute:
@@ -887,39 +911,205 @@ class Ops:
             evaluate_new_map(m, today=self.now, enforce_gate=True)
         draft = m.meta.get("draft") or {}
         c = Criteria.from_map(m)
-        rows = [f"평가 기준(A3.8): EPS {c.eps_basis} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares or '유도/공시'} · 순현금 {c.net_cash if c.net_cash is not None else '표'}"
+        rows = ["시나리오 한눈에(A4.1):"] + ["  " + ln for ln in str(m["A4.1"].value or "").split("\n")] if "A4.1" in m and m["A4.1"].value else []
+        rows += [f"평가 기준(A3.2): EPS {c.eps_basis} · PER {c.per if c.per is not None else '기본값'} · 주식 수 {c.shares or '유도/공시'} · 순현금 {c.net_cash if c.net_cash is not None else '표'}"
                 f" · 배당 {c.dividend_in_return} · SOTP 멀티플 {c.sotp_multiples or '없음 (사용자 입력)'}"]
-        rows.append("회계 기준(v6 §11.1): " + basis_summary(draft.get("financials") or {}))
+        rows += basis_table(draft.get("financials") or {}).split("\n")
         rows += valuation_table(ValuationModel.model_validate(draft.get("valuation") or {}), m.current_price).split("\n")
         for name, nid in SCENARIO_IDS.items():
             sc = m[nid].scenario if nid in m else None
             rows.append("  " + (scenario_line(sc) if sc is not None else f"{name}: 공란") + (f" · p={sc.probability:.2f}" if sc is not None and sc.probability is not None else ""))
-        rows.append("매력도(A3.10): " + attractiveness_line(draft.get("attractiveness") or {}))
-        rows.append("신뢰도(A3.11): " + confidence_line(draft.get("confidence") or {}, len(draft.get("valuation_log") or [])))
+        rows.append("매력도(A4.7): " + attractiveness_line(draft.get("attractiveness") or {}))
+        rows.append("신뢰도(A3.4): " + confidence_line(draft.get("confidence") or {}, len(draft.get("valuation_log") or [])))
         rows.append("  가정 묶음은 HTML 편집의 「밸류 계산기」 또는 `mindmap scenario <맵> --set Bear.A1.1=-30 --set Bear.per=3.5` 로 넣는다")
         return "\n".join(rows)
 
     def set_valuation_criteria(self, m: NewMap, fields: dict[str, Any], *, save: bool = True) -> str:
-        """A3.8 평가 기준의 일부를 바꾼다 (None 이면 그 키를 지움) — 그 뒤 밸류 묶음을 다시 계산한다."""
+        """A3.2 평가 기준의 일부를 바꾼다 (None 이면 그 키를 지움) — 그 뒤 밸류 묶음을 다시 계산한다."""
         from .engine.attractiveness import compute_valuation_all
         from .engine.valuation import ensure_valuation_nodes
 
         ensure_valuation_nodes(m)
-        crit = dict(m["A3.8"].value) if isinstance(m["A3.8"].value, dict) else {}
+        crit = dict(m["A3.2"].value) if isinstance(m["A3.2"].value, dict) else {}
         for k, v in fields.items():
             if v is None or v == "" or v == {}:
                 crit.pop(k, None)
             else:
                 crit[k] = v
-        m["A3.8"].value = crit or None
-        m["A3.8"].as_of = self.now
-        m["A3.8"].tags = sorted(set(m["A3.8"].tags) | {"user"})
+        m["A3.2"].value = crit or None
+        m["A3.2"].as_of = self.now
+        m["A3.2"].tags = sorted(set(m["A3.2"].tags) | {"user"})
         notes = compute_valuation_all(m, today=self.now)
         evaluate_new_map(m, today=self.now, enforce_gate=True)
         if save:
             self.store.save_map(m)
-        self.log(f"{m.map_id} 평가 기준 갱신 ({', '.join(fields)}) → " + (m["A3.9"].value or "")[:120])
+        self.log(f"{m.map_id} 평가 기준 갱신 ({', '.join(fields)}) → " + (m["A3.3"].value or "")[:120])
         return "\n".join(n for n in notes if n.startswith(("평가 모델", "매력도", "신뢰도")))
+
+    # ------------------------------------------------------------------ 설계 v7: 성립 조건 · 관측값 · 증거 계획 · 규칙 · Claim 품질
+    def conditions_text(self, m: NewMap, *, price: float | None = None, pair_x: str | None = None, recompute: bool = True) -> str:
+        """「D」 성립 조건 — 가정 표 · 역산 표(한 변수 해 · 두 변수 조합) · 날짜별 필요 경로 (A2.4)."""
+        from .engine.decision import compute_v7_all
+        from .engine.path import conditions_text, inversion_table, inversion_table_text
+
+        if recompute:
+            compute_v7_all(m, today=self.now, price=price)
+        if pair_x:
+            inv = inversion_table(m, price=price, pair_x=pair_x, today=self.now)
+            return inversion_table_text(inv)
+        return conditions_text(m)
+
+    def evidence_text(self, m: NewMap, *, recompute: bool = True) -> str:
+        """「G」 증거 계획 · 신호등 · 증거 일정 · 판단 수정 규칙 · 알림."""
+        from .engine.decision import compute_v7_all
+        from .engine.evidence import (
+            evidence_plan,
+            evidence_plan_text,
+            evidence_schedule,
+            evidence_schedule_text,
+            light_counts_text,
+        )
+        from .engine.revision import alerts, rules_text
+
+        if recompute:
+            compute_v7_all(m, today=self.now)
+        rows = evidence_plan(m, today=self.now, write=True)
+        out = ["증거 계획 (A5.5) — 신호등: " + light_counts_text((m.meta.get("draft") or {}).get("lights") or {}), evidence_plan_text(rows), "",
+               "증거 일정 (A8.1):", evidence_schedule_text(evidence_schedule(m, today=self.now)), "", rules_text(m), "", "알림:"]
+        al = alerts(m, today=self.now)
+        out += ["  " + a for a in al] if al else ["  없음"]
+        return "\n".join(out)
+
+    def observe(self, m: NewMap, node_id: str, raw: dict[str, Any], *, save: bool = True, entered_by: str = "user") -> str:
+        """관측값 입력 (데이터 계약 8칸). 사람·수집기·에이전트 공통. 저장 뒤 신호등·규칙을 다시 돌린다."""
+        from .engine.decision import compute_v7_all
+        from .engine.evidence import observation_from_dict, observe
+        from .engine.revision import log_observation
+
+        if node_id not in m or m[node_id].driver is None:
+            raise OpsError(f"{node_id} 는 드라이버 노드가 아니다")
+        try:
+            obs = observation_from_dict({**raw, "entered_by": raw.get("entered_by") or entered_by})
+        except Exception as e:  # noqa: BLE001 — pydantic 메시지를 사람에게
+            raise OpsError(f"관측값 칸이 모자라거나 틀리다 — metric_id · period · value_type · basis · value · as_of · compare_at · source · verification: {e}") from e
+        warns = observe(m, node_id, obs)
+        log_observation(m, self.now, node_id, f"{obs.metric_id} {obs.period} = {obs.value} ({obs.as_of}, {obs.source}, {obs.verification}" + (f", {entered_by}" if entered_by else "") + ")")
+        notes = compute_v7_all(m, today=self.now)
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        d = m[node_id].driver
+        light = d.light.value if d is not None and d.light else "NONE"
+        self.log(f"{m.map_id} {node_id} 관측값 {obs.metric_id} {obs.period}={obs.value} → 신호등 {light}")
+        return "\n".join([f"저장: {node_id} {obs.metric_id} {obs.period} = {obs.value} ({obs.as_of}, {obs.verification})", f"신호등: {light} — {d.light_reason if d else ''}"]
+                         + [f"  ! {w}" for w in warns] + [f"  · {n}" for n in notes if "이벤트" in n or "신호등" in n])
+
+    def observe_file(self, m: NewMap, path: str | Path, *, save: bool = True, entered_by: str = "collector") -> str:
+        """JSON 파일(목록: [{node_id, metric_id, …}] 또는 {node_id: [..]}) 로 여러 관측값을 넣는다 — 수집기·에이전트 입력 경로."""
+        import json as _json
+
+        data = _json.loads(Path(path).read_text(encoding="utf-8"))
+        items: list[tuple[str, dict[str, Any]]] = []
+        if isinstance(data, list):
+            items = [(str(x.get("node_id")), {k: v for k, v in x.items() if k != "node_id"}) for x in data]
+        elif isinstance(data, dict):
+            for nid, lst in data.items():
+                items += [(nid, dict(x)) for x in (lst if isinstance(lst, list) else [lst])]
+        out: list[str] = []
+        for nid, raw in items:
+            try:
+                out.append(self.observe(m, nid, raw, save=False, entered_by=entered_by).split("\n")[0])
+            except OpsError as e:
+                out.append(f"건너뜀 {nid}: {e}")
+        if save:
+            self.store.save_map(m)
+        return "\n".join(out) if out else "관측값 없음 (파일이 비었다)"
+
+    def set_driver_fields(self, m: NewMap, node_id: str, *, thesis_role: str | None = None, band: float | None = None, bound_bear: float | str | None = None,
+                          bound_bull: float | str | None = None, save: bool = True) -> str:
+        """역할·띠·경계를 사람이 확정한다 (제안값을 덮어쓴다 → source=user)."""
+        from .engine.decision import compute_v7_all
+
+        d = m[node_id].driver if node_id in m else None
+        if d is None:
+            raise OpsError(f"{node_id} 는 드라이버 노드가 아니다")
+        if thesis_role:
+            if thesis_role not in ("required", "core", "secondary"):
+                raise OpsError("역할은 required · core · secondary 중 하나")
+            d.thesis_role, d.thesis_role_source = thesis_role, "user"
+        if band is not None or bound_bear is not None or bound_bull is not None:
+            if band is not None:
+                d.band = band
+            if bound_bear is not None:
+                d.bound_bear = bound_bear
+            if bound_bull is not None:
+                d.bound_bull = bound_bull
+            d.bounds_source = "user"
+        compute_v7_all(m, today=self.now)
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        return f"{node_id}: 역할 {d.thesis_role or '—'} ({d.thesis_role_source or '—'}) · 띠 {d.band} · 경계 Bear {d.bound_bear} / Bull {d.bound_bull} ({d.bounds_source or '—'}) · 신호등 {d.light.value if d.light else 'NONE'}"
+
+    def add_rule(self, m: NewMap, *, driver_id: str, grade: str, threshold: float | str, persistence: int = 2, side: str = "bear",
+                 pct_points: float | None = None, save: bool = True) -> str:
+        from .engine.decision import compute_v7_all
+        from .engine.revision import add_rule
+
+        try:
+            node = add_rule(m, driver_id=driver_id, grade=grade, threshold=threshold, persistence=persistence, side=side, pct_points=pct_points, today=self.now)
+        except ValueError as e:
+            raise OpsError(str(e)) from e
+        compute_v7_all(m, today=self.now)
+        if save:
+            self.store.save_map(m)
+        self.log(f"{m.map_id} 규칙 {node.id} 추가: {node.label}")
+        return f"{node.id} {node.label} — {node.rule.condition if node.rule else ''}"
+
+    def decide_event(self, m: NewMap, event_id: str, *, accept: bool, pct_points: float | None = None, note: str = "", save: bool = True) -> str:
+        from .engine.revision import approve_event, compute_flags
+
+        try:
+            ev = approve_event(m, event_id, accept=accept, today=self.now, pct_points=pct_points, note=note)
+        except ValueError as e:
+            raise OpsError(str(e)) from e
+        compute_flags(m)
+        evaluate_new_map(m, today=self.now, enforce_gate=True)
+        if save:
+            self.store.save_map(m)
+        return f"{ev['id']} {ev['rule_label']}: {ev['status']}" + (f" — {ev.get('applied')}" if ev.get("applied") else "")
+
+    def clear_flag(self, m: NewMap, name: str, *, save: bool = True) -> str:
+        from .engine.revision import clear_flag, compute_flags
+
+        clear_flag(m, name, today=self.now)
+        compute_flags(m)
+        if save:
+            self.store.save_map(m)
+        return f"플래그 {name} 해제"
+
+    def claim_quality_text(self, claims_dir: str | Path | None = None, ref_dir: str | Path | None = None, report_ids: list[str] | None = None) -> str:
+        """「T」 Claim 품질 — 단계별 통계 (+ 기준 폴더가 있으면 비교)."""
+        from .reports.claim_stats import (
+            claim_compare,
+            claim_gate,
+            claim_stats,
+            compare_text,
+            gate_line,
+            stats_text,
+        )
+        from .reports.claims import load_claimsets
+
+        d = Path(claims_dir) if claims_dir else self.store.claims_dir
+        sets = load_claimsets(d, report_ids=report_ids)
+        if not sets:
+            return f"ClaimSet 없음: {d}"
+        out = [stats_text(claim_stats(sets))]
+        ref = load_claimsets(Path(ref_dir), report_ids=[cs.report_id for cs in sets]) if ref_dir else []
+        if ref:
+            out += ["", compare_text(claim_compare(ref, sets))]
+        out += ["", gate_line(claim_gate(sets, reference=ref or None))]
+        return "\n".join(out)
 
     # ------------------------------------------------------------------ Kill 후보 (설계 v4 V6)
     def kill_candidates(self, m: NewMap) -> list[dict[str, Any]]:
@@ -935,7 +1125,7 @@ class Ops:
 
     def apply_kill_candidate(self, m: NewMap, index: int, *, observable: str, update_cadence: str, action: str,
                              condition: str | None = None, save: bool = True) -> str:
-        """후보 index(0부터) 를 A4.4.x Rule 로 확정한다. 관측 지표(observable)·갱신 주기·위반 시 행동 세 칸이 비면 넣지 않는다.
+        """후보 index(0부터) 를 A5.4.x Rule 로 확정한다. 관측 지표(observable)·갱신 주기·위반 시 행동 세 칸이 비면 넣지 않는다.
         condition 은 DSL 조건식 (없으면 후보의 driver_node 와 임계값으로 만들고, 그것도 없으면 사용자가 적어야 한다)."""
         cands = self.kill_candidates(m)
         if not (0 <= index < len(cands)):
@@ -953,10 +1143,10 @@ class Ops:
                 cond = f"driver[{c['driver_node']}].current {c.get('op', '<')} {c['threshold']:g}"
             else:
                 raise OpsError("조건식이 없다 — 예: driver[A1.1].current < 50 처럼 적을 것 (후보의 KPI 가 A1 드라이버에 없음)")
-        # 빈 A4.4.x 를 찾는다 (A4.4.1 부터)
-        nid = next((f"A4.4.{k}" for k in range(1, 6) if f"A4.4.{k}" in m and m[f"A4.4.{k}"].rule is None), None)
+        # 빈 A5.4.x 를 찾는다 (A5.4.1 부터)
+        nid = next((f"A5.4.{k}" for k in range(1, 6) if f"A5.4.{k}" in m and m[f"A5.4.{k}"].rule is None), None)
         if nid is None:
-            raise OpsError("A4.4.1~5 가 모두 차 있다")
+            raise OpsError("A5.4.1~5 가 모두 차 있다")
         n = m[nid]
         n.rule = Rule(trigger_type="fact", condition=cond, action=act, escalate_to="RED",
                       note=f"사용자 확정 Kill — 관측: {observable.strip()} · 갱신: {update_cadence.strip()} · 근거: {c.get('broker')} {c.get('claim_id')} '{(c.get('condition') or '')[:60]}'")
@@ -1289,7 +1479,9 @@ class Ops:
                                    fetch_price=fetch, price_fetcher=f.get("price_fetcher"),
                                    claims=claims_mode, claims_dir=self.store.claims_dir, n_drivers=5,
                                    llm_groups=bool(f.get("llm_groups", False)), issue_check=bool(f.get("issue_check", True)),
-                                   prefill_suggestions=bool(f.get("prefill_suggestions", False)))
+                                   prefill_suggestions=bool(f.get("prefill_suggestions", False)),
+                                   claims_ref=Path(f["claims_ref"]) if f.get("claims_ref") else None, claim_gate_on=bool(f.get("claim_gate", True)),
+                                   llm_events=str(f.get("llm_events") or "auto"))
         except DraftError as e:
             raise OpsError(str(e)) from e
         if r.issue_set is not None:

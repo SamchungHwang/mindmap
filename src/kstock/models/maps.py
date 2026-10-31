@@ -43,7 +43,7 @@ class MindMap(BaseModel):
     profile: InvestType | None = None
     created_at: date
     updated_at: date
-    schema_version: str = "1.0"
+    schema_version: str = "2.0"
     nodes: dict[str, Node] = Field(default_factory=dict)
     meta: dict[str, Any] = Field(default_factory=dict)
 
@@ -72,6 +72,9 @@ class MindMap(BaseModel):
 
     def children(self, node_id: str) -> list[Node]:
         kids = [n for n in self.nodes.values() if n.parent == node_id]
+        if len(kids) >= 2 and all(n.event is not None for n in kids):
+            # 이벤트 가지(A6.1 · B2.4) 는 **날짜순**으로 보인다 — 번호는 영속 ID 라 날짜순이 아니다 (2026-10-31)
+            return sorted(kids, key=lambda n: (n.event.date, _sort_key(n.id)))
         return sorted(kids, key=lambda n: _sort_key(n.id))
 
     def descendants(self, node_id: str) -> Iterator[Node]:
@@ -146,33 +149,33 @@ class NewMap(MindMap):
     def scenarios(self) -> dict[str, Scenario]:
         """목표가가 있는 시나리오만 (설계 v6: computed 인데 미계산이면 target_price=None — ER·손익비 계산에서 뺀다; `scenario_nodes` 가 전부)."""
         out: dict[str, Scenario] = {}
-        for n in self.children("A3"):
+        for n in self.children("A4"):
             if n.scenario is not None and n.scenario.target_price is not None:
                 out[n.scenario.name] = n.scenario
         return out
 
     def scenario_nodes(self) -> dict[str, Node]:
         """Bear/Base/Bull 노드 전부 (미계산 포함)."""
-        return {n.scenario.name: n for n in self.children("A3") if n.scenario is not None}
+        return {n.scenario.name: n for n in self.children("A4") if n.scenario is not None}
 
     def kill_rules(self) -> list[Rule]:
-        return [n.rule for n in self.children("A4.4") if n.rule is not None] + \
-               ([self["A4.4"].rule] if "A4.4" in self and self["A4.4"].rule is not None else [])
+        return [n.rule for n in self.children("A5.4") if n.rule is not None] + \
+               ([self["A5.4"].rule] if "A5.4" in self and self["A5.4"].rule is not None else [])
 
     def exec_rules(self) -> list[Rule]:
         out: list[Rule] = []
-        for nid in ("A6.3", "A6.4"):
+        for nid in ("A7.3", "A7.4"):
             if nid in self and self[nid].rule is not None:
                 out.append(self[nid].rule)
             out += [n.rule for n in self.children(nid) if n.rule is not None]
         return out
 
     def catalysts(self) -> list[Event]:
-        return [n.event for n in self.children("A5.1") if n.event is not None]
+        return [n.event for n in self.children("A6.1") if n.event is not None]
 
     @property
     def decision(self) -> Decision | None:
-        v = self.value("A6.5")
+        v = self.value("A7.5")
         return Decision(v) if v else None
 
 
@@ -297,6 +300,9 @@ _KIND_TO_CLS: dict[MapKind, type[MindMap]] = {
 
 
 def load_map(data: dict[str, Any]) -> MindMap:
+    from .migrate import migrate_map_data
+
+    data, _ = migrate_map_data(data)          # 1.0 → 2.0 노드 번호 (옛 파일은 저장할 때 새 번호로 쓰인다)
     kind = MapKind(data["kind"])
     return _KIND_TO_CLS[kind].model_validate(data)
 

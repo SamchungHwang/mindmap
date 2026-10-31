@@ -29,7 +29,7 @@ from .valuation import (
     segment_values,
 )
 
-SCENARIO_IDS = {"Bear": "A3.1", "Base": "A3.2", "Bull": "A3.3"}
+SCENARIO_IDS = {"Bear": "A4.2", "Base": "A4.3", "Bull": "A4.4"}
 # KR-SEMI Bear 기본 템플릿 — 라벨만, 숫자는 공란 (사용자 결정 ⑥). 사이클 꺾임을 담을 수 있게 세 축을 비워 둔다
 BEAR_TEMPLATES: dict[str, list[str]] = {
     "KR-SEMI": ["메모리 ASP 경로 (컨센 대비 −%)", "멀티플 압축 (적용 PER)", "기준 연도 (2027E 고점 vs 2028E 하강)"],
@@ -102,7 +102,7 @@ def _segment_of(m: MindMap, da: DriverAssumption) -> str | None:
 
 
 def evaluate_scenario(m: MindMap, sc: Scenario, *, today: date | None = None) -> ScenarioResult:
-    """가정 묶음 하나를 돌린다. 맵의 meta.draft.financials / segments 와 A3.8 평가 기준만 쓴다 (digest 불필요)."""
+    """가정 묶음 하나를 돌린다. 맵의 meta.draft.financials / segments 와 A3.2 평가 기준만 쓴다 (digest 불필요)."""
     today = today or date.today()
     crit = Criteria.from_map(m)
     year = sc.eps_year or crit.eps_year or ((m.meta.get("draft") or {}).get("financials") or {}).get("year")
@@ -244,15 +244,103 @@ def scenario_line(sc: Scenario) -> str:
         parts.append(f"EPS {r.eps:,.0f}")
     parts.append(f"× PER {r.per:.2f}" if r.per else "")
     parts.append(f"→ {r.price:,.0f}원" + (f" ({r.price_vs_p0_pct:+.0f}%)" if r.price_vs_p0_pct is not None else ""))
+    if sc.name == "Base" and not sc.driver_assumptions and sc.per is None and (sc.eps_basis or "consensus") == "consensus":
+        parts.append("(= 목표가 중앙값 재현 — 순환, 내 PER 입력 전 참고)")       # 설계 v6 §11.2 (v7 T2)
     return " ".join(p for p in parts if p) + (" ⚠ " + r.warnings[0] if r.warnings else "")
+
+
+SCENARIO_MEANING = {"Bear": "무엇이 무너지면 어디까지 떨어지나", "Base": "논제가 그대로 실현되면", "Bull": "무엇이 추가로 잘되면"}
+
+
+def _assumption_text(m: MindMap, sc: Scenario) -> str:
+    """가정 묶음을 사람 말로 — 'DRAM ASP −30% · 파운드리 손익 −20,000억원'. 없으면 Base 는 컨센 경로, 그 밖은 미입력."""
+    parts: list[str] = []
+    for da in sc.driver_assumptions:
+        lab = m[da.node_id].label.split(" (")[0] if da.node_id in m else da.node_id
+        var = f" {da.variable}" if da.variable else ""
+        if da.delta_pct is not None:
+            parts.append(f"{lab}{var} {da.delta_pct:+g}{da.unit or '%'}")
+        elif da.value is not None:
+            parts.append(f"{lab}{var} = {da.value:,g}{da.unit or ''}")
+    if parts:
+        return " · ".join(parts)
+    if sc.assumptions:
+        return "; ".join(a[:40] for a in sc.assumptions[:2]) + (" (문장 가정 — 모델에 안 들어감)" if sc.price_source != "computed" else "")
+    return "가정 없음 = 컨센 경로" if sc.name == "Base" else "미입력"
+
+
+def scenario_overview(m: MindMap) -> str:
+    """A4.1 「시나리오 한눈에」 — 갈래마다 한 줄(뜻 · 가정 · PER · 확률 → 목표가 · 현재가 대비), 확률가중, 증권사 후보, 빠진 것.
+    숫자는 통합 모델 결과(코드), 가정·확률은 사람이 넣는다."""
+    if not isinstance(m, NewMap):
+        return ""
+    p0 = m.current_price
+    lines = ["시나리오 = 드라이버 가정 묶음 + 적용 PER + 확률 → 통합 모델이 목표가 (가정·확률은 사람, 숫자는 코드)"]
+    todo: list[str] = []
+    probs: list[float] = []
+    starred = False
+    for name, nid in SCENARIO_IDS.items():
+        sc = m[nid].scenario if nid in m else None
+        head = f"  {name} ({SCENARIO_MEANING[name]}): "
+        if sc is None:
+            lines.append(head + "미입력")
+            todo.append(f"{name} 가정")
+            continue
+        r = sc.model
+        per = sc.per if sc.per else (r.per if r is not None and r.per else None)
+        per_txt = (f"PER {per:.2f}" + ("" if sc.per else "*")) if per else "PER —"
+        starred = starred or bool(per and not sc.per)
+        p_txt = f"p {sc.probability:.0%}" if sc.probability is not None else "p —"
+        tp = sc.target_price
+        if tp:
+            tp_txt = f"{tp:,.0f}원" + (f" ({tp / p0 - 1:+.0%})" if p0 else "")
+        else:
+            tp_txt = "미계산" + (" (필요: " + "; ".join(r.missing)[:60] + ")" if r is not None and r.missing else "")
+        lines.append(head + f"{_assumption_text(m, sc)} · {per_txt} · {p_txt} → {tp_txt}")
+        if sc.probability is None:
+            todo.append(f"{name} 확률")
+        else:
+            probs.append(sc.probability)
+        if not tp:
+            todo.append(f"{name} 목표가")
+        if name == "Base" and not sc.driver_assumptions and sc.per is None:
+            lines.append("        (Base 가정 없음 = 컨센 EPS × 목표가 유도 PER → 목표가 중앙값 재현 — 순환, 내 PER 입력 전 참고)")
+    if starred:
+        lines.append("  (* = 적용 PER 기본값 — 목표가 중앙값 ÷ 컨센 EPS)")
+    if probs and abs(sum(probs) - 1.0) > 0.011:
+        todo.append(f"확률 합 {sum(probs):.0%} ≠ 100%")
+    att = (m.meta.get("draft") or {}).get("attractiveness") or {}
+    if att.get("status") == "계산됨":
+        lines.append(f"  확률가중 V = Σ p·TP = {att['value']:,.0f}원 · 기대수익률 {att['er_price_pct']:+.1f}% · 하방(Bear) {att.get('downside_pct', 0):+.0f}% → A4.7")
+    cands = (m.meta.get("draft") or {}).get("scenario_candidates") or []
+    if cands:
+        lines.append(f"  증권사 후보 {len(cands)}개 (리포트 제시 = 그대로 · 산식 재계산/목표가 = 사용자 재해석으로 기록) — 콘솔 「C」:")
+        for i, c in enumerate(cands[:6]):
+            tp = c.get("target_price")
+            m_ = (f" {c.get('method')} {c.get('multiple'):g}배 × {c.get('base_year') or ''} {c.get('base_value'):,.0f}" if c.get("multiple") and c.get("base_value") else "")
+            lines.append(f"    {i + 1}) {c.get('broker', '?')} {c.get('kind', '')}{(' ' + str(c.get('name'))) if c.get('name') else ''}{m_} → {tp:,.0f}원" + (f" ({tp / p0 - 1:+.0%})" if tp and p0 else ""))
+    if todo:
+        lines.append("  빠진 것: " + " · ".join(todo[:6]) + " — 콘솔 「C」 후보 넣기 · 「P」 예시 확률(미검증) · 「V」 가정·PER · HTML 계산기 ∑ · `mindmap scenario --set Bear.A1.1=-30 --probs 30/45/25`")
+    else:
+        lines.append("  세 갈래 모두 가정·확률·목표가가 있다 — 바꾸려면 「V」 또는 HTML 계산기 ∑")
+    return "\n".join(lines)
+
+
+def write_scenario_overview(m: MindMap, *, today: date | None = None) -> str:
+    """A4.1 값에 쓴다 (compute_valuation_all 끝에서)."""
+    txt = scenario_overview(m)
+    if isinstance(m, NewMap) and "A4.1" in m and txt:
+        m["A4.1"].value = txt
+        m["A4.1"].as_of = today or date.today()
+    return txt
 
 
 def apply_bear_template(m: MindMap, sector: str | None, *, today: date) -> bool:
     """Bear 노드가 비어 있으면 섹터 템플릿 라벨을 질문에 적는다 — 숫자는 넣지 않는다 (사용자 결정 ⑥)."""
     labels = BEAR_TEMPLATES.get(sector or "")
-    if not labels or "A3.1" not in m:
+    if not labels or "A4.2" not in m:
         return False
-    n = m["A3.1"]
+    n = m["A4.2"]
     if n.scenario is not None:
         return False
     tag = "Bear 템플릿: " + " · ".join(labels)
@@ -264,7 +352,7 @@ def apply_bear_template(m: MindMap, sector: str | None, *, today: date) -> bool:
 
 
 def compute_scenarios(m: MindMap, *, today: date | None = None) -> list[str]:
-    """A3.1~3 중 price_source=computed 인 시나리오를 다시 계산해 model·target_price 를 쓴다. 미계산이면 기존 가격은 두고 경고."""
+    """A4.2~4 중 price_source=computed 인 시나리오를 다시 계산해 model·target_price 를 쓴다. 미계산이면 기존 가격은 두고 경고."""
     if not isinstance(m, NewMap):
         return []
     today = today or date.today()
@@ -289,4 +377,4 @@ def compute_scenarios(m: MindMap, *, today: date | None = None) -> list[str]:
     return notes
 
 
-__all__ = ["evaluate_scenario", "compute_scenarios", "scenario_line", "apply_bear_template", "SCENARIO_IDS", "BEAR_TEMPLATES"]
+__all__ = ["evaluate_scenario", "compute_scenarios", "scenario_line", "scenario_overview", "write_scenario_overview", "apply_bear_template", "SCENARIO_IDS", "SCENARIO_MEANING", "BEAR_TEMPLATES"]

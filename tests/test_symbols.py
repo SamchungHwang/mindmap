@@ -53,6 +53,24 @@ class TestSymbolBook(unittest.TestCase):
             self.assertEqual(b2.by_code("000000").sector, "KR-ROBOT")
             self.assertEqual(b2.by_code("005930").market_cap, 5e14)
 
+    def test_research_db_off_switch(self):
+        """KSTOCK_RESEARCH_DB=off 면 형제 폴더 기본값이 있어도 쓰지 않는다 — 개발 PC 에서 'DB 없음' 을 보는 테스트용."""
+        import os
+        from unittest import mock
+
+        from kstock.symbols import research_db_path
+
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "kstock.sqlite"
+            db.write_bytes(b"")
+            with mock.patch.dict(os.environ, {"KSTOCK_RESEARCH_DB": str(db)}):
+                self.assertEqual(research_db_path(), db)
+            for off in ("off", "none", "0", " OFF "):
+                with mock.patch.dict(os.environ, {"KSTOCK_RESEARCH_DB": off}), mock.patch("kstock.symbols.DEFAULT_RESEARCH_DB", db):
+                    self.assertIsNone(research_db_path())
+            with mock.patch.dict(os.environ, {"KSTOCK_RESEARCH_DB": ""}), mock.patch("kstock.symbols.DEFAULT_RESEARCH_DB", db):
+                self.assertEqual(research_db_path(), db)        # 비어 있으면 예전처럼 형제 폴더
+
     def test_research_db_replica(self):
         """리서치 DB 와 같은 모양(prices · reports)의 작은 복제본에서 읽는다."""
         with tempfile.TemporaryDirectory() as d:

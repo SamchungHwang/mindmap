@@ -1,0 +1,443 @@
+{
+ "report_id": "hk_97311",
+ "path": "tests/fixtures/reports/doosan/company_97311.txt",
+ "broker": "유진투자증권",
+ "report_date": "2026-10-30",
+ "ticker": "034020",
+ "quality": "llm",
+ "spans": [
+  {
+   "span_id": "sp_1b0921ee42",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 795,
+   "end": 837,
+   "text": "매출액 4.8조원, 영업이익 2,640억원으로 유사한 실적\n흐름을 전망한다."
+  },
+  {
+   "span_id": "sp_c67ed9e5da",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 960,
+   "end": 1047,
+   "text": "연간 수주 목표 13.3조원 달성을 위한 잔여 수주(3.3조원 +α)\n가 예정되어 있으며, 대형원전을 제외하더라도 가이던스 달성은 무난할 것\n이라 판단한다."
+  },
+  {
+   "span_id": "sp_4e5780ea4d",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1055,
+   "end": 1088,
+   "text": "SMR 1조원(계약 조건 합의 완료 단계로 연내\n체결 가능)"
+  },
+  {
+   "span_id": "sp_ecacd6f42a",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1090,
+   "end": 1167,
+   "text": "신재생 7,000억원(해상풍력 기자재·EPC 2건 협의 완료 단계),\n해외 복합 EPC 5,000억원(국내 1건, 해외 2건)이 기대된다."
+  },
+  {
+   "span_id": "sp_34c9cbe537",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1322,
+   "end": 1370,
+   "text": "가스터빈 수요 증가를 감안하면 추가 캐\n파 증설 결정이 이르면 연내 이루어질 전망이다."
+  },
+  {
+   "span_id": "sp_76ab091271",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1251,
+   "end": 1321,
+   "text": "2030년\n슬롯 예약 물량의 본계약 전환은 2027년, 2031년 슬롯은 2028년으로 예\n상되며, 수주잔고 증가가 기대된다."
+  },
+  {
+   "span_id": "sp_48945fd3a6",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1376,
+   "end": 1446,
+   "text": "10월 NuScale 1개 모듈 제작 계약을 체결했으며, PPA 지연 여부와\n무관하게 완결된 계약으로 실적에 반영될 전망이다."
+  },
+  {
+   "span_id": "sp_24aa5974d5",
+   "report_id": "hk_97311",
+   "page": 1,
+   "start": 1576,
+   "end": 1633,
+   "text": "대미투자 관련 기자재 발주는 미국 부지 확정\n및 한국 의회 승인 절차가 남아있어 내년 발주가 기대된다."
+  }
+ ],
+ "claims": [
+  {
+   "claim_id": "hk_97311:c10",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "4Q26 매출액 4.8조원, 영업이익 2,640억원의 실적을 전망한다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "earnings",
+   "driver_label": "4Q26 실적 전망",
+   "target_metric_id": "op",
+   "mechanism": "4Q 가스터빈 인도·체코 원전 진행률 반영 → 에너빌리티 외형 성장",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "4Q26",
+   "quant_refs": [
+    {
+     "metric": "op",
+     "col": "4Q26",
+     "value": 264.0,
+     "unit": "십억원",
+     "source": "text"
+    },
+    {
+     "metric": "revenue",
+     "col": "4Q26",
+     "value": 4800.0,
+     "unit": "십억원",
+     "source": "text"
+    }
+   ],
+   "span_ids": [
+    "sp_1b0921ee42"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "ok",
+    "support": "supported",
+    "note": "의미: 인용이 4Q26 매출 4.8조원, 영업이익 2,640억원 전망을 서술(분기 표기는 문맥상 4Q)."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c11",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "연간 수주 목표 13.3조원 달성을 위한 잔여 수주 3.3조원이 예정되어 있으며, 대형원전을 제외해도 가이던스 달성은 무난할 것으로 판단한다.",
+   "epistemic_type": "opinion",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "backlog",
+   "driver_label": "연간 수주 가이던스 달성",
+   "target_metric_id": null,
+   "mechanism": "SMR·신재생·해외 복합 EPC 잔여 수주 → 연간 수주 목표 달성",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "4Q26",
+   "quant_refs": [
+    {
+     "metric": "backlog",
+     "col": "2026E",
+     "value": 13.3,
+     "unit": "조원",
+     "source": "text"
+    }
+   ],
+   "span_ids": [
+    "sp_c67ed9e5da"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "ok",
+    "support": "supported",
+    "note": "의미: 인용이 목표 13.3조원, 잔여 수주 3.3조원, 대형원전 제외 시에도 달성 무난을 직접 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c12",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "SMR 약 1조원 수주는 계약 조건 합의 완료 단계로 연내 체결이 가능하다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "smr",
+   "driver_label": "SMR 연내 1조원 수주",
+   "target_metric_id": null,
+   "mechanism": "계약 조건 합의 완료 → 연내 계약 체결 → 수주 반영",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "4Q26",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_4e5780ea4d"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용이 SMR 1조원, 계약 조건 합의 완료, 연내 체결 가능을 직접 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c13",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "신재생 7,000억원(해상풍력 기자재·EPC 2건 협의 완료 단계)과 해외 복합 EPC 5,000억원(국내 1건, 해외 2건)의 수주가 기대된다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "backlog",
+   "driver_label": "신재생·복합화력 4Q 수주",
+   "target_metric_id": null,
+   "mechanism": "해상풍력 협의 완료·복합 EPC 협의 → 4Q 수주 반영",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "4Q26",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_ecacd6f42a"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용과 명제가 신재생·해외 복합 EPC 수주 기대를 동일하게 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c14",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "가스터빈 수요 증가를 감안하면 추가 캐파 증설 결정이 이르면 연내 이루어질 전망이다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "capex",
+   "driver_label": "가스터빈 추가 캐파 증설 결정",
+   "target_metric_id": null,
+   "mechanism": "가스터빈 수요 증가 → 추가 캐파 증설 결정",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2026E",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_34c9cbe537"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용이 가스터빈 수요 증가에 따른 연내 캐파 증설 결정 전망을 직접 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c15",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "2030년 슬롯 예약 물량의 본계약 전환은 2027년, 2031년 슬롯은 2028년으로 예상되며 수주잔고 증가가 기대된다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "catalyst"
+   ],
+   "driver_id": "gas_turbine",
+   "driver_label": "가스터빈 예약 슬롯 본계약 전환",
+   "target_metric_id": null,
+   "mechanism": "슬롯 예약 물량 본계약 전환 → 수주잔고 증가",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2027E",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_76ab091271"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용이 슬롯 예약 물량의 본계약 전환 시점과 수주잔고 증가 기대를 직접 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "expected",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c16",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "10월 NuScale 1개 모듈 제작 계약을 체결했으며, PPA 지연 여부와 무관하게 완결된 계약으로 실적에 반영될 전망이다.",
+   "epistemic_type": "fact",
+   "roles": [
+    "business",
+    "catalyst"
+   ],
+   "driver_id": "smr",
+   "driver_label": "NuScale 모듈 제작 계약",
+   "target_metric_id": null,
+   "mechanism": "모듈 제작 계약 체결 → PPA 지연과 무관하게 실적 반영",
+   "direction": "positive",
+   "condition": null,
+   "horizon": "2026-10",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_48945fd3a6"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용과 명제가 NuScale 모듈 제작 계약과 PPA 무관 실적 반영을 동일하게 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "company",
+   "certainty": "announced",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": false,
+   "review_reason": ""
+  },
+  {
+   "claim_id": "hk_97311:c17",
+   "report_id": "hk_97311",
+   "broker": "유진투자증권",
+   "report_date": "2026-10-30",
+   "proposition": "대미투자 관련 기자재 발주는 미국 부지 확정 및 한국 의회 승인 절차가 남아있어 내년 발주가 기대된다.",
+   "epistemic_type": "estimate",
+   "roles": [
+    "risk",
+    "catalyst"
+   ],
+   "driver_id": "nuclear_orders",
+   "driver_label": "대미투자 관련 기자재 발주",
+   "target_metric_id": null,
+   "mechanism": "미국 부지 확정·한국 의회 승인 필요 → 발주 시점 내년으로 이연",
+   "direction": "neutral",
+   "condition": "미국 부지 확정 및 한국 의회 승인 절차 완료",
+   "horizon": "2027E",
+   "quant_refs": [],
+   "span_ids": [
+    "sp_24aa5974d5"
+   ],
+   "validation": {
+    "quote": "ok",
+    "numbers": "none",
+    "support": "supported",
+    "note": "의미: 인용과 명제가 대미투자 기자재 발주 지연 사유와 내년 발주 기대를 동일하게 서술."
+   },
+   "status": "verified",
+   "inferred": false,
+   "section": "투자포인트",
+   "extractor": {
+    "model": "ClaudeGroupFiller",
+    "prompt_version": "c3",
+    "chunk_id": "ch1"
+   },
+   "asserted_by": "analyst",
+   "certainty": "conditional",
+   "as_of": "2026-10-30",
+   "verified_by": "machine",
+   "review_required": true,
+   "review_reason": "조건부 리스크"
+  }
+ ],
+ "notes": [
+  "시험용 발췌 — 촉매(catalyst) 역할 Claim 만 (8건)"
+ ],
+ "created_at": "2026-10-31T13:46:01.485388",
+ "analyzed_chars": 10463,
+ "total_chars": 10463
+}

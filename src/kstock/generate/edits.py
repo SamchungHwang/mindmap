@@ -4,7 +4,7 @@
 
     {"map_id": "A:035420:2026-10-23", "base_hash": "…", "edits": [
       {"op": "set",    "id": "A1.1", "fields": {"label": "…", "driver": {…}, "as_of": "2026-10-23"}},
-      {"op": "add",    "parent": "A4", "id": "new:1", "fields": {"label": "…", "value": "…", "node_type": "estimate"}},
+      {"op": "add",    "parent": "A5", "id": "new:1", "fields": {"label": "…", "value": "…", "node_type": "estimate"}},
       {"op": "delete", "id": "new:1"}]}
 
 규칙
@@ -14,7 +14,7 @@
     `draft`/`pending`/`warn` 태그를 잃는다 — 변경안(changes) 은 이 노드를 자동 적용하지 않는다.
   · 삭제는 가지 전체. 다른 노드의 links 에서 지운 id 를 걷어낸다. 루트는 지우지 못한다.
   · `add` 의 id 는 서버가 매긴다(`next_child_id`). 클라이언트의 임시 id(`new:n`) 는 뒤 연산에서 실제 id 로 바꿔 읽는다.
-  · 적용 전 원본을 versions_dir 에 `<map>.v<N>.json` 으로 보존하고 meta.version 을 올린다. A7.2(업데이트 로그) 가 있으면 한 줄 남긴다.
+  · 적용 전 원본을 versions_dir 에 `<map>.v<N>.json` 으로 보존하고 meta.version 을 올린다. A8.2(업데이트 로그) 가 있으면 한 줄 남긴다.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ class EditError(ValueError):
 
 @dataclass
 class EditResult:
-    applied: list[str] = field(default_factory=list)      # "set A1.1", "add A4.5", "delete A4.5"
+    applied: list[str] = field(default_factory=list)      # "set A1.1", "add A5.5", "delete A5.5"
     warnings: list[str] = field(default_factory=list)
     new_errors: list[str] = field(default_factory=list)   # 적용하면 늘어나는 검증 오류 (미리보기용; 적용 시엔 비어 있다)
     id_map: dict[str, str] = field(default_factory=dict)  # 임시 id → 실제 id
@@ -60,7 +60,7 @@ def edit_hash(m: MindMap) -> str:
 
 
 def next_child_id(m: MindMap, parent: str) -> str:
-    """부모 아래 비어 있는 다음 번호. 루트(A0) 아래는 새 가지(A9…), `A0.*`(기본 정보 묶음) 아래는 보조 필드(A0.5…)."""
+    """부모 아래 비어 있는 다음 번호. 루트(A0) 아래는 새 가지(A10…), `A0.*`(기본 정보 묶음) 아래는 보조 필드(A0.5…)."""
     root = m.root_id
     aux = parent.endswith(".*")
     if aux:
@@ -127,6 +127,8 @@ def _clean_sub(cls: Any, data: Any) -> Any:
             v = _clean_sub(inner, v)
             if inner is Source and isinstance(v, dict) and not (v.get("name") or v.get("url")) and _allows_none(ann):
                 v = None   # 빈 출처 칸은 출처 없음
+            elif isinstance(v, dict) and _allows_none(ann) and not any(x not in (None, "", []) for x in v.values()):
+                v = None   # 전부 빈 하위 칸(사건 뒤 outcome 등) 은 「없음」 — 빈 껍데기를 저장하지 않는다
         out[k] = v
     return out
 
@@ -286,22 +288,27 @@ def apply_edits(m: MindMap, payload: dict[str, Any], *, today: date, versions_di
     res.version = ver + 1
     m.meta["version"] = ver + 1
     m.meta.setdefault("edit_log", []).append({"date": today.isoformat(), "version": ver + 1, "source": "html", "ops": res.applied[:50]})
-    if "A7.2" in m.nodes:
-        log = m["A7.2"].value if isinstance(m["A7.2"].value, list) else []
+    if "A8.2" in m.nodes:
+        log = m["A8.2"].value if isinstance(m["A8.2"].value, list) else []
         log.append({"date": today.isoformat(), "text": f"HTML 편집 {len(res.applied)}건: " + "; ".join(res.applied)[:300], "version": ver + 1})
-        m["A7.2"].value = log
-        m["A7.2"].as_of = today
+        m["A8.2"].value = log
+        m["A8.2"].as_of = today
     m.touch(today)
     return res
 
 
 # ---------------------------------------------------------------------------- 편집 폼 스키마 (HTML 이 필드를 그리는 데 쓴다)
-_PATTERN_OPTIONS = {"^(fact|price|weight|time|event)$": ["fact", "price", "weight", "time", "event"],
+_PATTERN_OPTIONS = {"^(fact|price|weight|time|event|evidence)$": ["fact", "price", "weight", "time", "event", "evidence"],
                     "^(armed|fired|disabled)$": ["armed", "fired", "disabled"],
                     "^(computed|user|broker)$": ["computed", "user", "broker"],
                     "^(consensus|my_estimate|normalized|user)$": ["consensus", "my_estimate", "normalized", "user"],
-                    "^(quant|qualitative)$": ["quant", "qualitative"], "^(cause|result)$": ["cause", "result"]}
-_SCHEMA_SKIP = {"sensitivity", "model"}   # 코드가 계산하는 필드 — 폼에서 고치지 않는다
+                    "^(quant|qualitative)$": ["quant", "qualitative"], "^(cause|result)$": ["cause", "result"],
+                    # 설계 v7
+                    "^(required|core|secondary)$": ["required", "core", "secondary"], "^(shift|review|warn|kill)$": ["shift", "review", "warn", "kill"],
+                    "^(bear|bull)$": ["bear", "bull"], "^(abs|pct|cum|state)$": ["abs", "pct", "cum", "state"],
+                    "^(none|qoq|yoy|vs_consensus)$": ["none", "qoq", "yoy", "vs_consensus"], "^(confirmed|reported|forecast)$": ["confirmed", "reported", "forecast"],
+                    "^(broker|consensus|interpolated|user)$": ["broker", "consensus", "interpolated", "user"]}
+_SCHEMA_SKIP = {"sensitivity", "model", "light", "light_reason", "trend"}   # 코드가 계산하는 필드 — 폼에서 고치지 않는다
 _KO = {"current": "현재", "consensus": "컨센서스", "my_estimate": "내 추정", "value": "값", "as_of": "기준일", "source": "출처", "name": "이름",
        "metric": "변수 id", "period": "기간", "kind": "종류 (quant·qualitative)", "role": "역할 (cause·result)", "proxies": "대체 관측 지표",
        "invalidation_condition": "무효화 조건", "invalidation_rule": "Kill 규칙 노드", "sensitivity_inputs": "민감도 입력 (segment_revenue 억원 · pass_through · tax_rate · shares · per_target · fcf …)",
@@ -312,7 +319,18 @@ _KO = {"current": "현재", "consensus": "컨센서스", "my_estimate": "내 추
        "eps_year": "기준 연도", "per": "적용 PER", "conditions": "성립 조건", "indicators": "확인 지표", "falsifier": "버리는 신호",
        "price_source": "목표가 출처 (computed·user·broker)", "node_id": "노드", "driver_id": "드라이버 id", "variable": "변수", "delta_pct": "변화 %",
        "size": "크기", "escalate_to": "격상 등급", "status": "상태", "fired_at": "발동일", "note": "메모", "date": "날짜", "fact": "사실",
-       "affects": "영향 노드", "priced_in": "선반영", "materiality": "중요도"}
+       "affects": "영향 노드", "priced_in": "선반영", "materiality": "중요도",
+       # 2026-10-30 A6 보강 — 이벤트를 일정표가 아니라 판단 항목으로
+       "certainty": "일정 확실성 (공시확정 · 공시상 예정 · 과거 주기 추정 · 회사 목표 · 리포트 전망 · 통상 일정 추정)",
+       "precheck": "사전 확인 지표 (쉼표로 여러 개)", "bull": "상방 증거 — 논제가 강해지는 조건", "bear": "하방 증거 — 논제가 약해지는 조건",
+       "rule": "판단 규칙 — 결과에 따라 어느 노드를 어떻게 고치나", "outcome": "사건 뒤", "actual": "실제 결과",
+       "event_id": "이벤트 ID (영속 · 비우면 코드가 정한다)", "evidence": "관련 전망·근거 (증권사 문장 — 판정 조건이 아니다)", "project": "사업 묶음 (같은 사업의 마일스톤 — 드라이버 id)", "program": "사업명 (X-energy · NuScale · 미국 AP1000)", "stage": "계약 진행 단계 (협의 중 · 조건 합의 · 체결 대기 · 체결)", "delivery_period": "납기·운전 시점 (사건 시점이 아님)", "measured_from": "측정 기준 거래일", "reaction_d1": "D+1 수익률 (0.03 = +3%)", "reaction_d5": "D+5 수익률", "vs_market_d5": "D+5 시장 평균 대비", "verdict": "판정 (강화·약화·중립)",
+       # 설계 v7
+       "thesis_role": "논제 역할 (required 필수 · core 핵심 수익 · secondary 보조)", "thesis_role_source": "역할 출처 (user·proposed)",
+       "observations": "관측값 목록 (JSON: metric_id · period · value_type · basis · value · as_of · compare_at · source · verification)",
+       "required": "필요 경로 (JSON: ruler · points[at·value·source·band])", "band": "허용 띠 (± 자의 단위)", "bound_bear": "Bear 경계", "bound_bull": "Bull 경계",
+       "bounds_source": "경계 출처 (user·proposed)", "grade": "규칙 등급 (shift 확률 이동 · review 재검토 · warn 경고 · kill)", "threshold": "경계값", "side": "경계 쪽 (bear·bull)",
+       "persistence": "지속성 (연속 n회)", "proposal": "제안 (JSON: kind · scenario_from · scenario_to · pct_points)"}
 
 
 def _field_schema(name: str, ann: Any, meta: list[Any], prefix: str) -> list[dict[str, Any]]:
@@ -370,10 +388,32 @@ def edit_schemas() -> dict[str, Any]:
             if k in _SCHEMA_SKIP:
                 continue
             rows += _field_schema(k, f.annotation, list(f.metadata), "")
+        if kind == "event":
+            # 이벤트의 기간·방향은 고급 칸이 아니다 (드라이버의 period 와 이름만 같다). 사건 뒤 칸은 접어 둔다
+            for r in rows:
+                if r["key"] in ("period", "direction"):
+                    r["adv"] = False
+                if r["key"].startswith("outcome.") or r["key"] == "event_id":
+                    r["adv"] = True
         subs[kind] = rows
     return {"subs": subs, "enums": {"status": [e.value for e in NodeStatus], "confidence": [e.value for e in Confidence],
                                     "node_type": [e.value for e in NodeType], "value_type": [e.value for e in ValueType]},
             "sub_labels": {"driver": "드라이버", "scenario": "시나리오", "rule": "규칙", "event": "이벤트"}}
+
+
+def _refresh_outcomes(m: MindMap, today: date) -> list[str]:
+    """리서치 DB 가 닿으면 지난 촉매의 수익률을 채운다. 못 닿으면 조용히 비운다 — 편집 저장을 막을 일이 아니다."""
+    try:
+        from ..collect.adapters.research_db import ResearchDb
+        from ..symbols import research_db_path
+        from .draft import fill_event_outcomes
+
+        rdb = research_db_path()
+        if rdb is None or not rdb.exists() or "A6.1" not in m.nodes:
+            return []
+        return fill_event_outcomes(m, ResearchDb(rdb), today=today)
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def finalize_after_edit(m: MindMap, *, today: date) -> list[str]:
@@ -391,8 +431,12 @@ def finalize_after_edit(m: MindMap, *, today: date) -> list[str]:
 
             compute_all(m, today=today)   # 드라이버·민감도 입력이 바뀌었을 수 있다 (설계 v5 R3)
             notes += [f"밸류: {x}" for x in compute_valuation_all(m, today=today) if "⚠" in x or "미계산" in x]   # 설계 v6: 가정 묶음·평가 기준이 바뀌었을 수 있다
+            from ..engine.decision import compute_v7_all
+
+            notes += [f"v7: {x}" for x in compute_v7_all(m, today=today) if "이벤트" in x or "신호등" in x]   # 설계 v7: 관측값·띠·역할·규칙이 바뀌었을 수 있다
             res2 = evaluate_new_map(m, today=today, enforce_gate=True)   # 시나리오 가격이 모델로 바뀌었으면 ER·손익비 다시
             notes += [f"계산: {x}" for x in getattr(res2, "notes", []) if x not in notes]
+            notes += [f"촉매 결과: {x}" for x in _refresh_outcomes(m, today)]   # 2026-10-30: 지난 촉매의 D+1/D+5 (시세가 있을 때만)
         elif isinstance(m, HoldingMap):
             evaluate_holding(m, today=today)
     except Exception as e:  # noqa: BLE001 — 편집 저장을 막지 않는다

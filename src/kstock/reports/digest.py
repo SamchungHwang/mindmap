@@ -36,6 +36,253 @@ def unit_factor(f: ReportFacts) -> float | None:
     return fac
 
 
+# ---- 2026-10-31 삼성전자 실측 뒤 「재무 수치 정합성」 층. 표의 숫자는 그대로 믿지 않는다 —
+#   · 단위를 읽었어도 틀릴 수 있다 (유안타 표 ×1000: 단위 토큰을 근처 다른 문장에서 집었다) → 실적(A) 열은 증권사가 달라도 같아야 한다
+#   · 순이익 행 자리에 순이익률이 들어올 수 있다 (신한 115 = 11.5% × 10) → 순이익/영업이익 비율로 거른다
+#   · 분기 표의 영업이익이 연간의 1/800 (0.11조) → 분기는 연간의 3~60% 안이어야 한다
+#   · 사업부 표의 단위(조원 한 자리 소수) 를 십억원으로 가정해 ×1000 작게 → 가장 큰 사업부 매출은 전사 매출의 5~100% 여야 한다
+AMOUNT_BOUNDS_EOK: dict[str, tuple[float, float]] = {"revenue": (1.0, 1e8), "op": (0.0, 1e8), "np": (0.0, 1e8), "np_ctrl": (0.0, 1e8),
+                                                     "np_total": (0.0, 1e8), "ebitda": (0.0, 1e8), "fcf": (0.0, 1e8), "ocf": (0.0, 1e8),
+                                                     "capex": (0.0, 1e8), "net_debt": (0.0, 1e8), "net_cash": (0.0, 1e8), "op_adj": (0.0, 1e8)}
+NP_OP_RATIO = (0.02, 3.0)        # 순이익 ÷ 영업이익 — 밖이면 순이익 행이 아니다 (비율 행·다른 지표)
+QUARTER_ANNUAL_RATIO = (0.03, 0.6)   # 분기 ÷ 같은 해 연간
+EPS_STD_TOLERANCE = 0.5          # 정규화 EPS 가 리포트 EPS 와 이보다 어긋나면 정규화 쪽을 뺀다 (순이익·주식 수 단위 의심)
+OUTLIER_RATIO = 4.0              # 같은 셀의 증권사별 값이 중앙값의 1/4~4배 밖이면 뺀다 (셋 이상일 때)
+SEGMENT_SHARE = (0.05, 1.0)      # 가장 큰 사업부 매출 ÷ 전사 매출
+
+
+def _power_of_ten(r: float, *, tol: float = 0.2) -> int | None:
+    """r 이 10^k (k ≠ 0) 에 가까우면 k. 1.0 근처(k=0) 나 10^k 에서 멀면 None."""
+    if r is None or r <= 0:
+        return None
+    import math
+
+    k = round(math.log10(r))
+    if k == 0 or abs(math.log10(r) - k) > tol:
+        return None
+    return int(k)
+
+
+def _in_bounds(metric: str, v: float) -> bool:
+    lo, hi = AMOUNT_BOUNDS_EOK.get(metric, (0.0, float("inf")))
+    return lo <= abs(v) <= hi
+
+
+def calibrate_units(agg: list[ReportFacts], unit_fix: dict[str, float], warnings: list[str]) -> dict[str, float]:
+    """증권사별 단위 보정 배수 — 실적(A) 열의 매출·영업이익을 **전 증권사 중앙값**과 비교해 10^k 어긋나면 10^-k, 그래도 절대 범위
+    (매출·영업이익 ≤ 10,000조원) 밖이면 범위 안으로. 이미 보정된(unit_fix) 증권사는 건드리지 않는다."""
+    out: dict[str, float] = {}
+
+    def fac(f: ReportFacts) -> float:
+        return (unit_factor(f) or 1.0) * unit_fix.get(f.path.name, 1.0)
+
+    cells: dict[tuple[str, str], dict[str, float]] = {}
+    for f in agg:
+        for metric in ("revenue", "op"):
+            for col, v in (f.estimates.get(metric) or {}).items():
+                if v:
+                    cells.setdefault((metric, col), {})[f.path.name] = v * fac(f)
+    for f in agg:
+        if not f.estimates or f.path.name in unit_fix:
+            continue
+        ratios_a: list[float] = []
+        ratios_e: list[float] = []
+        for (_metric, col), by in cells.items():
+            if f.path.name not in by or len(by) < 3:
+                continue
+            med = statistics.median(by.values())
+            if med:
+                (ratios_a if col.endswith("A") else ratios_e).append(by[f.path.name] / med)
+        rs = ratios_a or ratios_e
+        k = _power_of_ten(statistics.median(rs)) if rs else None
+        if k is not None:
+            fixed = 10.0 ** (-k)
+            vals = [v * fac(f) for metric in ("revenue", "op") for v in (f.estimates.get(metric) or {}).values() if v]
+            # 고치면 범위 밖으로 나가는데 지금은 안인 경우(다수가 틀린 경우) 는 안 고친다
+            if all(_in_bounds("revenue", v * fixed) for v in vals) or not all(_in_bounds("revenue", v) for v in vals):
+                out[f.path.name] = fixed
+                warnings.append(f"{f.path.name}: 추정치 표 매출·영업이익이 다른 증권사의 {'실적' if ratios_a else '추정'} 열과 ×{10 ** k:g} 어긋나 단위를 보정 (×{fixed:g})")
+                continue
+        # 절대 범위 — 셋 미만이거나 비율로 못 잡은 것
+        vals = [v * fac(f) for v in (f.estimates.get("revenue") or {}).values() if v]
+        if vals and not all(_in_bounds("revenue", v) for v in vals):
+            fixed = 1.0
+            while any(abs(v * fixed) > AMOUNT_BOUNDS_EOK["revenue"][1] for v in vals) and fixed > 1e-9:
+                fixed /= 10.0
+            while any(abs(v * fixed) < AMOUNT_BOUNDS_EOK["revenue"][0] for v in vals) and fixed < 1e9:
+                fixed *= 10.0
+            if fixed != 1.0:
+                out[f.path.name] = fixed
+                warnings.append(f"{f.path.name}: 추정치 표 매출이 억원 기준 범위(1억~10,000조) 밖 — 단위 보정 (×{fixed:g})")
+    return out
+
+
+def calibrate_segments(f: ReportFacts, factor: float, warnings: list[str]) -> float:
+    """사업부 표 보정 배수 — 같은 증권사의 가장 큰 사업부 매출이 전사 매출(같은 해) 의 5~100% 가 되게 10^k. 못 재면 1."""
+    if not f.segments or not f.estimates.get("revenue"):
+        return 1.0
+    total_by_year = {col[:4]: v * factor for col, v in f.estimates["revenue"].items() if v and col[:4].isdigit()}
+    best: tuple[float, str] | None = None   # (비율, 사업부·열)
+    for seg, mets in f.segments.items():
+        for col, v in (mets.get("revenue") or {}).items():
+            yr = col[:4] if col[:4].isdigit() else None
+            if not yr or yr not in total_by_year or not v or total_by_year[yr] <= 0:
+                continue
+            r = v / total_by_year[yr]
+            if best is None or r > best[0]:
+                best = (r, f"{seg} {col}")
+    if best is None or SEGMENT_SHARE[0] <= best[0] <= SEGMENT_SHARE[1]:
+        return 1.0
+    import math
+
+    k = round(math.log10(0.4 / best[0]))   # 가장 큰 사업부가 전사의 ~40% 가 되는 10^k
+    fixed = 10.0 ** k
+    if not (SEGMENT_SHARE[0] <= best[0] * fixed <= SEGMENT_SHARE[1]):
+        return 1.0
+    warnings.append(f"{f.path.name}: 사업부 표 단위 보정 ×{fixed:g} — {best[1]} 매출이 전사 매출의 {best[0]:.2%} 라 단위가 어긋났다"
+                    + (" (단위를 못 읽어 십억원으로 가정했던 표)" if not f.segments_unit else f" (읽은 단위 {f.segments_unit})"))
+    return fixed
+
+
+def _remove_broker(cell: EstimateCell, broker: str) -> None:
+    v = cell.by_broker.pop(broker, None)
+    cell.sources.pop(broker, None)
+    if v is not None and v in cell.values:
+        cell.values.remove(v)
+
+
+def _drop_implausible_np(estimates: dict[str, dict[str, EstimateCell]], warnings: list[str]) -> set[tuple[str, str]]:
+    """순이익 ÷ 영업이익 이 2%~300% 밖인 증권사·연도의 순이익을 뺀다 — 순이익 행 자리에 비율 행(순이익률 11.5 → 115) 이 들어온 것.
+    돌려주는 것: 뺀 (증권사, 연도)."""
+    dropped: set[tuple[str, str]] = set()
+    for metric in ("np", "np_ctrl", "np_total"):
+        for year, cell in list((estimates.get(metric) or {}).items()):
+            op = (estimates.get("op") or {}).get(year)
+            if op is None:
+                continue
+            for broker, v in list(cell.by_broker.items()):
+                o = op.by_broker.get(broker)
+                if not o or o <= 0 or v is None:
+                    continue
+                r = v / o
+                if not (NP_OP_RATIO[0] <= r <= NP_OP_RATIO[1]):
+                    _remove_broker(cell, broker)
+                    dropped.add((broker, year))
+                    if metric == "np":
+                        warnings.append(f"{broker} {year} 순이익 {v:,.0f}억원은 영업이익 {o:,.0f}억원의 {r:.1%} — 순이익 행이 아니다(비율 행 의심) · 제외")
+            if not cell.values:
+                del estimates[metric][year]
+        if metric in estimates and not estimates[metric]:
+            del estimates[metric]
+    return dropped
+
+
+def _annual_for(estimates: dict[str, dict[str, EstimateCell]], metric: str, col: str) -> tuple[str, EstimateCell] | None:
+    mq = re.match(r"[1-4]Q(\d{2})", col)
+    if not mq:
+        return None
+    year = f"20{mq.group(1)}"
+    for suffix in ("E", "A", "F", "P"):
+        c = (estimates.get(metric) or {}).get(year + suffix)
+        if c is not None:
+            return year, c
+    return None
+
+
+def _calibrate_quarters(quarterly: dict[str, dict[str, EstimateCell]], estimates: dict[str, dict[str, EstimateCell]], warnings: list[str]) -> None:
+    """분기 표의 단위가 연간 표와 다를 때 (조원 한 자리 소수 표를 십억원으로 읽어 ×1000 작게) — 증권사마다 분기/연간 비율의 중앙값이
+    10^-k × (3~60%) 면 그 증권사의 분기 값을 10^k 로 보정한다. 2026-10-31 삼성전자: 분기 매출 1,953억 ↔ 연간 713조."""
+    import math
+
+    ratios: dict[str, list[float]] = {}
+    for metric in ("revenue", "op", "np"):
+        for col, cell in (quarterly.get(metric) or {}).items():
+            found = _annual_for(estimates, metric, col)
+            if found is None:
+                continue
+            _year, annual = found
+            for broker, v in cell.by_broker.items():
+                a = annual.by_broker.get(broker)
+                if a and v:
+                    ratios.setdefault(broker, []).append(abs(v) / abs(a))
+    for broker, rs in ratios.items():
+        med = statistics.median(rs)
+        if QUARTER_ANNUAL_RATIO[0] <= med <= QUARTER_ANNUAL_RATIO[1] or med <= 0:
+            continue
+        k = round(math.log10(0.25 / med))      # 분기가 연간의 ~25% 가 되는 10^k
+        if k == 0 or not (QUARTER_ANNUAL_RATIO[0] <= med * 10 ** k <= QUARTER_ANNUAL_RATIO[1]):
+            continue
+        fixed = 10.0 ** k
+        n = 0
+        for metric, cells in quarterly.items():
+            if metric not in AMOUNT_METRICS:
+                continue
+            for cell in cells.values():
+                v = cell.by_broker.get(broker)
+                if v is None:
+                    continue
+                idx = cell.values.index(v) if v in cell.values else None
+                cell.by_broker[broker] = v * fixed
+                if idx is not None:
+                    cell.values[idx] = v * fixed
+                n += 1
+        warnings.append(f"{broker}: 분기 표 금액이 연간 표의 {med:.2%} 수준 — 단위가 어긋나 분기 값 {n}개를 ×{fixed:g} 보정")
+
+
+def _drop_implausible_quarters(quarterly: dict[str, dict[str, EstimateCell]], estimates: dict[str, dict[str, EstimateCell]],
+                               warnings: list[str]) -> None:
+    """분기 값이 같은 해 연간 값의 3~60% 밖이면 뺀다 (2026-10-31 삼성전자: 3Q26A 영업이익 0.11조 — 연간 380조의 1/3,500).
+    먼저 증권사 단위로 보정(_calibrate_quarters) 을 시도하고, 그래도 남는 것만 뺀다."""
+    _calibrate_quarters(quarterly, estimates, warnings)
+    for metric in ("revenue", "op", "np"):
+        for col, cell in list((quarterly.get(metric) or {}).items()):
+            mq = re.match(r"[1-4]Q(\d{2})", col)
+            if not mq:
+                continue
+            year = f"20{mq.group(1)}"
+            annual = None
+            for suffix in ("E", "A", "F", "P"):
+                annual = (estimates.get(metric) or {}).get(year + suffix)
+                if annual is not None:
+                    break
+            if annual is None:
+                continue
+            for broker, v in list(cell.by_broker.items()):
+                a = annual.by_broker.get(broker)
+                if a is None or a == 0 or v is None:
+                    continue
+                r = abs(v) / abs(a)
+                if not (QUARTER_ANNUAL_RATIO[0] <= r <= QUARTER_ANNUAL_RATIO[1]):
+                    _remove_broker(cell, broker)
+                    warnings.append(f"{broker} {col} {METRIC_LABEL.get(metric, metric)} {v:,.0f}억원은 연간 {year} {a:,.0f}억원의 {r:.2%} — 분기 표 단위가 어긋났다 · 제외")
+            if not cell.values:
+                del quarterly[metric][col]
+        if metric in quarterly and not quarterly[metric]:
+            del quarterly[metric]
+
+
+def _drop_outliers(table: dict[str, dict[str, EstimateCell]], name: str, warnings: list[str]) -> None:
+    """같은 (지표, 기간) 셀에서 증권사 셋 이상일 때 중앙값의 1/4~4배 밖 값을 뺀다. 둘뿐인데 4배 넘게 다르면 평균하지 않고 경고만 — 누가 틀린지 모른다."""
+    for metric, cells in table.items():
+        if metric not in AMOUNT_METRICS and metric != "eps":
+            continue
+        for col, cell in cells.items():
+            vals = {b: v for b, v in cell.by_broker.items() if v}
+            if len(vals) >= 3:
+                med = statistics.median(vals.values())
+                if not med:
+                    continue
+                for broker, v in list(vals.items()):
+                    r = abs(v / med)
+                    if not (1 / OUTLIER_RATIO <= r <= OUTLIER_RATIO):
+                        _remove_broker(cell, broker)
+                        warnings.append(f"{broker} {col} {METRIC_LABEL.get(metric, metric)} {v:,.0f} 은 다른 증권사 중앙값 {med:,.0f} 의 {r:.1f}배 — 평균에서 제외 ({name})")
+            elif len(vals) == 2:
+                a, b = sorted(abs(v) for v in vals.values())
+                if a and b / a > OUTLIER_RATIO:
+                    warnings.append(f"{col} {METRIC_LABEL.get(metric, metric)}: 증권사 둘의 값이 {b / a:.0f}배 다르다 ({', '.join(f'{k} {v:,.0f}' for k, v in vals.items())}) — 단위를 확인할 것 ({name})")
+
+
 @dataclass
 class BrokerBasis:
     """증권사 한 곳의 회계 기준 — EPS 정규화의 재료."""
@@ -167,6 +414,10 @@ class ReportDigest:
     db_check: object | None = None                                # reports.dbcheck.DbCheck (DB 교차 확인 결과)
     # 설계 v5 R4: 사업부 셀 — (segment, metric, col) → 증권사별 값 (금액 억원). 열 라벨(…P/…E) 은 그대로 둔다
     segments: dict[tuple[str, str, str], EstimateCell] = field(default_factory=dict)
+    # 2026-10-31 정합성 층 — 증권사별 단위 보정 배수(path.name → ×k) · 순이익을 뺀 (증권사, 연도) · 사업부 표 보정 배수
+    unit_fix: dict[str, float] = field(default_factory=dict)
+    np_dropped: set[tuple[str, str]] = field(default_factory=set)
+    seg_fix: dict[str, float] = field(default_factory=dict)
 
     # ------------------------------------------------------------------ 만들기
     @classmethod
@@ -252,6 +503,8 @@ class ReportDigest:
                     unit_fix[f.path.name] = 0.001
                 elif 1 / 3000 <= r <= 1 / 300:
                     unit_fix[f.path.name] = 1000.0
+        # 단위를 읽은 증권사도 실적(A) 열이 다른 증권사와 10^k 어긋나면 보정한다 (2026-10-31 삼성전자: 유안타 ×1000)
+        unit_fix.update(calibrate_units(agg, unit_fix, warnings))
 
         for f in agg:
             factor = _factor(f)
@@ -297,16 +550,31 @@ class ReportDigest:
                         n_backfill += 1
         if n_backfill:
             warnings.append(f"추정치 셀 {n_backfill}개는 최신 리포트에 없어 같은 증권사 이전 리포트에서 보강 (표의 * 표시)")
-        # 사업부 셀 (설계 v5 R4) — 대표 문서만. 값은 extract 가 이미 억원으로 맞췄다
+        # 정합성 — 순이익/영업이익 비율 · 분기/연간 비율 · 증권사 간 이상값 (2026-10-31 삼성전자 실측)
+        np_dropped = _drop_implausible_np(estimates, warnings)
+        _drop_implausible_quarters(quarterly, estimates, warnings)
+        for table, tname in ((estimates, "연간"), (quarterly, "분기")):
+            _drop_outliers(table, tname, warnings)
+        # 사업부 셀 (설계 v5 R4) — 대표 문서만. 값은 extract 가 이미 억원으로 맞췄다 — 단, 전사 매출과 견줘 단위가 어긋나면 보정한다
         segments: dict[tuple[str, str, str], EstimateCell] = defaultdict(EstimateCell)
+        seg_fix: dict[str, float] = {}
         for f in agg:
-            for seg, mets in (f.segments or {}).items():
+            if not f.segments:
+                continue
+            factor = _factor(f) or 1.0
+            if f.path.name in unit_fix:
+                factor *= unit_fix[f.path.name]
+            k = calibrate_segments(f, factor, warnings)
+            if k != 1.0:
+                seg_fix[f.path.name] = k
+            for seg, mets in f.segments.items():
                 for metric, cols in mets.items():
                     for col, v in cols.items():
+                        val = v * k if metric in ("revenue", "op") else v
                         cell = segments[(seg, metric, col)]
-                        cell.values.append(v)
+                        cell.values.append(val)
                         if f.broker:
-                            cell.by_broker[f.broker] = v
+                            cell.by_broker[f.broker] = val
                             cell.sources[f.broker] = (f.path.name, str(f.date or ""), "대표")
         # 실적 전/후 — 최신 실적 분기의 발표일(실제 또는 분기 말 +8일 추정) 보다 앞선 리포트
         pre: dict[str, str] = {}
@@ -342,7 +610,12 @@ class ReportDigest:
         return cls(ticker=ticker, name=name, as_of=as_of, reports=facts, targets=targets,
                    estimates={m: dict(c) for m, c in estimates.items()}, quarterly={m: dict(c) for m, c in quarterly.items()},
                    unit_note=unit_note, sentences=sentences, warnings=warnings, excluded=excluded, pre_earnings=pre,
-                   earnings_date=earnings_date, earnings_date_source=ed_src, segments=dict(segments))
+                   earnings_date=earnings_date, earnings_date_source=ed_src, segments=dict(segments),
+                   unit_fix=dict(unit_fix), np_dropped=np_dropped, seg_fix=seg_fix)
+
+    def factor_of(self, f: ReportFacts) -> float:
+        """리포트 하나의 표 금액 → 억원 배수 — 읽은 단위 × 정합성 보정 (unit_fix). eps_std 등 표를 직접 읽는 곳은 이것을 쓴다."""
+        return (unit_factor(f) or 1.0) * self.unit_fix.get(f.path.name, 1.0)
 
     @staticmethod
     def _latest_actual_quarter_label(facts: list[ReportFacts]) -> str | None:
@@ -415,7 +688,7 @@ class ReportDigest:
     def shares_std(self, user: float | None = None) -> tuple[float | None, str, str]:
         """표준 주식 수 = 공시 보통주 (사용자 결정 ⑦). 돌려주는 것: (값, 출처 user|header|header_median|missing, 메모)."""
         if user:
-            return float(user), "user", "A3.8 평가 기준"
+            return float(user), "user", "A3.2 평가 기준"
         bases = self.broker_bases()
         common = sorted(b.shares_header for b in bases.values() if b.shares_header and b.share_basis == SHARE_BASIS_COMMON)
         if common:
@@ -459,7 +732,10 @@ class ReportDigest:
             key = f.broker or f.path.name
             if eps_cell is not None and key in eps_cell.by_broker:
                 e.reported[key] = eps_cell.by_broker[key]
-            fac = unit_factor(f) or 1.0
+            fac = self.factor_of(f)   # 읽은 단위 × 정합성 보정 — 유안타 ×1000 같은 것이 여기서도 걸러진다
+            if (key, year) in self.np_dropped:
+                e.excluded[key] = "순이익 행이 영업이익과 맞지 않아 제외 (비율 행 의심)"
+                continue
             ctrl = (f.estimates.get("np_ctrl") or {}).get(year)
             total = (f.estimates.get("np_total") or {}).get(year)
             npv = (f.estimates.get("np") or {}).get(year)
@@ -484,6 +760,25 @@ class ReportDigest:
             e.by_broker[key] = np_ctrl * 1e8 / sv
             if how == "ratio":
                 e.approx[key] = f"전체 × 지배 비율 {r:.3f} ({r_n}곳 측정, {r_year})"
+        # 교차 검증 (2026-10-31 삼성전자: 정규화 EPS 8.5원 · 92,087,471원 이 평균에 들어가 PER 0.02배가 됐다)
+        #   ① 그 증권사가 적은 EPS 와 ±50% 넘게 어긋나면 정규화 쪽을 뺀다 — 순이익·주식 수 가운데 하나의 단위가 틀렸다
+        #   ② 적은 EPS 가 없으면 다른 증권사 정규화 EPS 중앙값의 1/4~4배 밖일 때 뺀다
+        for key in list(e.by_broker):
+            v = e.by_broker[key]
+            rep = e.reported.get(key)
+            if rep:
+                if abs(v / rep - 1.0) > EPS_STD_TOLERANCE:
+                    e.excluded[key] = f"정규화 EPS {v:,.0f}원이 리포트 EPS {rep:,.0f}원과 {v / rep:.2g}배 — 순이익·주식 수 단위 확인"
+                    del e.by_broker[key]
+                    e.np_by_broker.pop(key, None)
+                continue
+            others = [x for k2, x in e.by_broker.items() if k2 != key and e.reported.get(k2)]
+            if others:
+                med = statistics.median(others)
+                if med and not (1 / OUTLIER_RATIO <= v / med <= OUTLIER_RATIO):
+                    e.excluded[key] = f"정규화 EPS {v:,.0f}원이 다른 증권사 {med:,.0f}원의 {v / med:.2g}배 — 단위 확인"
+                    del e.by_broker[key]
+                    e.np_by_broker.pop(key, None)
         return e
 
     def basis_check(self, year: str | None = None, *, shares: float | None = None) -> dict[str, object]:
@@ -760,7 +1055,7 @@ class ReportDigest:
         e = bc.get("eps") or {}
         st = bc.get("status")
         if st == "unavailable":
-            return ["  (EPS 기준 통일 불가 — 리포트 머리에 발행주식수가 없다. 증권사 EPS 를 그대로 평균; A3.8 shares 를 주면 정규화)"]
+            return ["  (EPS 기준 통일 불가 — 리포트 머리에 발행주식수가 없다. 증권사 EPS 를 그대로 평균; A3.2 shares 를 주면 정규화)"]
         sv = bc.get("shares_std") or 0
         parts = []
         for b, v in (e.get("by_broker") or {}).items():

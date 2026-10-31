@@ -5,7 +5,8 @@
 무엇을 설치해야 하는지 알려 준다 (`pip install kstock[reports]` = pypdf).
 
 PDF 가 아닌 것도 받는다: `.txt` `.md` (그대로), `.html` `.htm` (태그 제거), `.docx` (word/document.xml).
-스캔 이미지 PDF 는 글자가 나오지 않으므로 `ReportDoc.is_empty` 가 True — 부르는 쪽이 경고한다.
+스캔 이미지 PDF 는 글자가 나오지 않는다 — tesseract 와 한국어 데이터가 있으면 OCR(`reports/ocr.py`, extractor="ocr") 로 읽고,
+없으면 `ReportDoc.is_empty` 가 True 이고 경고에 이유를 적는다 — 부르는 쪽이 경고한다.
 """
 
 from __future__ import annotations
@@ -99,10 +100,17 @@ PDF_EXTRACTORS = (("pypdf", _pdf_pypdf), ("pdfminer", _pdf_pdfminer), ("pdfplumb
                   ("pdftotext", _pdf_pdftotext))
 
 
-def pdf_text(path: Path) -> tuple[str, int, str, list[str]]:
-    """(text, pages, extractor, warnings). 추출기를 차례로 시도하고, 글자가 나온 첫 결과를 쓴다."""
+def pdf_text(path: Path, *, ocr: bool = True) -> tuple[str, int, str, list[str]]:
+    """(text, pages, extractor, warnings). 추출기를 차례로 시도하고, 글자가 나온 첫 결과를 쓴다.
+
+    글자가 MIN_CHARS 미만이거나 한글이 쪽당 거의 없으면(차트 축 라벨만 잡힌 이미지 PDF) OCR(`reports/ocr.py`, tesseract) 을 시도한다 —
+    도구가 없으면 경고에 이유와 설치할 것을 적는다 (2026-10-31, 두산에너빌리티 company_97320.pdf: 12쪽에 글자 156자).
+    """
+    from .ocr import looks_scanned, ocr_available, ocr_langs, ocr_pdf
+
     warnings: list[str] = []
     missing: list[str] = []
+    best: tuple[int, str, int, str] | None = None        # (글자 수, 본문, 쪽수, 추출기) — 글자는 있는데 한글이 없는 것의 대비
     for name, fn in PDF_EXTRACTORS:
         try:
             text, pages = fn(path)
@@ -112,11 +120,29 @@ def pdf_text(path: Path) -> tuple[str, int, str, list[str]]:
         except Exception as e:  # noqa: BLE001 — 깨진 PDF, 암호화 등: 다음 추출기로
             warnings.append(f"{name}: {type(e).__name__}: {str(e)[:120]}")
             continue
-        if len(text.strip()) >= MIN_CHARS:
+        n = len(text.strip())
+        if n >= MIN_CHARS and not looks_scanned(text, pages):
             return text, pages, name, warnings
-        warnings.append(f"{name}: 글자 {len(text.strip())}자 — 스캔 이미지일 수 있다")
+        if best is None or n > best[0]:
+            best = (n, text, pages, name)
+        warnings.append(f"{name}: 글자 {n}자 — 스캔 이미지일 수 있다" if n < MIN_CHARS
+                        else f"{name}: 글자 {n}자지만 한글이 쪽당 거의 없다 — 그림·표 라벨만 잡힌 이미지 PDF 일 수 있다")
     if len(missing) == len(PDF_EXTRACTORS):
         raise ReportError("PDF 텍스트 추출기가 없습니다 — `pip install pypdf` (또는 `pip install kstock[reports]`)")
+    if ocr:
+        ok, why = ocr_available()
+        if ok:
+            try:
+                text, pages, w = ocr_pdf(path)
+                if len(text.strip()) >= MIN_CHARS:
+                    return text, pages, "ocr", [*warnings, *w, f"OCR(tesseract {ocr_langs()}) 로 읽음 — 숫자·표·고유명사 오독 가능; 수치는 표 정합성 층이 거른다"]
+                warnings.append(f"OCR 도 글자 {len(text.strip())}자")
+            except Exception as e:  # noqa: BLE001 — OCR 실패는 본문 없음으로
+                warnings.append(f"OCR 실패: {type(e).__name__}: {str(e)[:120]}")
+        else:
+            warnings.append(f"이미지 PDF — OCR 못 함 ({why}); 설치: tesseract + kor.traineddata, poppler(pdftoppm) 또는 pypdfium2")
+    if best is not None and best[0] >= MIN_CHARS:
+        return best[1], best[2], best[3], warnings                  # 한글은 없어도 글자는 있다 — 그대로 돌려주고 경고로 남긴다
     return "", 0, "none", warnings
 
 

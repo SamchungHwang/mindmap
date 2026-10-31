@@ -348,6 +348,31 @@ class TestGuiReportDraft(unittest.TestCase):
         app.a_draft_reports([str(p) for p in fixtures])
         self.assertIsNone(app.a_map)
         self.assertEqual(app.store.list_maps(), [])
+        # 표에서 고른 종목이 있으면 대화상자의 종목코드·종목명·투자유형이 그 값으로 미리 채워진다 (리포트 본문에서 코드를 못 읽을 때)
+        app.store.add_watch("071970", "HD현대마린엔진", sector="KR-SHIP", invest_type="turnaround")
+        app.read_db()
+        app.selected = "071970"
+        seen: dict = {}
+
+        class _Capture:
+            def __init__(self, *a, **k):
+                seen["fields"] = {f[0]: f[3] for f in a[2]}
+                seen["note"] = k.get("note", "")
+                self.result = None
+        with mock.patch.object(app.ops, "peek_reports", return_value={"ticker": "", "name": "", "invest_type": "growth", "sector": "", "rows": [], "warnings": [],
+                                                                       "n_reports": 1, "n_readable": 0, "n_tp": 0, "brokers": [], "as_of": ""}):
+            self.console.FormDialog = _Capture
+            app.a_draft_reports([str(fixtures[0])])
+        self.assertEqual((seen["fields"]["ticker"], seen["fields"]["name"], seen["fields"]["invest_type"]), ("071970", "HD현대마린엔진", "turnaround"))
+        self.assertTrue(seen["fields"]["prefill_suggestions"])                   # 제안값 미리 채우기는 기본 켬 (사용자 결정 10-29)
+        self.assertIn("표에서 고른 071970", seen["note"])
+        # 리포트 본문의 코드가 고른 종목과 다르면 리포트 쪽을 두고 알린다
+        with mock.patch.object(app.ops, "peek_reports", return_value={"ticker": "005930", "name": "삼성전자", "invest_type": "growth", "sector": "", "rows": [], "warnings": [],
+                                                                       "n_reports": 1, "n_readable": 1, "n_tp": 1, "brokers": ["x"], "as_of": ""}):
+            app.a_draft_reports([str(fixtures[0])])
+        self.assertEqual(seen["fields"]["ticker"], "005930")
+        self.assertIn("다릅니다", seen["note"])
+        app.selected = None
         # 확인 → 초안 저장, 관심종목 등록, A 탭 로드
         self.console.FormDialog = _dialog_returning({"ticker": "005930", "name": "삼성전자", "invest_type": "growth", "use_llm": False, "open_html": True})
         app.a_draft_reports([str(p) for p in fixtures])
@@ -355,8 +380,8 @@ class TestGuiReportDraft(unittest.TestCase):
         self.assertEqual(app.selected, "005930")
         self.assertIn("005930", app.tree.get_children())
         self.assertEqual(app.a_map.decision.value, "WATCH")
-        self.assertEqual(app.a_drivers[0]["label"].get(), "DRAM ASP")             # 설계 v5: A1 = 원인 변수 (결과 지표는 A3.7)
-        self.assertEqual(app.a_map["A3.7.2"].label, "분기 영업이익 (4Q26)")
+        self.assertEqual(app.a_drivers[0]["label"].get(), "DRAM ASP")             # 설계 v5: A1 = 원인 변수 (결과 지표는 A3.1)
+        self.assertEqual(app.a_map["A3.1.2"].label, "분기 영업이익 (4Q26)")
         self.assertEqual(app.a_vars["decision"].get(), "WATCH")
         self.assertIn("A 맵 초안", app.over_text.get())
         self.assertTrue(list(app.store.out_dir.glob("A_005930*.html")))  # open_html 이 마지막에 HTML 을 만든다
@@ -369,8 +394,8 @@ class TestGuiReportDraft(unittest.TestCase):
         # 설계 v3: 초안은 내 추정(A1.2~)·시나리오·Kill 을 비워 두므로 저장 시 그 오류는 남는다 — 그 밖의 오류는 없어야 한다
         self.assertTrue(all(("my_estimate" in e) or ("시나리오" in e) or ("Kill" in e) or ("정성 드라이버" in e) for e in errs), errs)
         self.assertEqual(app.a_map["A1.1"].driver.my_estimate.value, 110)
-        # 현재가 갱신 — 오프라인이라 네트워크·DB 모두 없음 → 입력 오류 안내
-        with self.assertRaises(self.console.OpsError):
+        # 현재가 갱신 — 오프라인이라 네트워크·DB 모두 없음 → 입력 오류 안내 (개발 PC 의 형제 폴더 리서치 DB 는 끈다)
+        with mock.patch.dict(os.environ, {"KSTOCK_RESEARCH_DB": "off"}), self.assertRaises(self.console.OpsError):
             app.a_refresh_price()
         # LLM 체크 + 키 없음 → 입력 오류로 안내 (debug 모드라 _guard 가 다시 던진다).
         # 개발 PC·샌드박스의 .env 에 Claude 키나 로컬 LLM(LLM_BASE_URL) 이 있어도 이 테스트는 '없는 상태' 를 본다

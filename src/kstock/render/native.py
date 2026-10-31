@@ -10,7 +10,7 @@ markmap 은 왼쪽→오른쪽 한 방향 트리라 중심이 왼쪽 끝에 붙�
   right     markmap 과 같은 오른쪽 한 방향.
 
 노드 글자는 render.format.node_line 을 그대로 쓰되 마크다운 조각(**, `, _)만 HTML 로 바꾼다.
-접기(기본 접힘: A8 근거 자료, B2.4 사실 로그 등)·펼치기·팬·줌·맞춤·☀/☾ 테마를 지원한다.
+접기(기본 접힘: A9 근거 자료, B2.4 사실 로그 등)·펼치기·팬·줌·맞춤·☀/☾ 테마를 지원한다.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import HoldingMap, MindMap, NewMap, Node
+from .conditions import conditions_html
 from .format import node_line, root_title
 from .markmap import FOLD_BY_DEFAULT
 
@@ -80,7 +81,11 @@ def _detail(n: Node) -> str:
         if obj is not None:
             sub = (name, obj)
             break
-    if sub is not None:
+    if sub is not None and n.event is not None:
+        from .format import event_detail_lines
+
+        lines += event_detail_lines(n.event)   # 2026-10-30: 이벤트는 칸 이름이 아니라 사람 말로
+    elif sub is not None:
         name, obj = sub
         lines.append(f"{name}:")
         lines += _fmt_value(obj.model_dump(mode="json", exclude_none=True))
@@ -89,12 +94,13 @@ def _detail(n: Node) -> str:
         lines += _fmt_value(n.value)
     if n.question:
         lines.append(f"질문: {n.question}")
-    if n.source is not None and (n.source.name or n.source.url):
+    if n.source is not None and (n.source.name or n.source.url) and n.event is None:   # 이벤트는 위에서 출처를 적었다
         lines.append("출처: " + " ".join(x for x in (n.source.name, n.source.url) if x))
     if n.as_of:
         lines.append(f"기준일: {n.as_of.isoformat()}")
     if n.status:
-        lines.append(f"상태: {n.status.value}")
+        # 이벤트의 confirmed 는 「공시로 확인된 자료」 지 「일어났다」 가 아니다 — 진행 상태는 이벤트 줄(예정·완료·지연) 에 있다
+        lines.append(f"자료 확인 상태: {n.status.value} (공시·원문으로 확인됨)" if n.event is not None and n.status.value == "confirmed" else f"상태: {n.status.value}")
     if n.tags:
         lines.append("태그: " + ", ".join(n.tags))
     if n.links:
@@ -135,7 +141,14 @@ def _edit_fields(n: Node, m: MindMap | None = None) -> dict[str, Any]:
 
 def _tree(m: MindMap, parent: Node, fold: set[str], max_depth: int | None, depth: int) -> dict[str, Any]:
     line = node_line(parent)
-    node: dict[str, Any] = {"id": parent.id, "html": _md_inline(line), "kind": _kind(parent), "text": _plain(line),
+    html_ = _md_inline(line)
+    # 여러 줄 표 값(A4.1 시나리오 한눈에 · A2.4 성립 조건 · A5.5 증거 계획 …) 은 상자에 첫 줄만 — 전체는 「상세 보기」(우클릭) · 편집 폼 · 복사
+    val = parent.value
+    if isinstance(val, str) and "\n" in val:
+        first, rest = val.split("\n", 1)
+        n_lines = rest.count("\n") + 2
+        html_ = _md_inline(node_line(parent.model_copy(update={"value": first}))) + f' <span class="more">… {n_lines}줄 — 우클릭 「상세 보기」</span>'
+    node: dict[str, Any] = {"id": parent.id, "html": html_, "kind": _kind(parent), "text": _plain(line),
                             "detail": _detail(parent), "fold": parent.id in fold, "children": [], "edit": _edit_fields(parent, m)}
     if max_depth is None or depth < max_depth:
         node["children"] = [_tree(m, c, fold, max_depth, depth + 1) for c in m.children(parent.id)]
@@ -193,6 +206,7 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
   background:var(--box); border:1px solid var(--box-border); border-left-width:4px; box-shadow:var(--shadow);
   white-space:normal; word-break:keep-all; overflow-wrap:anywhere; cursor:default; user-select:text; }
 .node.has-kids { cursor:pointer; }
+.node .more { color:var(--muted); font-size:11px; white-space:nowrap; }
 .node.selected { outline:2px solid var(--root-bg); outline-offset:1px; }
 .node .copy, .node .pen { position:absolute; top:-9px; display:none; width:20px; height:20px; line-height:18px; text-align:center;
   border-radius:50%; background:var(--btn); color:var(--fg); border:1px solid var(--box-border); font-size:12px; cursor:pointer; user-select:none; }
@@ -255,6 +269,24 @@ html, body { margin:0; height:100%; background:var(--bg); color:var(--fg);
 #calc { position:fixed; top:0; right:0; bottom:0; width:min(680px, 96vw); z-index:26; display:none; flex-direction:column; gap:8px; overflow:auto;
   background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; font-size:13px; }
 #calc.show { display:flex; }
+/* 성립 조건 패널 (설계 v7 T9) — 서버가 만든 표를 보여 주기만 한다 */
+#cond { position:fixed; top:0; right:0; bottom:0; width:min(900px, 96vw); z-index:26; display:none; flex-direction:column; gap:8px; overflow:auto;
+  background:var(--box); color:var(--fg); border-left:1px solid var(--box-border); box-shadow:-6px 0 24px rgba(0,0,0,.2); padding:14px; font-size:12.5px; }
+#cond.show { display:flex; }
+#cond h3 { margin:0; font-size:14px; padding-right:60px; }
+#cond h4 { margin:10px 0 4px; font-size:13px; }
+#cond .close { position:absolute; top:10px; right:12px; border:0; border-radius:999px; padding:6px 12px; cursor:pointer; background:var(--btn); color:var(--fg); }
+#cond table { border-collapse:collapse; width:100%; font-size:12px; }
+#cond th, #cond td { border-bottom:1px solid var(--box-border); padding:3px 6px; text-align:left; vertical-align:top; }
+#cond th { color:var(--muted); font-weight:500; white-space:nowrap; }
+#cond td { word-break:keep-all; overflow-wrap:anywhere; }
+#cond table.sched td { line-height:1.4; }
+#cond table.sched td:nth-child(2) { min-width:12em; }
+#cond table.sched td:nth-child(4), #cond table.sched td:nth-child(5) { min-width:14em; }
+#cond .nowrap { white-space:nowrap; }
+#cond .note { color:var(--muted); font-size:12px; }
+#cond .src { color:var(--muted); font-size:11px; }
+#cond .warn { color:#c23b3b; font-weight:600; }
 #calc h3 { margin:0; font-size:14px; padding-right:60px; }
 #calc .close { position:absolute; top:10px; right:12px; }
 #calc table { border-collapse:collapse; width:100%; font-size:12.5px; }
@@ -931,10 +963,10 @@ _JS = r"""
     });
   }
 
-  // ---------- 밸류에이션 & 시나리오 계산기 (설계 v6) — 가정 묶음을 편집 연산(set A3.8 · set A3.1~3 scenario) 으로 만들고,
+  // ---------- 밸류에이션 & 시나리오 계산기 (설계 v6) — 가정 묶음을 편집 연산(set A3.2 · set A4.2~4 scenario) 으로 만들고,
   // 계산은 서버 /preview 의 통합 모델이 한다 (클라이언트에 식을 복제하지 않는다 — 단일 진실). 서버가 없으면 「적용」 만 되고 결과는 저장 뒤 CLI 로.
   const calc = document.getElementById("calc"), calcBody = document.getElementById("calc-body"), calcRes = document.getElementById("calc-res");
-  const SCEN = ["Bear", "Base", "Bull"], SCEN_ID = { Bear: "A3.1", Base: "A3.2", Bull: "A3.3" };
+  const SCEN = ["Bear", "Base", "Bull"], SCEN_ID = { Bear: "A4.2", Base: "A4.3", Bull: "A4.4" };
   const V = EDIT && EDIT.valuation ? EDIT.valuation : null;
   function cur(id) { const n = nodes.get(id); return n ? n.d : null; }
   function calcDrivers() {
@@ -943,7 +975,7 @@ _JS = r"""
       .map(d => ({ id: d.id, label: (d.edit.label || d.id).split(" (")[0], kind: d.edit.sub.data.kind, meta: (V && V.drivers && V.drivers[d.id]) || {} }));
   }
   function scenData(name) { const d = cur(SCEN_ID[name]); return d && d.edit.sub && d.edit.sub.kind === "scenario" ? clone(d.edit.sub.data) : null; }
-  function critData() { const d = cur("A3.8"); return d && d.edit.value && typeof d.edit.value === "object" ? clone(d.edit.value) : {}; }
+  function critData() { const d = cur("A3.2"); return d && d.edit.value && typeof d.edit.value === "object" ? clone(d.edit.value) : {}; }
   function numOr(v) { return (v == null || v === "") ? null : Number(v); }
   function tplOf(dr) { return dr.meta.template || ({ asp: "price_volume", volume: "price_volume", cost: "cost_ratio", margin: "cost_ratio", op: "direct_op", fcf: "payout", orders: "orders" }[dr.meta.variable] || (dr.kind === "qualitative" ? "cost_ratio" : "price_volume")); }
   function unitOf(tpl) { return tpl === "cost_ratio" ? "%p" : "%"; }
@@ -952,7 +984,7 @@ _JS = r"""
     const scs = {}; SCEN.forEach(n => { scs[n] = scenData(n); });
     const p0 = V && V.p0 != null ? fmtNum(V.p0) + "원" : "현재가 없음";
     let h = `<div class="note">현재가 ${p0} · 기준 연도 ${esc((V && V.year) || "표 기준")} · 컨센 EPS ${V && V.eps != null ? fmtNum(Math.round(V.eps)) : "-"} · 목표 PER 기본값 ${V && V.per != null ? V.per.toFixed(2) : "-"}` +
-      (V && V.line ? `<br>${esc(V.line)}` : "") + `</div>`;
+      (V && V.line ? `<br>${esc(V.line)}` : "") + (V && V.basis ? `<br>회계 기준: ${esc(V.basis)}` : "") + `</div>`;
     h += `<table><thead><tr><th>드라이버 (가정은 컨센 경로 대비)</th>` + SCEN.map(n => `<th>${n}${scs[n] && scs[n].price_source !== "computed" && scs[n].target_price != null ? ` <span class="src">(${esc(scs[n].price_source)} ${fmtNum(scs[n].target_price)})</span>` : ""}</th>`).join("") + `</tr></thead><tbody>`;
     for (const dr of drivers) {
       const tpl = tplOf(dr), unit = unitOf(tpl);
@@ -967,11 +999,11 @@ _JS = r"""
       }).join("") + `</tr>`;
     }
     h += `<tr><td>적용 PER <span class="src">비우면 기본값</span></td>` + SCEN.map(n => `<td><input name="per:${n}" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${scs[n] && scs[n].per != null ? scs[n].per : ""}"></td>`).join("") + `</tr>`;
-    h += `<tr><td>EPS 기준</td>` + SCEN.map(n => `<td><select name="eb:${n}"><option value="">(A3.8 기준)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${scs[n] && scs[n].eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></td>`).join("") + `</tr>`;
+    h += `<tr><td>EPS 기준</td>` + SCEN.map(n => `<td><select name="eb:${n}"><option value="">(A3.2 기준)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${scs[n] && scs[n].eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></td>`).join("") + `</tr>`;
     h += `<tr><td>확률 (%) <span class="src">사람 몫 · 합 100</span></td>` + SCEN.map(n => `<td><input name="p:${n}" type="number" step="any" min="0" max="100" value="${scs[n] && scs[n].probability != null ? Math.round(scs[n].probability * 1000) / 10 : ""}"></td>`).join("") + `</tr>`;
     h += `</tbody></table>`;
     const mult = crit.sotp_multiples ? Object.entries(crit.sotp_multiples).map(([k, v]) => `${k}=${v}`).join(", ") : "";
-    h += `<fieldset><legend>평가 기준 (A3.8) — 비우면 기본값(표시됨)</legend><div class="row">` +
+    h += `<fieldset><legend>평가 기준 (A3.2) — 비우면 기본값(표시됨)</legend><div class="row">` +
       `<label>EPS 기준 <select name="c:eps_basis"><option value="">consensus(기본)</option>` + ["consensus", "my_estimate", "normalized", "user"].map(b => `<option value="${b}"${crit.eps_basis === b ? " selected" : ""}>${b}</option>`).join("") + `</select></label>` +
       `<label>EPS(입력) <input name="c:eps" type="number" step="any" value="${crit.eps != null ? crit.eps : ""}"></label>` +
       `<label>적용 PER <input name="c:per" type="number" step="any" placeholder="${V && V.per != null ? V.per.toFixed(2) : ""}" value="${crit.per != null ? crit.per : ""}"></label>` +
@@ -996,7 +1028,7 @@ _JS = r"""
     const mt = {}; for (const kv of q("c:sotp").value.split(/[,;\n]/)) { const [k, v] = kv.split("="); if (k && k.trim() && v != null && v.trim() !== "" && Number.isFinite(Number(v))) mt[k.trim()] = Number(v); }
     if (Object.keys(mt).length) crit.sotp_multiples = mt; else delete crit.sotp_multiples;
     const before = critData();
-    if (JSON.stringify(crit) !== JSON.stringify(before)) ops.push({ op: "set", id: "A3.8", fields: { value: Object.keys(crit).length ? crit : null } });
+    if (JSON.stringify(crit) !== JSON.stringify(before)) ops.push({ op: "set", id: "A3.2", fields: { value: Object.keys(crit).length ? crit : null } });
     const norm = o => { if (Array.isArray(o)) return o.map(norm); if (o && typeof o === "object") { const r = {}; for (const [k, v] of Object.entries(o)) { if (k === "model" || v == null || v === "" || (Array.isArray(v) && !v.length)) continue; r[k] = norm(v); } return r; } return o; };
     for (const n of SCEN) {
       const sc = scenData(n) || { name: n, assumptions: [], probability: null, target_price: null, horizon_months: 12, valuation_method: "" };
@@ -1026,7 +1058,7 @@ _JS = r"""
       for (const w of (r.warnings || [])) L.push(`   ⚠ ${w}`);
       const by = r.op_delta_by_node || {}; const ks = Object.keys(by); if (ks.length) L.push("   ΔOP: " + ks.map(k => `${k} ${(by[k] / 1e4 >= 0 ? "+" : "")}${(by[k] / 1e4).toFixed(1)}조`).join(" · "));
     }
-    for (const id of ["A3.9", "A3.10", "A3.11"]) { const d = findIn(tree, id); if (d && d.edit.value) L.push(`${id} ${d.edit.label}: ${d.edit.value}`); }
+    for (const id of ["A3.3", "A4.7", "A3.4"]) { const d = findIn(tree, id); if (d && d.edit.value) L.push(`${id} ${d.edit.label}: ${d.edit.value}`); }
     if (errs && errs.length) L.push("⚠ 저장하면 검증 오류: " + errs.join(" · "));
     if (warns && warns.length) L.push("⚑ " + warns.filter(w => /밸류|시나리오|Bear|Bull|미계산/.test(w)).join(" · "));
     calcRes.innerHTML = L.map(x => x.startsWith("   ⚠") || x.startsWith("⚠") ? `<span class="warn">${esc(x)}</span>` : esc(x)).join("\n");
@@ -1050,6 +1082,14 @@ _JS = r"""
   }
   function openCalc() { if (!EDIT) return; buildCalc(); calc.classList.add("show"); editor.classList.remove("show"); panel.classList.remove("show"); }
   function closeCalc() { calc.classList.remove("show"); }
+  // 성립 조건 패널 (설계 v7) — OPTS.conditions 에 서버가 만든 HTML 이 있다 (편집 모드가 아니어도 보인다)
+  const cond = document.getElementById("cond"), condBody = document.getElementById("cond-body"), condBtn = document.getElementById("condbtn");
+  function openCond() { condBody.innerHTML = OPTS.conditions || "<div class='note'>성립 조건 미계산 — 리포트로 다시 만들거나 CLI mindmap path</div>"; cond.classList.add("show"); calc.classList.remove("show"); panel.classList.remove("show"); }
+  function closeCond() { cond.classList.remove("show"); }
+  condBtn.addEventListener("click", openCond);
+  document.getElementById("cond-close").addEventListener("click", closeCond);
+  window.addEventListener("keydown", e => { if (e.key === "Escape") closeCond(); });
+  if (!OPTS.conditions) condBtn.style.display = "none";
   if (EDIT) {
     document.getElementById("calcbtn").addEventListener("click", openCalc);
     document.getElementById("calc-close").addEventListener("click", closeCalc);
@@ -1095,6 +1135,7 @@ _JS = r"""
 
 def edit_options(m: MindMap, *, server: bool = False, token: str | None = None, today: date | None = None) -> dict[str, Any]:
     """HTML 편집 UI 설정 (OPTS.edit). server=True 면 같은 주소의 로컬 편집 서버(/preview, /save) 를 쓰고, 아니면 「저장」이 edits.json 을 내려준다."""
+    from ..engine.valuation import basis_summary
     from ..generate.edits import edit_hash, edit_schemas
 
     out = {"server": server, "token": token or "", "map_id": m.map_id, "base_hash": edit_hash(m), "schemas": edit_schemas(),
@@ -1109,7 +1150,8 @@ def edit_options(m: MindMap, *, server: bool = False, token: str | None = None, 
                    if isinstance(v, dict) and v.get("role") != "result"}
         out["valuation"] = {"p0": m.current_price, "year": fin.get("year"), "eps": (fin.get("eps") or {}).get("mean"), "per": vm.get("per"),
                             "shares_out": (fin.get("shares_out") or {}).get("median"), "net_cash": vm.get("net_cash"), "dps": att.get("dps"),
-                            "line": m["A3.9"].value if "A3.9" in m and isinstance(m["A3.9"].value, str) else None,
+                            "line": m["A3.3"].value if "A3.3" in m and isinstance(m["A3.3"].value, str) else None,
+                            "basis": basis_summary(fin) if fin.get("basis") else None,
                             "segments": sorted((draft.get("segments") or {}).keys()), "drivers": drivers}
     return out
 
@@ -1130,9 +1172,15 @@ def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold
         edit_opts = edit_options(m)
     else:
         edit_opts = edit
-    opts = {"layout": layout, "expandLevel": expand_level, "edit": edit_opts}
+    conditions = None
+    if isinstance(m, NewMap) and not summary:
+        try:
+            conditions = conditions_html(m)
+        except Exception:  # 성립 조건 패널은 부가 기능 — 실패해도 지도는 그린다
+            conditions = None
+    opts = {"layout": layout, "expandLevel": expand_level, "edit": edit_opts, "conditions": conditions}
     data_js = json.dumps(tree, ensure_ascii=False).replace("</", "<\\/")
-    opts_js = json.dumps(opts, ensure_ascii=False)
+    opts_js = json.dumps(opts, ensure_ascii=False).replace("</", "<\\/")
     js = _JS.replace("__DATA__", data_js).replace("__OPTS__", opts_js)
     return f"""<!DOCTYPE html>
 <html lang="ko">
@@ -1154,6 +1202,7 @@ def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold
   <button id="fit" type="button" title="화면 맞춤 (f)">맞춤</button>
   <button id="copyall" type="button" title="맵 전체를 Markdown 목록으로 클립보드에">전체 복사</button>
   <button id="calcbtn" type="button" data-edit title="밸류에이션 & 시나리오 계산기 — 드라이버 가정 묶음 → 통합 모델 → Bear/Base/Bull 가격 (설계 v6)">밸류 계산기</button>
+  <button id="condbtn" type="button" title="성립 조건 — 가정 표 · 역산 표 · 필요 경로 · 증거 계획(신호등) · 판단 수정 규칙 (설계 v7)">성립 조건</button>
   <button id="theme" type="button" title="밝게/어둡게">☀ / ☾</button>
 </div>
 <div id="calc">
@@ -1168,6 +1217,11 @@ def to_html(m: MindMap, *, layout: str = "balanced", summary: bool = False, fold
   </div>
   <div id="calc-res" class="res" style="display:none"></div>
   <div class="note">가정은 컨센(또는 선택한 EPS 기준) 경로 대비 변화다. 같은 사업부의 가격·물량이 함께 움직이면 교차항이 들어가고, 민감도(1변수) 를 더한 값과 다르다. 확률·멀티플·가정은 사람 몫 — 비워 두면 미계산으로 남는다. SOTP 는 검증용(멀티플 입력 뒤).</div>
+</div>
+<div id="cond">
+  <h3>성립 조건 · 증거 · 판단 상태 (설계 v7)</h3>
+  <button id="cond-close" class="close" type="button" title="닫기 (Esc)">닫기</button>
+  <div id="cond-body"></div>
 </div>
 <div id="menu">
   <div data-act="edit" data-edit>✎ 편집… (더블클릭 · F2)</div>

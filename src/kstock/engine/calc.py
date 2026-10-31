@@ -13,7 +13,7 @@ class CalcError(ValueError):
     pass
 
 
-# --------------------------------------------------------------------------- A3.4 / A3.5
+# --------------------------------------------------------------------------- A4.5 / A4.6
 def expected_return(scenarios: Mapping[str, Scenario], p0: float) -> float:
     """ER = Σ p_i × (TP_i / P0 − 1). 확률 합이 1 이 아니면 CalcError."""
     if p0 <= 0:
@@ -43,7 +43,7 @@ def risk_reward(scenarios: Mapping[str, Scenario], p0: float, upside: str = "bas
     return upside_v / downside
 
 
-# --------------------------------------------------------------------------- A6.1
+# --------------------------------------------------------------------------- A7.1
 def suggested_weight(confidence: Confidence | str | None, rr: float | None, settings: Settings | None = None) -> float:
     """w = clamp(w_base × f_conf × f_rr, 0, w_max). rr 가 None(하락위험 0)이면 f_rr 상한."""
     s = settings or Settings()

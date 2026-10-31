@@ -89,11 +89,11 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
             issues.append(Issue("error", n.id, "driver.current 가 없다"))
         if d.my_estimate.value is None:
             issues.append(Issue("error", n.id, "driver.my_estimate 가 없다"))
-    # A3 시나리오 확률 합 — 빠진 시나리오는 노드마다 하나씩 (하나를 채워도 남은 오류 문장이 바뀌지 않도록; 설계 v6)
+    # A4 시나리오 확률 합 — 빠진 시나리오는 노드마다 하나씩 (하나를 채워도 남은 오류 문장이 바뀌지 않도록; 설계 v6)
     sc = m.scenarios()
     nodes_sc = m.scenario_nodes()
     missing = {"Bear", "Base", "Bull"} - set(sc)
-    sc_ids = {"Bear": "A3.1", "Base": "A3.2", "Bull": "A3.3"}
+    sc_ids = {"Bear": "A4.2", "Base": "A4.3", "Bull": "A4.4"}
     for name in sorted(missing):
         n = nodes_sc.get(name)
         if n is not None and n.scenario is not None and n.scenario.price_source == "computed":
@@ -103,32 +103,45 @@ def validate_new_map(m: NewMap, today: date | None = None) -> list[Issue]:
             issues.append(Issue("error", sc_ids[name], f"{name} 시나리오 누락"))
     if not missing:
         if any(s.probability is None for s in sc.values()):
-            issues.append(Issue("error", "A3", "시나리오 확률 미입력 — 사람이 넣어야 기대수익률·손익비가 계산된다"))
+            issues.append(Issue("error", "A4", "시나리오 확률 미입력 — 사람이 넣어야 기대수익률·손익비가 계산된다"))
         else:
             psum = sum(s.probability for s in sc.values())  # type: ignore[misc]
             if abs(psum - 1.0) > 0.01:
-                issues.append(Issue("error", "A3", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
+                issues.append(Issue("error", "A4", f"시나리오 확률 합 {psum:.3f} ≠ 1.0"))
         if not (sc["Bear"].target_price < sc["Base"].target_price < sc["Bull"].target_price):
-            issues.append(Issue("warn", "A3", "목표가 순서가 Bear < Base < Bull 이 아니다"))
+            issues.append(Issue("warn", "A4", "목표가 순서가 Bear < Base < Bull 이 아니다"))
         if m.current_price and sc["Bear"].target_price >= m.current_price:
-            issues.append(Issue("warn", "A3.1", f"Bear 목표가 {sc['Bear'].target_price:,.0f} 이 현재가 위 — 하락 시나리오가 아니다 (사이클 꺾임·멀티플 압축을 담았는가)"))
+            issues.append(Issue("warn", "A4.2", f"Bear 목표가 {sc['Bear'].target_price:,.0f} 이 현재가 위 — 하락 시나리오가 아니다 (사이클 꺾임·멀티플 압축을 담았는가)"))
     if m.current_price is None:
         issues.append(Issue("error", "A0.4", "현재가가 없다"))
-    # 설계 v6 §11.1: 회계 기준 불일치 — 정규화 EPS 가 한 곳도 없으면 평가 모델·시나리오 가격은 참고값 (오류 = 미확정, 사람이 A3.8 shares·eps 를 넣거나 리포트를 보강)
+    # 설계 v6 §11.1: 회계 기준 불일치 — 정규화 EPS 가 한 곳도 없으면 평가 모델·시나리오 가격은 참고값 (오류 = 미확정, 사람이 A3.2 shares·eps 를 넣거나 리포트를 보강)
     bstat = (((m.meta.get("draft") or {}).get("financials") or {}).get("basis") or {}).get("status")
-    if bstat == "not_comparable" and "A3.9" in m:
-        issues.append(Issue("error", "A3.9", "EPS 기준 불일치 — 지배 순이익·공시 보통주로 정규화된 증권사가 0곳: 가격은 참고값 (A3.8 eps·shares 입력 또는 리포트 보강)"))
-    elif bstat == "mixed" and "A3.9" in m:
-        issues.append(Issue("warn", "A3.9", "EPS 정규화 1곳뿐 — 컨센이 아니라 한 증권사 값"))
-    elif bstat == "unavailable" and "A3.9" in m:
-        issues.append(Issue("warn", "A3.9", "발행주식수(리포트 머리) 가 없어 EPS 기준을 맞추지 못했다 — 증권사 EPS 를 그대로 평균 (A3.8 shares 를 주면 정규화)"))
-    # A4.4 kill criteria ≥ 1 (fact 기준)
+    if bstat == "not_comparable" and "A3.3" in m:
+        issues.append(Issue("error", "A3.3", "EPS 기준 불일치 — 지배 순이익·공시 보통주로 정규화된 증권사가 0곳: 가격은 참고값 (A3.2 eps·shares 입력 또는 리포트 보강)"))
+    elif bstat == "mixed" and "A3.3" in m:
+        issues.append(Issue("warn", "A3.3", "EPS 정규화 1곳뿐 — 컨센이 아니라 한 증권사 값"))
+    elif bstat == "unavailable" and "A3.3" in m:
+        issues.append(Issue("warn", "A3.3", "발행주식수(리포트 머리) 가 없어 EPS 기준을 맞추지 못했다 — 증권사 EPS 를 그대로 평균 (A3.2 shares 를 주면 정규화)"))
+    # 설계 v7 (T8): 판단 수정 규칙은 지표·경계값·지속성이 있어야 한다 — 없으면 오류 ; 필수·핵심 역할이 하나도 없으면 미확정
+    if "A5.6" in m:
+        from .revision import rule_nodes, rule_problems
+
+        for rn in rule_nodes(m):
+            for pb in rule_problems(rn.rule):
+                issues.append(Issue("error", rn.id, f"판단 수정 규칙: {pb}"))
+    cause = [n for n in m.drivers() if n.driver is not None and n.driver.role == "cause"]   # v5 이후 맵만 (옛 맵은 role 없음)
+    if cause and not any(n.driver.thesis_role in ("required", "core") for n in cause if n.driver is not None):
+        issues.append(Issue("warn", "A1", "드라이버의 논제 역할(필수·핵심) 이 하나도 없다 — 편집 폼 thesis_role (제안값은 자동으로 들어간다)"))
+    fl = m.meta.get("flags") or {}
+    if fl.get("hold_new_buy") and m.decision is not None and m.decision.value == "BUY":
+        issues.append(Issue("error", "A7.5", "신규 BUY 보류 중 — 필수 조건 위반이 검증됐거나 재검토 중이라 BUY 로 저장되지 않는다"))
+    # A5.4 kill criteria ≥ 1 (fact 기준)
     kills = [r for r in m.kill_rules() if r.trigger_type == "fact"]
     if not kills:
-        issues.append(Issue("error", "A4.4", "사실 기준 Kill criteria 가 1개 이상 필요"))
-    # A6.5 판단
+        issues.append(Issue("error", "A5.4", "사실 기준 Kill criteria 가 1개 이상 필요"))
+    # A7.5 판단
     if m.decision is None:
-        issues.append(Issue("error", "A6.5", "판단(BUY/WATCH/PASS)이 없다"))
+        issues.append(Issue("error", "A7.5", "판단(BUY/WATCH/PASS)이 없다"))
     return issues
 
 

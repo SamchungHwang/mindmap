@@ -1,7 +1,7 @@
 """변경안 (설계 v3 §2.7) — 기존 A 맵 + 새 리포트 → ChangeSet. 자동으로 노드를 바꾸지 않는다.
 
 흐름: 기존 맵을 만든 리포트(+새 리포트) 로 초안을 다시 만들고, 기존 맵과 **비교만** 한다 → 변경 후보 목록(ChangeSet).
-사용자가 승인한 후보만 적용하며, 적용 전 원본을 `maps/versions/<map_id>.v<N>.json` 에 보존하고 A7.2 업데이트 로그에 남긴다.
+사용자가 승인한 후보만 적용하며, 적용 전 원본을 `maps/versions/<map_id>.v<N>.json` 에 보존하고 A8.2 업데이트 로그에 남긴다.
 사용자가 손댄 노드(draft 태그가 없거나 사용자 기록이 있는 것) 는 후보로만 올리고(user_touched) 자동 적용 대상에서 뺀다.
 """
 
@@ -34,7 +34,7 @@ def map_hash(m: NewMap) -> str:
     return hashlib.sha1(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest()[:16]
 
 COMPARE_DRIVER = ("A1.1", "A1.2", "A1.3", "A1.4", "A1.5",            # 원인 드라이버 (설계 v5)
-                  "A3.7.1", "A3.7.2", "A3.7.3", "A3.7.4")                  # 결과 지표 (매출·영업이익·EPS·OPM — 전에는 A1 이었다)
+                  "A3.1.1", "A3.1.2", "A3.1.3", "A3.1.4")                  # 결과 지표 (매출·영업이익·EPS·OPM — 전에는 A1 이었다)
 
 
 def _user_touched(n: Node) -> bool:
@@ -55,20 +55,20 @@ def input_snapshot_id(report_ids: list[str], today: date) -> str:
 
 
 def _affects(node_id: str, kind: ChangeKind, fresh: NewMap) -> list[str]:
-    """이 변경과 함께 바뀌어야 하는 노드 (v4 V7). A1 추정치 → 목표가 분포·그 테마의 A2.1.x 쟁점; TP 리비전 → A3.6.3; 새 리스크 → Kill 후보."""
+    """이 변경과 함께 바뀌어야 하는 노드 (v4 V7). A1 추정치 → 목표가 분포·그 테마의 A2.1.x 쟁점; TP 리비전 → A3.5.3; 새 리스크 → Kill 후보."""
     out: list[str] = []
-    if kind == ChangeKind.estimate and node_id.startswith(("A1.", "A3.7.")):
-        out.append("A3.6.4")
+    if kind == ChangeKind.estimate and node_id.startswith(("A1.", "A3.1.")):
+        out.append("A3.5.4")
         if node_id.startswith("A1."):
-            # 원인 드라이버가 바뀌면 그 결과 지표(A3.7) 도 같이 봐야 한다 — 그리고 그 테마의 쟁점
-            out += [n.id for n in fresh.children("A3.7") if n.driver is not None] if "A3.7" in fresh.nodes else []
+            # 원인 드라이버가 바뀌면 그 결과 지표(A3.1) 도 같이 봐야 한다 — 그리고 그 테마의 쟁점
+            out += [n.id for n in fresh.children("A3.1") if n.driver is not None] if "A3.1" in fresh.nodes else []
             out += list(fresh[node_id].links) if node_id in fresh.nodes else []
         label = fresh[node_id].label.split(" (")[0] if node_id in fresh.nodes else ""
         out += [n.id for n in fresh.children("A2.1") if label and label in (n.label or "")]
-    elif kind == ChangeKind.tp_revision and node_id == "A3.6.4":
-        out.append("A3.6.3")
+    elif kind == ChangeKind.tp_revision and node_id == "A3.5.4":
+        out.append("A3.5.3")
     elif kind == ChangeKind.new_risk:
-        out.append("A4.4.1")
+        out.append("A5.4.1")
     elif kind in (ChangeKind.new_claim, ChangeKind.conflict) and node_id.startswith("A2.1"):
         out.append("A0")
     return [x for x in dict.fromkeys(out) if x != node_id]
@@ -115,26 +115,26 @@ def propose_changes(base: NewMap, fresh: NewMap, *, new_report_ids: list[str], t
     # 3) 목표가 분포 · 리비전
     bd, fd = (base.meta.get("draft") or {}).get("tp_distribution"), (fresh.meta.get("draft") or {}).get("tp_distribution")
     if bd and fd and (bd.get("median") != fd.get("median") or bd.get("n") != fd.get("n")):
-        add("A3.6.4", ChangeKind.tp_revision, bd, {**fd, "value": fresh.value("A3.6.4")}, [],
+        add("A3.5.4", ChangeKind.tp_revision, bd, {**fd, "value": fresh.value("A3.5.4")}, [],
             f"목표가 분포 {bd['n']}건 중앙 {bd['median']:,.0f} → {fd['n']}건 중앙 {fd['median']:,.0f}")
-    if base.value("A3.6.3") != fresh.value("A3.6.3") and fresh.value("A3.6.3") is not None:
-        add("A3.6.3", ChangeKind.tp_revision, base.value("A3.6.3"), {"value": fresh.value("A3.6.3"), "question": fresh["A3.6.3"].question}, [],
-            f"리비전 방향 {base.value('A3.6.3')} → {fresh.value('A3.6.3')}")
+    if base.value("A3.5.3") != fresh.value("A3.5.3") and fresh.value("A3.5.3") is not None:
+        add("A3.5.3", ChangeKind.tp_revision, base.value("A3.5.3"), {"value": fresh.value("A3.5.3"), "question": fresh["A3.5.3"].question}, [],
+            f"리비전 방향 {base.value('A3.5.3')} → {fresh.value('A3.5.3')}")
     # 4) 리스크 · 촉매 (새로 나타난 것)
-    base_risks = {str((base[n].value or {}).get("text", ""))[:40] for n in ("A4.1", "A4.2", "A4.3") if n in base.nodes and isinstance(base[n].value, dict)}
-    for nid in ("A4.1", "A4.2", "A4.3"):
+    base_risks = {str((base[n].value or {}).get("text", ""))[:40] for n in ("A5.1", "A5.2", "A5.3") if n in base.nodes and isinstance(base[n].value, dict)}
+    for nid in ("A5.1", "A5.2", "A5.3"):
         if nid in fresh.nodes and isinstance(fresh[nid].value, dict):
             t = str(fresh[nid].value.get("text", ""))
             if t and t[:40] not in base_risks:
                 add(nid, ChangeKind.new_risk, base[nid].value if nid in base.nodes else None,
                     {"value": fresh[nid].value, "source": fresh[nid].source.model_dump(mode="json") if fresh[nid].source else None, "question": fresh[nid].question},
                     [], f"새 리스크: {t[:60]}")
-    base_events = {(n.event.date, n.event.fact[:25]) for n in base.nodes.values() if n.parent == "A5.1" and n.event}
-    for n in fresh.children("A5.1"):
+    base_events = {(n.event.date, n.event.fact[:25]) for n in base.nodes.values() if n.parent == "A6.1" and n.event}
+    for n in fresh.children("A6.1"):
         if n.event and (n.event.date, n.event.fact[:25]) not in base_events:
-            add(n.id, ChangeKind.new_catalyst, None, {"node": n.model_dump(mode="json")}, [], f"새 촉매: {n.event.date} {n.event.fact[:50]}")
-    # 5) A8.4 리포트별 주장 (새 리포트)
-    for n in fresh.children("A8.4"):
+            add(n.id, ChangeKind.new_catalyst, None, {"node": n.model_dump(mode="json")}, [], f"새 촉매: {n.event.when_label()} [{n.event.certainty.value}] {n.event.fact[:50]}")
+    # 5) A9.4 리포트별 주장 (새 리포트)
+    for n in fresh.children("A9.4"):
         if n.id not in base.nodes:
             add(n.id, ChangeKind.new_claim, None, {"node": n.model_dump(mode="json")}, [], f"새 리포트 주장 목록: {n.label}")
     kinds = {}
@@ -173,10 +173,10 @@ def partial_approval_warnings(cs: ChangeSet) -> list[str]:
 
 def apply_changes(m: NewMap, cs: ChangeSet, *, today: date, versions_dir: Path | None = None,
                   expected_input_snapshot_id: str | None = None) -> list[str]:
-    """승인(approved) 된 변경만 적용. 적용 전 원본을 versions_dir 에 보존하고 meta.version 을 올리고 A7.2 에 남긴다.
+    """승인(approved) 된 변경만 적용. 적용 전 원본을 versions_dir 에 보존하고 meta.version 을 올리고 A8.2 에 남긴다.
 
     v4 V7: ① 다른 입력(expected_input_snapshot_id) 으로 만든 변경안이면 거절 ② 먼저 **복사본**에 적용해 검증(진짜 오류) 을 통과해야
-    원본에 반영 ③ 버전 파일은 임시 파일 → os.replace 로 원자적 ④ 부분 승인(affects 가 거절/보류) 은 A7.2 로그에 ⚑ 로 남긴다."""
+    원본에 반영 ③ 버전 파일은 임시 파일 → os.replace 로 원자적 ④ 부분 승인(affects 가 거절/보류) 은 A8.2 로그에 ⚑ 로 남긴다."""
     approved = cs.approved()
     if not approved:
         return []
@@ -192,7 +192,7 @@ def apply_changes(m: NewMap, cs: ChangeSet, *, today: date, versions_dir: Path |
 
         issues = validate_new_map(trial, today=today)
         pending_ids = {n.id for n in trial.nodes.values() if "pending" in n.tags}
-        real = [i for i in issues if i.level == "error" and not (i.node_id in pending_ids or (i.node_id or "").startswith(("A1.", "A3", "A4.4", "A6.")))]
+        real = [i for i in issues if i.level == "error" and not (i.node_id in pending_ids or (i.node_id or "").startswith(("A1.", "A3", "A4", "A5.4", "A7.")))]
     except ImportError:  # pragma: no cover
         real = []
     if real:
@@ -206,11 +206,11 @@ def apply_changes(m: NewMap, cs: ChangeSet, *, today: date, versions_dir: Path |
     m.meta["version"] = ver + 1
     m.meta.setdefault("draft", {})["approval_status"] = "승인"
     m.meta["draft"]["input_snapshot_id"] = cs.input_snapshot_id
-    log = m["A7.2"].value if isinstance(m["A7.2"].value, list) else []
+    log = m["A8.2"].value if isinstance(m["A8.2"].value, list) else []
     log.append({"date": today.isoformat(), "text": f"변경안 승인 {len(done)}건 (새 리포트 {', '.join(cs.new_report_ids)}): " + "; ".join(done)[:300]
                 + ((" ⚑ 부분 승인: " + " / ".join(warns)[:300]) if warns else ""), "version": ver + 1})
-    m["A7.2"].value = log
-    m["A7.2"].as_of = today
+    m["A8.2"].value = log
+    m["A8.2"].as_of = today
     cs.decided_at = datetime.now()
     cs.result_version = ver + 1
     m.touch(today)
@@ -245,7 +245,7 @@ def _apply_approved(m: NewMap, cs: ChangeSet, approved: list[Change], *, today: 
             n.question = after.get("question") or n.question
         elif c.kind == ChangeKind.tp_revision and c.node_id in m.nodes:
             n = m[c.node_id]
-            if c.node_id == "A3.6.4":
+            if c.node_id == "A3.5.4":
                 n.value, n.as_of = after.get("value"), today
                 m.meta.setdefault("draft", {})["tp_distribution"] = {k: v for k, v in after.items() if k != "value"}
             else:

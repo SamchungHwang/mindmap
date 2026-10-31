@@ -646,7 +646,7 @@ def apply_scenarios(m: NewMap, data: dict[str, Any], *, today: date, anchors: di
         notes.append("목표가 순서 Bear<Base<Bull 위반 → 정렬")
         vals = sorted(tps.values())
         tps = dict(zip(("Bear", "Base", "Bull"), vals, strict=True))
-    for nid, nm in (("A3.1", "Bear"), ("A3.2", "Base"), ("A3.3", "Bull")):
+    for nid, nm in (("A4.2", "Bear"), ("A4.3", "Base"), ("A4.4", "Bull")):
         sc = data[nm]
         assumptions = [str(a)[:120] for a in (sc.get("assumptions") or []) if str(a).strip()][:6]
         if not assumptions and m[nid].scenario is not None:
@@ -657,9 +657,9 @@ def apply_scenarios(m: NewMap, data: dict[str, Any], *, today: date, anchors: di
         m[nid].as_of = today
         mark_draft(m[nid])
     # 마지막 확률을 맞춰 합이 정확히 1 이 되게
-    tot = sum(m[n].scenario.probability or 0.0 for n in ("A3.1", "A3.2", "A3.3"))
+    tot = sum(m[n].scenario.probability or 0.0 for n in ("A4.2", "A4.3", "A4.4"))
     if abs(tot - 1.0) > 1e-6:
-        m["A3.2"].scenario.probability = round(m["A3.2"].scenario.probability + (1.0 - tot), 3)
+        m["A4.3"].scenario.probability = round(m["A4.3"].scenario.probability + (1.0 - tot), 3)
     return notes
 
 
@@ -667,7 +667,7 @@ def apply_risks(m: NewMap, data: dict[str, Any], *, today: date) -> list[str]:
     notes: list[str] = []
     src = Source(name="LLM (리포트 발췌 기반)", retrieved_at=today)
     risks = [r for r in (data.get("risks") or []) if isinstance(r, dict) and _txt(r.get("text"))][:3]
-    for nid, r in zip(("A4.1", "A4.2", "A4.3"), risks, strict=False):
+    for nid, r in zip(("A5.1", "A5.2", "A5.3"), risks, strict=False):
         p = _num(r.get("probability"))
         imp = _num(r.get("impact_pct"))
         m[nid].set({"probability": min(max(p if p is not None else 0.25, 0.0), 1.0), "impact_pct": -abs(imp) if imp is not None else -20,
@@ -682,7 +682,7 @@ def apply_risks(m: NewMap, data: dict[str, Any], *, today: date) -> list[str]:
             notes.append(f"LLM Kill 조건 제외 — driver_id/op/threshold 가 맞지 않음: {k}")
             continue
         made += 1
-        nid = "A4.4.1" if made == 1 else "A4.4.2"
+        nid = "A5.4.1" if made == 1 else "A5.4.2"
         rule = Rule(trigger_type="fact", condition=f"driver[{did}].current {op} {thr:g}", action=Action.exit, escalate_to="RED",
                     note=(_txt(k.get("note"), 200) or "") + f" — {DRAFT}")
         if nid in m:
@@ -690,16 +690,20 @@ def apply_risks(m: NewMap, data: dict[str, Any], *, today: date) -> list[str]:
             m[nid].as_of = today
             mark_draft(m[nid])
         else:
-            node = Node(id=nid, map=MapKind.NEW, parent="A4.4", label=f"무효화 조건 {made}", node_type="rule", value_type="text", as_of=today, rule=rule)
+            node = Node(id=nid, map=MapKind.NEW, parent="A5.4", label=f"무효화 조건 {made}", node_type="rule", value_type="text", as_of=today, rule=rule)
             mark_draft(node)
             m.add(node)
     if _txt(data.get("early_warning")):
-        m["A4.5"].set(_txt(data["early_warning"], 300), as_of=today, source=src)
-        mark_draft(m["A4.5"])
+        m["A5.5"].set(_txt(data["early_warning"], 300), as_of=today, source=src)
+        mark_draft(m["A5.5"])
     return notes
 
 
 def apply_catalysts(m: NewMap, data: dict[str, Any], *, today: date) -> list[str]:
+    """LLM 이 쓴 촉매를 A6.1 에 **합친다** (2026-10-30: 전에는 전부 지우고 다시 썼다 — 공시확정 일정까지 지워졌다).
+    LLM 일정은 「리포트 전망」(estimated 면 「통상 일정 추정」) 이라 공시·과거 주기 추정보다 약하다."""
+    from .catalysts import EventCertainty, merge_into_map
+
     events = [e for e in (data.get("events") or []) if isinstance(e, dict)]
     good: list[Event] = []
     driver_ids = {n.id for n in m.drivers()}
@@ -711,23 +715,19 @@ def apply_catalysts(m: NewMap, data: dict[str, Any], *, today: date) -> list[str
         est = bool(e.get("estimated"))
         good.append(Event(date=dt, fact=fact + (" (예정일 추정)" if est and "추정" not in fact else ""),
                           affects=[a for a in (e.get("affects") or []) if a in driver_ids],
-                          direction=e.get("direction") if e.get("direction") in ("강화", "약화", "중립") else "중립",
-                          priced_in="아니오", materiality=e.get("materiality") if e.get("materiality") in ("H", "M", "L") else "M",
+                          direction=e.get("direction") if e.get("direction") in ("강화", "약화", "중립") else "미정",
+                          priced_in="미판단", materiality=e.get("materiality") if e.get("materiality") in ("H", "M", "L") else "M",
+                          certainty=EventCertainty.통상추정 if est else EventCertainty.리포트전망, event_id=f"llm:{dt.isoformat()}",
                           source=Source(name="LLM (리포트 발췌 기반)" + (" · 통상 일정 추정" if est else ""), retrieved_at=today)))
     if not good:
         return ["LLM 촉매 응답 없음 — 규칙 일정 유지"]
-    for n in list(m.children("A5.1")):
-        del m.nodes[n.id]
-    for i, ev in enumerate(sorted(good, key=lambda e: e.date)[:5], start=1):
-        node = Node(id=f"A5.1.{i}", map=MapKind.NEW, parent="A5.1", label=ev.fact[:30], node_type="event", value_type="text", as_of=today, event=ev)
-        mark_draft(node)
-        m.add(node)
-    return [f"LLM 촉매 {min(len(good), 5)}개"]
+    merged = merge_into_map(m, sorted(good, key=lambda e: e.date)[:5], today=today)
+    return [f"LLM 촉매 {min(len(good), 5)}개 합침" + (" · " + "; ".join(merged) if merged else "")]
 
 
 def apply_evidence(m: NewMap, data: dict[str, Any], *, today: date) -> list[str]:
     src = Source(name="LLM (리포트 발췌 요약)", retrieved_at=today)
-    for key, nid in (("business_model", "A8.1.1"), ("moat", "A8.1.2"), ("governance_payout", "A8.1.3"), ("peers", "A3.6.2")):
+    for key, nid in (("business_model", "A9.1.1"), ("moat", "A9.1.2"), ("governance_payout", "A9.1.3"), ("peers", "A3.5.2")):
         t = _txt(data.get(key), 400)
         if t and t.lower() != "null":
             m[nid].set(t, as_of=today, source=src)
